@@ -45,5 +45,4 @@ isort==5.13.2
 # Logging & Monitoring
 python-json-logger==2.0.7
 
-# CORS
-fastapi-cors==0.0.6
+# CORS is handled by fastapi's built-in CORSMiddleware (via starlette)
