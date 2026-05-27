@@ -1,0 +1,49 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.0
+
+# Supabase (REST API client - used for auth and direct queries)
+# Note: supabase-py has Python 3.14 compatibility issues; use httpx for raw API calls
+httpx==0.25.1
+
+# Authentication
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.1.1
+PyJWT==2.8.1
+
+# API & External Services
+requests==2.31.0
+youtube-transcript-api==0.6.1
+
+# Anthropic & Google APIs
+anthropic==0.7.0
+google-generativeai==0.3.0
+
+# Environment & Config
+python-dotenv==1.0.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.23.2
+pytest-cov==4.1.0
+
+# Development
+black==23.12.0
+flake8==6.1.0
+mypy==1.7.1
+isort==5.13.2
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+
+# CORS
+fastapi-cors==0.0.6

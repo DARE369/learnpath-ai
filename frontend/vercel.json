@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "next dev",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "regions": ["arn1"]
+}
