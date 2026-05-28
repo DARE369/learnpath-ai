@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-white font-sans;
+    margin: 0;
+    padding: 0;
+  }
+
+  ::selection {
+    background: rgba(99, 102, 241, 0.3);
+    color: white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply w-full py-3 px-6 rounded-xl font-semibold text-sm text-white
+           transition-all duration-200 ease-spring
+           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:ring-offset-2 focus:ring-offset-surface
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none
+           active:scale-[0.98];
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.2);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 102, 241, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .input-field {
+    @apply w-full bg-surface-elevated border border-border rounded-xl px-4 py-3
+           text-white placeholder-white/30 text-sm
+           transition-all duration-200
+           focus:outline-none focus:border-border-focus focus:bg-surface-elevated;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .input-field:focus {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(99, 102, 241, 0.18);
+  }
+
+  .input-field.error {
+    @apply border-error/50;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
+
+  .auth-card {
+    @apply bg-surface border border-border rounded-2xl p-8 w-full;
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .label {
+    @apply block text-sm font-medium text-white/70 mb-2;
+  }
+
+  .error-text {
+    @apply text-error text-xs mt-1.5 flex items-center gap-1;
+  }
+
+  .divider {
+    @apply flex items-center gap-4 my-6;
+  }
+
+  .divider::before,
+  .divider::after {
+    content: "";
+    @apply flex-1 h-px bg-border;
+  }
+}

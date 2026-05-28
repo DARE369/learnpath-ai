@@ -456,13 +456,94 @@ User query "Photosynthesis"
 
 ---
 
-## Authentication Endpoints
-*Coming in Stage 2*
+## Authentication — `/api/auth`
+*Packet 2.1 — JWT Authentication*
 
-### POST /api/auth/signup — Register a new user
-### POST /api/auth/login — Login and receive JWT tokens
-### POST /api/auth/refresh — Refresh access token
-### POST /api/auth/logout — Invalidate refresh token
+### POST /api/auth/signup
+Register a new user and receive tokens.
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "Secure@123",
+  "full_name": "Alex Johnson"
+}
+```
+
+**Response:** 201 Created
+```json
+{
+  "user": { "id": "uuid", "email": "...", "full_name": "...", "tier": "free", "email_verified": false, "created_at": "...", "updated_at": "..." },
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "bearer"
+}
+```
+
+**Errors:**
+- `400` — Email already registered, or password fails requirements
+- `422` — Missing fields or password < 8 chars
+
+---
+
+### POST /api/auth/login
+Authenticate a user and receive tokens.
+
+**Request:**
+```json
+{ "email": "user@example.com", "password": "Secure@123" }
+```
+
+**Response:** 200 OK
+```json
+{ "user": { ... }, "access_token": "eyJ...", "token_type": "bearer" }
+```
+Refresh token delivered via `Set-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Lax`
+
+**Errors:**
+- `401` — Invalid email or password
+- `403` — Account deactivated
+
+---
+
+### POST /api/auth/refresh
+Get a new access token using the HTTP-only refresh token cookie (sent automatically).
+
+**Response:** 200 OK
+```json
+{ "access_token": "eyJ...", "token_type": "bearer" }
+```
+
+**Errors:** `401` — Missing, invalid, or expired refresh token
+
+---
+
+### POST /api/auth/logout
+Clear the refresh token cookie.
+
+**Response:** 200 OK
+```json
+{ "message": "Logged out successfully" }
+```
+
+---
+
+### GET /api/auth/me
+Return the current authenticated user.
+
+**Headers:** `Authorization: Bearer {access_token}`
+
+**Response:** 200 OK — `UserResponse` schema
+
+**Errors:** `401` — Not authenticated or token expired
+
+---
+
+**Password requirements:** ≥ 8 chars, uppercase, lowercase, number, special character.
+**Token TTLs:** access = 15 min, refresh = 7 days (HTTP-only cookie).
+
+See [AUTHENTICATION.md](AUTHENTICATION.md) for full details.
 
 ---
 

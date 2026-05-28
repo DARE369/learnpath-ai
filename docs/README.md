@@ -56,11 +56,11 @@ Welcome! This folder contains all documentation for LearnPath AI.
 - ✅ Path assembly & ranking (Packet 1.5)
 - ✅ Caching layer (Packet 1.6)
 
-### ⬜ Stage 2: User Layer
-- Authentication (JWT + Supabase Auth)
-- Learning sessions
-- Progress tracking
-- Active recall
+### 🔄 Stage 2: User Layer
+- ✅ Authentication (Packet 2.1) — JWT + bcrypt, HTTP-only cookie refresh
+- ⬜ Learning sessions
+- ⬜ Progress tracking
+- ⬜ Active recall
 
 ### ⬜ Stage 3–7: Future
 - Intelligence features
@@ -119,5 +119,5 @@ docs/
 
 ---
 
-**Status:** ✅ Stage 1 complete — all 6 packets shipped, Stage 2 next
+**Status:** 🔄 Stage 2 in progress — Packet 2.1 (Authentication) complete
 **Last updated:** May 28, 2026

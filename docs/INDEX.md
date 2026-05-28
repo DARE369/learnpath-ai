@@ -49,7 +49,7 @@
 - ✅ Two-layer caching (Packet 1.6)
 
 ### Stage 2: User Layer
-- ⬜ Authentication
+- ✅ Authentication (Packet 2.1) — JWT + bcrypt, signup/login/refresh/logout/me, premium auth UI
 - ⬜ Learning sessions
 - ⬜ Progress tracking
 - ⬜ Active recall
@@ -151,4 +151,4 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 ---
 
 **Last updated:** May 28, 2026
-**Status:** ✅ Stage 1 complete — all 6 packets shipped
+**Status:** 🔄 Stage 2 in progress — Packet 2.1 (Authentication) complete
