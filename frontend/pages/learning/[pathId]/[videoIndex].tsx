@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -147,12 +147,15 @@ export default function LearningSessionPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const progressDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const accessToken =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
-      : null;
+  const accessToken = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token");
+  }, []);
 
-  const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+  const authHeader = useMemo(
+    () => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    [accessToken],
+  );
 
   // Start session on mount
   useEffect(() => {

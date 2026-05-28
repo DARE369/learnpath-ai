@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 
 declare global {
   interface Window {
-    YT: typeof YT;
+    YT: any; // injected globally by the YouTube IFrame API script
     onYouTubeIframeAPIReady: () => void;
   }
 }
@@ -34,7 +34,7 @@ export default function VideoPlayer({
   onReady,
 }: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YT.Player | null>(null);
+  const playerRef = useRef<any>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchStartRef = useRef<number>(0);
   const totalWatchRef = useRef<number>(0);
@@ -111,7 +111,7 @@ export default function VideoPlayer({
           enablejsapi: 1,
         },
         events: {
-          onReady: (e: YT.PlayerEvent) => {
+                  onReady: (e: any) => {
             if (!mounted) return;
             const d = e.target.getDuration();
             setDuration(d);
@@ -119,7 +119,7 @@ export default function VideoPlayer({
             e.target.setVolume(volume);
             onReady?.(d);
           },
-          onStateChange: (e: YT.OnStateChangeEvent) => {
+                  onStateChange: (e: any) => {
             if (!mounted) return;
             if (e.data === window.YT.PlayerState.PLAYING) {
               setIsPlaying(true);
