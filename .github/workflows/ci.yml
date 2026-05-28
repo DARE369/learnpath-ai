@@ -23,15 +23,15 @@ jobs:
       - name: Install dependencies
         run: |
           cd backend
-          pip install -r requirements-ci.txt
+          python -m pip install -r requirements-ci.txt
       - name: Lint with flake8
         run: |
           cd backend
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
       - name: Run tests
         run: |
           cd backend
-          pytest tests/ -v
+          python -m pytest tests/ -v
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -63,7 +63,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Deploy to Vercel
-        run: npx vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not configured — skipping deployment (set the secret to enable)"
+            exit 0
+          fi
+          npx vercel --token "$VERCEL_TOKEN" --prod --yes
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
