@@ -108,10 +108,11 @@ _search_mod.search_service = _search_mod.SearchService(
 )
 
 # Stage 2: User layer routers
-from routers import auth, session, progress
+from routers import auth, session, progress, questions
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(session.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(progress.router, prefix="/api/progress", tags=["progress"])
+app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
 
 # Future routers (uncommented as each stage is implemented)
 # from routers import search

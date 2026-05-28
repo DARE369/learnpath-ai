@@ -161,3 +161,33 @@ class ConceptProgress(Base):
     status = Column(String, default="not_started")
     first_seen_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_seen_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class QuestionAnswer(Base):
+    """Stores answered questions and drives spaced-repetition scheduling."""
+    __tablename__ = "question_answers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    topic_id = Column(UUID(as_uuid=True), ForeignKey("topics.id"), index=True)
+    concept_name = Column(String, nullable=False, index=True)
+
+    question = Column(Text, nullable=False)
+    correct_answer = Column(Text, nullable=False)
+    student_answer = Column(Text, nullable=False)
+
+    score = Column(Integer)
+    is_correct = Column(Boolean)
+    explanation = Column(Text)
+    feedback = Column(Text)
+
+    times_reviewed = Column(Integer, default=1)
+    next_review_at = Column(DateTime, index=True)
+    last_reviewed_at = Column(DateTime)
+
+    answer_time_seconds = Column(Integer)
+    confidence = Column(Integer)
+    difficulty = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
