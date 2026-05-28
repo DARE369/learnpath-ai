@@ -16,100 +16,373 @@
 
 ---
 
-## Health Check
+## System
 
 ### GET /health
-Health check endpoint for monitoring.
+Health check.
 
 **Response:** 200 OK
 ```json
 {
   "status": "ok",
-  "timestamp": "2026-05-27T10:30:45.123456",
+  "timestamp": "2026-05-28T10:30:45.123456",
   "app": "LearnPath AI",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "environment": "staging"
 }
 ```
 
 ---
 
-## Authentication Endpoints (Coming Stage 2)
+## YouTube — `/api/youtube`
+*Packet 1.1 — YouTube API Integration*
 
-### POST /api/auth/signup
-Register a new user.
+### GET /api/youtube/search
+Search YouTube for educational videos on a topic.
+
+**Query Parameters:**
+| Parameter | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `query` | string | Yes | — | Min 2 chars |
+| `max_results` | integer | No | 10 | 1–50 |
+
+**Response:** 200 OK
+```json
+[
+  {
+    "youtube_id": "dQw4w9WgXcQ",
+    "title": "Photosynthesis Explained",
+    "description": "...",
+    "channel_id": "UCxxxxxxx",
+    "channel_name": "Science Channel",
+    "published_at": "2024-01-15T00:00:00Z",
+    "thumbnail_url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg"
+  }
+]
+```
+
+**Errors:**
+- `400` — YOUTUBE_API_KEY not configured
+- `404` — No results found
+- `422` — query missing or too short
+
+---
+
+### GET /api/youtube/details/{youtube_id}
+Fetch metadata and statistics for a specific video.
+
+**Path Parameters:**
+- `youtube_id` — YouTube video ID (e.g. `dQw4w9WgXcQ`)
+
+**Response:** 200 OK
+```json
+{
+  "youtube_id": "dQw4w9WgXcQ",
+  "duration_seconds": 5025,
+  "view_count": 1000000,
+  "like_count": 50000,
+  "comment_count": 1200
+}
+```
+
+**Errors:**
+- `400` — YOUTUBE_API_KEY not configured
+- `404` — Video not found
+
+---
+
+### GET /api/youtube/transcript/{youtube_id}
+Fetch the auto-generated or manual transcript for a video.
+
+**Path Parameters:**
+- `youtube_id` — YouTube video ID
+
+**Response:** 200 OK
+```json
+{
+  "youtube_id": "dQw4w9WgXcQ",
+  "transcript": "Welcome to this lecture on photosynthesis...",
+  "language": "en"
+}
+```
+
+**Errors:**
+- `404` — Transcript not available for this video
+
+---
+
+## EQS — `/api/eqs`
+*Packet 1.2 — Educational Quality Score Engine*
+
+### POST /api/eqs/score
+Score a video on educational quality using a 14-question binary rubric evaluated by Claude Opus.
 
 **Request:**
 ```json
 {
-  "email": "user@example.com",
-  "password": "securepassword123",
-  "full_name": "John Doe"
-}
-```
-
-**Response:** 201 Created
-```json
-{
-  "id": "uuid",
-  "email": "user@example.com",
-  "full_name": "John Doe",
-  "tier": "free",
-  "created_at": "2026-05-27T10:30:45"
-}
-```
-
-### POST /api/auth/login
-Login an existing user.
-
-**Request:**
-```json
-{
-  "email": "user@example.com",
-  "password": "securepassword123"
+  "youtube_id": "dQw4w9WgXcQ",
+  "title": "Photosynthesis Explained",
+  "transcript": "Welcome to this lecture...",
+  "description": "Learn how plants make food"
 }
 ```
 
 **Response:** 200 OK
 ```json
 {
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com"
+  "youtube_id": "dQw4w9WgXcQ",
+  "score": 86,
+  "tier": 1,
+  "tier_label": "Excellent",
+  "yes_count": 12,
+  "answers": [true, true, true, true, true, true, true, true, true, true, false, true, true, false],
+  "reasoning": "This video presents photosynthesis clearly with strong examples..."
+}
+```
+
+**Score tiers:**
+| Score | Tier | Label |
+|---|---|---|
+| 85–100 | 1 | Excellent |
+| 65–84 | 2 | Good |
+| 40–64 | 3 | Fair |
+| 0–39 | 4 | Poor |
+
+**Errors:**
+- `400` — CLAUDE_API_KEY not configured
+- `500` — EQS scoring failed
+
+---
+
+## Summary — `/api/summary`
+*Packet 1.3 — Summary Generation & Transcript Processing*
+
+### POST /api/summary/generate
+Generate a structured learning summary from a video transcript using Claude Sonnet.
+
+**Request:**
+```json
+{
+  "youtube_id": "dQw4w9WgXcQ",
+  "transcript": "Welcome to this lecture on photosynthesis...",
+  "title": "Photosynthesis Explained",
+  "max_length": 500
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `youtube_id` | string | Yes | — |
+| `transcript` | string | Yes | Min 10 chars |
+| `title` | string | No | — |
+| `max_length` | integer | No | 100–2000, default 500 |
+
+**Response:** 200 OK
+```json
+{
+  "youtube_id": "dQw4w9WgXcQ",
+  "summary": "This video explains photosynthesis clearly...",
+  "key_concepts": ["photosynthesis", "chlorophyll", "light reactions", "Calvin cycle", "glucose"],
+  "sections": [
+    { "title": "Introduction", "content": "Overview of photosynthesis" },
+    { "title": "Light Reactions", "content": "How plants capture light energy" }
+  ],
+  "word_count": 42
+}
+```
+
+**Errors:**
+- `400` — CLAUDE_API_KEY not configured
+- `422` — transcript missing or too short, max_length out of range
+- `500` — Summary generation failed
+
+---
+
+## Concepts — `/api/concepts`
+*Packet 1.4 — Concept Graph Generation*
+
+### POST /api/concepts/extract
+Extract learning concepts and prerequisite relationships from a video summary using Claude Opus.
+
+**Request:**
+```json
+{
+  "summary": "This video covers the light and dark reactions of photosynthesis...",
+  "video_title": "Photosynthesis Explained"
+}
+```
+
+**Response:** 200 OK
+```json
+{
+  "concepts": [
+    {
+      "name": "Photosynthesis",
+      "definition": "Process by which plants convert light to energy",
+      "prerequisites": ["Chlorophyll", "Light Energy"]
+    },
+    {
+      "name": "Chlorophyll",
+      "definition": "Green pigment that absorbs light",
+      "prerequisites": []
+    }
+  ],
+  "topic": "Photosynthesis",
+  "complexity": "intermediate",
+  "algorithm_version": "v1"
+}
+```
+
+**Errors:**
+- `400` — CLAUDE_API_KEY not configured
+- `500` — Concept extraction failed
+
+---
+
+### POST /api/concepts/build
+Build a validated concept graph from extracted concepts. Detects and breaks cycles, then topologically sorts.
+
+**Request:**
+```json
+{
+  "concepts": [
+    { "name": "Photosynthesis", "definition": "...", "prerequisites": ["Chlorophyll"] },
+    { "name": "Chlorophyll", "definition": "...", "prerequisites": [] }
+  ],
+  "topic": "Photosynthesis"
+}
+```
+
+**Response:** 200 OK
+```json
+{
+  "graph": {
+    "graph": {
+      "Chlorophyll": { "definition": "...", "prerequisites": [], "dependents": ["Photosynthesis"] },
+      "Photosynthesis": { "definition": "...", "prerequisites": ["Chlorophyll"], "dependents": [] }
+    },
+    "concepts": ["Photosynthesis", "Chlorophyll"],
+    "topic": "Photosynthesis"
+  },
+  "ordered_concepts": ["Chlorophyll", "Photosynthesis"],
+  "cycles_detected": false,
+  "is_valid": true
+}
+```
+
+---
+
+### POST /api/concepts/sort
+Topologically sort an existing concept graph (prerequisites first).
+
+**Request:**
+```json
+{
+  "graph": {
+    "Chlorophyll": { "prerequisites": [], "dependents": ["Photosynthesis"] },
+    "Photosynthesis": { "prerequisites": ["Chlorophyll"], "dependents": [] }
   }
 }
 ```
 
+**Response:** 200 OK
+```json
+{
+  "ordered_concepts": ["Chlorophyll", "Photosynthesis"],
+  "is_valid": true,
+  "total_concepts": 2
+}
+```
+
 ---
 
-## Search Endpoints (Coming Stage 1)
+## Path — `/api/path`
+*Packet 1.5 — Path Assembly & Ranking*
 
-### GET /api/search?topic={topic}
-Search for a learning path on a given topic.
+### POST /api/path/assemble
+Assemble an optimal learning path from a set of scored videos. Filters by quality (EQS ≥ 65), orders by prerequisites, trims to 15 videos max, and validates the result.
 
-**Query Parameters:**
-- `topic` (string, required): Topic to search (e.g., "photosynthesis")
+**Request:**
+```json
+{
+  "topic_id": "550e8400-e29b-41d4-a716-446655440000",
+  "videos": [
+    { "video_id": "uuid-1", "eqs_score": 85, "concepts": ["Photosynthesis"] },
+    { "video_id": "uuid-2", "eqs_score": 78, "concepts": ["Chlorophyll"] },
+    { "video_id": "uuid-3", "eqs_score": 45, "concepts": ["Mitosis"] }
+  ],
+  "concept_graph": {
+    "ordered_concepts": ["Chlorophyll", "Photosynthesis"]
+  }
+}
+```
 
 **Response:** 200 OK
 ```json
 {
-  "topic": "photosynthesis",
-  "videos": [
-    {
-      "id": "uuid",
-      "youtube_id": "dQw4w9WgXcQ",
-      "title": "Photosynthesis Explained",
-      "duration_seconds": 480,
-      "score": 92,
-      "summary": "Photosynthesis is the process..."
-    }
-  ],
-  "concepts": ["Chlorophyll", "Photosynthesis", "Energy"],
-  "path_order": ["Chlorophyll", "Light Reactions", "Photosynthesis"]
+  "topic_id": "550e8400-e29b-41d4-a716-446655440000",
+  "video_sequence": ["uuid-2", "uuid-1"],
+  "algorithm_version": "v1",
+  "average_score": 81.5,
+  "video_count": 2,
+  "is_quality": true,
+  "generated_at": "2026-05-28T10:30:45.123456",
+  "validation": {
+    "is_valid": false,
+    "issues": ["Too few videos (2 < 3)"],
+    "warnings": []
+  }
 }
 ```
+
+**Notes:**
+- Videos with EQS < 65 are filtered out before assembly
+- Max path length: 15 videos
+- Quality threshold: average EQS ≥ 70
+
+**Errors:**
+- `500` — Path assembly failed
+
+---
+
+### POST /api/path/validate
+Validate a previously assembled path for length, quality, and duplicates.
+
+**Request:**
+```json
+{
+  "video_sequence": ["uuid-1", "uuid-2", "uuid-3"],
+  "video_count": 3,
+  "average_score": 80.0
+}
+```
+
+**Response:** 200 OK
+```json
+{
+  "is_valid": true,
+  "issues": [],
+  "warnings": []
+}
+```
+
+**Validation rules:**
+| Rule | Condition | Result |
+|---|---|---|
+| Minimum length | `video_count < 3` | Issue (invalid) |
+| Maximum length | `video_count > 15` | Warning |
+| Quality floor | `average_score < 70` | Issue (invalid) |
+| No duplicates | Duplicate video IDs | Issue (invalid) |
+
+---
+
+## Authentication Endpoints
+*Coming in Stage 2*
+
+### POST /api/auth/signup — Register a new user
+### POST /api/auth/login — Login and receive JWT tokens
+### POST /api/auth/refresh — Refresh access token
+### POST /api/auth/logout — Invalidate refresh token
 
 ---
 
@@ -117,40 +390,28 @@ Search for a learning path on a given topic.
 
 ### 400 Bad Request
 ```json
-{
-  "error": "Bad request",
-  "detail": "Invalid topic parameter"
-}
+{ "detail": "CLAUDE_API_KEY not configured" }
 ```
 
-### 401 Unauthorized
+### 422 Unprocessable Entity
 ```json
 {
-  "error": "Unauthorized",
-  "detail": "Token invalid or expired"
-}
-```
-
-### 404 Not Found
-```json
-{
-  "error": "Not found",
-  "detail": "Resource not found"
+  "detail": [
+    { "loc": ["body", "transcript"], "msg": "String should have at least 10 characters", "type": "string_too_short" }
+  ]
 }
 ```
 
 ### 500 Internal Server Error
 ```json
-{
-  "error": "Internal server error",
-  "detail": "An unexpected error occurred"
-}
+{ "detail": "EQS scoring failed: <reason>" }
 ```
 
 ---
 
-## Complete API Docs
+## Interactive Docs
 
-Swagger UI: `GET /docs`  
-ReDoc: `GET /redoc`  
-Full OpenAPI specification: `GET /openapi.json`
+FastAPI auto-generates full interactive documentation:
+- Swagger UI: `GET /docs`
+- ReDoc: `GET /redoc`
+- OpenAPI JSON: `GET /openapi.json`

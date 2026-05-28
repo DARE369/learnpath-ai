@@ -41,12 +41,12 @@
 - ✅ Backend skeleton
 
 ### Stage 1: Core Pipeline
-- 🔄 YouTube integration
-- 🔄 EQS engine
-- 🔄 Summary generation
-- 🔄 Concept graph
-- 🔄 Path assembly
-- 🔄 Caching
+- ✅ YouTube integration (Packet 1.1)
+- ✅ EQS engine (Packet 1.2)
+- ✅ Summary generation (Packet 1.3)
+- ✅ Concept graph (Packet 1.4)
+- ✅ Path assembly (Packet 1.5)
+- 🔄 Caching (Packet 1.6)
 
 ### Stage 2: User Layer
 - ⬜ Authentication
@@ -150,5 +150,5 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 
 ---
 
-**Last updated:** May 27, 2026
-**Status:** 🚀 Stage 0 Complete
+**Last updated:** May 28, 2026
+**Status:** 🚀 Stage 1 in progress — Packets 1.1–1.5 complete
