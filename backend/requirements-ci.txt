@@ -1,6 +1,5 @@
-# CI-only requirements for Stage 0
-# Only packages needed for linting and running placeholder tests
-# Heavy packages (anthropic, google, psycopg2) are excluded until Stage 1
+# CI requirements — lean set for linting + tests
+# Heavy packages (psycopg2, anthropic, google-generativeai) excluded from CI build
 
 fastapi==0.104.1
 uvicorn==0.24.0
@@ -9,5 +8,8 @@ pydantic-settings==2.1.0
 python-dotenv==1.0.0
 sqlalchemy==2.0.23
 httpx==0.25.1
+youtube-transcript-api==0.6.1
 pytest==7.4.3
+pytest-asyncio==0.23.2
+anyio==4.2.0
 flake8==6.1.0

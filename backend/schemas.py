@@ -67,3 +67,14 @@ class HealthCheck(BaseModel):
     app: str
     version: str
     environment: str
+
+
+# YouTube search results (raw API data — not database-backed)
+class VideoSearchResult(BaseModel):
+    youtube_id: str
+    title: str
+    description: Optional[str] = None
+    channel_id: Optional[str] = None
+    channel_name: Optional[str] = None
+    published_at: Optional[str] = None
+    thumbnail_url: Optional[str] = None

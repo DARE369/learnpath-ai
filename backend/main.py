@@ -80,7 +80,11 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Router includes (uncommented as each stage is implemented)
+# Stage 1: Core pipeline routers
+from routers import youtube
+app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
+
+# Future routers (uncommented as each stage is implemented)
 # from routers import auth, search, session, progress
 # app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 # app.include_router(search.router, prefix="/api/search", tags=["search"])
