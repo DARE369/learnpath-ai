@@ -1,0 +1,5 @@
+backend/
+scripts/
+docs/
+*.md
+.github/
