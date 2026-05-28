@@ -78,3 +78,33 @@ class VideoSearchResult(BaseModel):
     channel_name: Optional[str] = None
     published_at: Optional[str] = None
     thumbnail_url: Optional[str] = None
+
+
+# EQS (Educational Quality Score)
+class VideoScoreRequest(BaseModel):
+    youtube_id: str
+    title: str
+    transcript: Optional[str] = None
+    description: Optional[str] = None
+
+
+# Summary generation
+class SummarySection(BaseModel):
+    title: str
+    timestamp_start: Optional[int] = None
+    content: str
+
+
+class SummaryRequest(BaseModel):
+    youtube_id: str
+    transcript: str = Field(..., min_length=10)
+    title: Optional[str] = None
+    max_length: Optional[int] = Field(default=500, ge=100, le=2000)
+
+
+class SummaryResponse(BaseModel):
+    youtube_id: str
+    summary: str
+    key_concepts: List[str]
+    sections: List[SummarySection]
+    word_count: int

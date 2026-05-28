@@ -18,14 +18,14 @@ pydantic-settings==2.1.0
 python-jose==3.3.0
 passlib==1.7.4
 bcrypt==4.1.1
-PyJWT==2.8.1
+PyJWT==2.8.0
 
 # API & External Services
 requests==2.31.0
 youtube-transcript-api==0.6.1
 
 # Anthropic & Google APIs
-anthropic==0.7.0
+anthropic>=0.28.0
 google-generativeai==0.3.0
 
 # Environment & Config

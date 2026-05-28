@@ -10,10 +10,11 @@ jobs:
   test-backend:
     runs-on: ubuntu-latest
     env:
-      # Real secrets used in staging/production — fallback to dummy values for Stage 0
+      # Real secrets used in staging/production; fallback to dummy values for Stage 0.
       DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost/db' }}
       JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci_dummy_secret_that_is_32_chars_long_x' }}
       ENVIRONMENT: staging
+      DEBUG: "false"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -40,7 +41,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -57,19 +58,39 @@ jobs:
           echo "Frontend tests not configured in Stage 0 - skipping"
 
   deploy-frontend:
-    needs: test-frontend
+    needs: [test-backend, test-frontend]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to Vercel
+
+      - name: Check Vercel configuration
+        id: vercel_config
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "VERCEL_TOKEN not configured — skipping deployment (set the secret to enable)"
+          missing=()
+          [ -z "$VERCEL_TOKEN" ] && missing+=("VERCEL_TOKEN")
+          [ -z "$VERCEL_PROJECT_ID" ] && missing+=("VERCEL_PROJECT_ID")
+          [ -z "$VERCEL_ORG_ID" ] && missing+=("VERCEL_ORG_ID")
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Vercel deployment; missing: ${missing[*]}"
             exit 0
           fi
-          npx vercel --token "$VERCEL_TOKEN" --prod --yes
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node for deploy
+        if: steps.vercel_config.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+
+      - name: Deploy to Vercel
+        if: steps.vercel_config.outputs.configured == 'true'
+        working-directory: frontend
+        run: npx --yes vercel@latest --token "$VERCEL_TOKEN" --prod --yes
