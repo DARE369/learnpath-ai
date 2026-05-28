@@ -128,15 +128,14 @@ Progress saved to user_progress table
 - FastAPI skeleton + CI/CD (GitHub Actions)
 - Documentation infrastructure
 
-### Stage 1 — Core Pipeline ✅ (Packets 1.1–1.5)
+### Stage 1 — Core Pipeline ✅ (All 6 packets complete)
 - YouTube API integration (search, details, transcript)
-- EQS engine (14-question binary rubric, 4 tiers)
+- EQS engine (14-question binary rubric, 4 tiers, Claude Opus)
 - Summary generation (structured JSON via Claude Sonnet)
 - Concept graph (prerequisite mapping, DFS cycle detection, Kahn's sort)
-- Path assembly (rank by EQS, order by prerequisites, validate)
-
-### Stage 1 — Remaining 🔄 (Packet 1.6)
-- Caching layer (Redis / in-memory)
+- Path assembly (rank by EQS ≥ 65, order by prerequisites, validate)
+- Two-layer caching (in-memory, TTL: topics 30d / queries 7d)
+- SearchService orchestrator (full pipeline end-to-end)
 
 ### Stage 2–7 — Planned ⬜
 - User authentication (JWT + Supabase Auth)

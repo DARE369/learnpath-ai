@@ -46,7 +46,7 @@
 - ✅ Summary generation (Packet 1.3)
 - ✅ Concept graph (Packet 1.4)
 - ✅ Path assembly (Packet 1.5)
-- 🔄 Caching (Packet 1.6)
+- ✅ Two-layer caching (Packet 1.6)
 
 ### Stage 2: User Layer
 - ⬜ Authentication
@@ -151,4 +151,4 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 ---
 
 **Last updated:** May 28, 2026
-**Status:** 🚀 Stage 1 in progress — Packets 1.1–1.5 complete
+**Status:** ✅ Stage 1 complete — all 6 packets shipped

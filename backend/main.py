@@ -81,12 +81,31 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Stage 1: Core pipeline routers
-from routers import youtube, eqs, summary, concept_graph, path
+from routers import youtube, eqs, summary, concept_graph, path, cache
 app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
 app.include_router(eqs.router, prefix="/api/eqs", tags=["eqs"])
 app.include_router(summary.router, prefix="/api/summary", tags=["summary"])
 app.include_router(concept_graph.router, prefix="/api/concepts", tags=["concepts"])
 app.include_router(path.router, prefix="/api/path", tags=["path"])
+app.include_router(cache.router, prefix="/api/cache", tags=["cache"])
+
+# Wire up search orchestration service (uses all Stage 1 singletons)
+import services.search_service as _search_mod
+from services.youtube_service import youtube_service
+from services.eqs_service import EQSService
+from services.summary_service import SummaryService
+from services.concept_graph_service import concept_graph_service
+from services.path_service import path_service
+from services.cache_service import cache_service
+
+_search_mod.search_service = _search_mod.SearchService(
+    youtube_service=youtube_service,
+    eqs_service=EQSService(),
+    summary_service=SummaryService(),
+    concept_graph_service=concept_graph_service,
+    path_service=path_service,
+    cache_service=cache_service,
+)
 
 # Future routers (uncommented as each stage is implemented)
 # from routers import auth, search, session, progress

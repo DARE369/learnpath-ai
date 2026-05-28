@@ -376,6 +376,86 @@ Validate a previously assembled path for length, quality, and duplicates.
 
 ---
 
+## Cache — `/api/cache`
+*Packet 1.6 — Two-Layer Caching System*
+
+These are admin/ops endpoints. Add authentication before exposing in production.
+
+### GET /api/cache/stats
+Return live cache performance statistics. Target hit rate in production: ≥ 95%.
+
+**Response:** 200 OK
+```json
+{
+  "hits": 142,
+  "misses": 8,
+  "total_requests": 150,
+  "hit_rate_percent": 94.67,
+  "topic_cache_size": 12,
+  "query_cache_size": 34,
+  "memory_cache_size": 46
+}
+```
+
+---
+
+### GET /api/cache/topics
+List all topic IDs currently held in the Layer 1 topic cache.
+
+**Response:** 200 OK
+```json
+{
+  "cached_topics": ["photosynthesis", "mitosis", "algebra"],
+  "count": 3
+}
+```
+
+---
+
+### POST /api/cache/clear
+Wipe both cache layers and reset hit/miss counters. Use after a bulk EQS re-score.
+
+**Response:** 200 OK
+```json
+{ "message": "Both cache layers cleared", "status": "ok" }
+```
+
+---
+
+### POST /api/cache/invalidate/{topic_id}
+Remove a specific topic from Layer 1 cache. Call when EQS scores change for that topic.
+
+**Path Parameters:**
+- `topic_id` — Topic identifier (string)
+
+**Response:** 200 OK
+```json
+{
+  "topic_id": "photosynthesis",
+  "invalidated": true,
+  "message": "Cache entry for 'photosynthesis' removed"
+}
+```
+
+**Cache architecture:**
+
+| Layer | Key | Value | TTL | Storage |
+|---|---|---|---|---|
+| Layer 1 (Topic) | `topic_id` | Assembled learning path | 30 days | In-memory (DB in future) |
+| Layer 2 (Query) | Normalised query string | `topic_id` | 7 days | In-memory |
+
+**Pipeline cache flow:**
+```
+User query "Photosynthesis"
+  → Layer 2 check: "photosynthesis" → topic_id?
+    → HIT: Layer 1 check: topic_id → path?
+        → HIT:  return cached path (<100ms)
+        → MISS: run full pipeline, cache result
+    → MISS: run full pipeline, cache both layers
+```
+
+---
+
 ## Authentication Endpoints
 *Coming in Stage 2*
 

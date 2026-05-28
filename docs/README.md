@@ -54,7 +54,7 @@ Welcome! This folder contains all documentation for LearnPath AI.
 - ✅ Summary generation (Packet 1.3)
 - ✅ Concept graph + topological sort (Packet 1.4)
 - ✅ Path assembly & ranking (Packet 1.5)
-- 🔄 Caching layer (Packet 1.6)
+- ✅ Caching layer (Packet 1.6)
 
 ### ⬜ Stage 2: User Layer
 - Authentication (JWT + Supabase Auth)
@@ -119,5 +119,5 @@ docs/
 
 ---
 
-**Status:** 🔄 Stage 1 in progress — Packets 1.1–1.5 complete
+**Status:** ✅ Stage 1 complete — all 6 packets shipped, Stage 2 next
 **Last updated:** May 28, 2026
