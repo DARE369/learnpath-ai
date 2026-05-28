@@ -108,3 +108,66 @@ class SummaryResponse(BaseModel):
     key_concepts: List[str]
     sections: List[SummarySection]
     word_count: int
+
+
+# ─── Learning Sessions (Packet 2.2) ───────────────────────────────────────────
+
+class SessionStartRequest(BaseModel):
+    topic_id: UUID
+    video_index: int = Field(..., ge=0)
+    youtube_id: str
+    path_id: Optional[str] = None
+    video_id: Optional[UUID] = None
+
+
+class WatchProgressUpdate(BaseModel):
+    watch_percentage: int = Field(..., ge=0, le=100)
+    last_position_seconds: int = Field(..., ge=0)
+    total_watch_time_seconds: int = Field(..., ge=0)
+    playback_speed: float = Field(default=1.0, ge=0.25, le=3.0)
+
+
+class AnswerSubmission(BaseModel):
+    question: str = Field(..., min_length=1)
+    answer: str = Field(..., min_length=1)
+
+
+class SessionResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    topic_id: UUID
+    youtube_id: Optional[str] = None
+    video_index: Optional[int] = None
+    session_number: Optional[int] = None
+    video_watched: bool
+    watch_percentage: int
+    last_position_seconds: int
+    total_watch_time_seconds: int
+    playback_speed: float
+    questions_answered: int
+    questions_correct: int
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PathProgressResponse(BaseModel):
+    topic_id: str
+    path_id: Optional[str] = None
+    total_sessions: int
+    completed_sessions: int
+    completion_percentage: float
+    total_watch_time_seconds: int
+    concepts_mastered: int
+
+
+class ConceptProgressResponse(BaseModel):
+    id: UUID
+    concept_name: str
+    mastery_score: float
+    encounters: int
+    status: str
+    last_seen_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}

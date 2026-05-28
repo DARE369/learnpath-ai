@@ -16,6 +16,11 @@
 - **[API Specification](API_SPEC.md)** - All endpoints documented
 - **[API Documentation Auto-Generated](../backend/docs)** - Full OpenAPI spec (auto-generated)
 
+## Feature Documentation
+
+- **[Authentication](AUTHENTICATION.md)** - JWT auth, signup/login flows
+- **[Learning Sessions](LEARNING_SESSIONS.md)** - Video tracking, session lifecycle, API endpoints
+
 ## Database
 
 - **[Database Schema](DATABASE_SCHEMA.md)** - Table definitions and relationships
@@ -50,9 +55,10 @@
 
 ### Stage 2: User Layer
 - ✅ Authentication (Packet 2.1) — JWT + bcrypt, signup/login/refresh/logout/me, premium auth UI
-- ⬜ Learning sessions
-- ⬜ Progress tracking
-- ⬜ Active recall
+- ✅ Learning Sessions & Video Tracking (Packet 2.2) — custom video player, progress tracking, concept sidebar, session API
+- ⬜ Active recall & AI grading (Packet 2.3)
+- ⬜ Progress analytics (Packet 2.4)
+- ⬜ Spaced repetition (Packet 2.5)
 
 ### Stage 3-7
 - ⬜ Intelligence features
@@ -151,4 +157,4 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 ---
 
 **Last updated:** May 28, 2026
-**Status:** 🔄 Stage 2 in progress — Packet 2.1 (Authentication) complete
+**Status:** 🔄 Stage 2 in progress — Packets 2.1 (Authentication) and 2.2 (Learning Sessions) complete
