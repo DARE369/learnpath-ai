@@ -86,7 +86,7 @@ export default function LearningSessionPage() {
   }, []);
 
   const authHeader = useMemo(
-    () => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    (): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     [accessToken],
   );
 
