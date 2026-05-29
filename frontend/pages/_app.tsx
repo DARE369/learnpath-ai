@@ -8,7 +8,7 @@ import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { ProgressProvider } from "../hooks/useProgress";
 import "../styles/globals.css";
 
-const NO_CHROME_PATHS = ["/auth/login", "/auth/signup", "/auth/forgot-password"];
+const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password"];
 
 const PROTECTED_PREFIXES = [
   "/dashboard",

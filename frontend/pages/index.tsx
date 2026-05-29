@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { useAuth } from "../hooks/useAuth";
 
 const FEATURES = [
   {
@@ -33,6 +35,15 @@ const SOCIAL_PROOF = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard");
+    }
+  }, [loading, user, router]);
+
   return (
     <>
       <Head>
