@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { CATALOG, Difficulty } from "../utils/catalog";
+import SearchTopicForm from "../components/Search/SearchTopicForm";
 
 const DIFFICULTY_FILTERS: { value: "all" | Difficulty; label: string }[] = [
   { value: "all", label: "All levels" },
@@ -53,8 +54,19 @@ export default function ExplorePage() {
             Explore courses
           </h1>
           <p className="text-white/50">
-            Curated learning paths assembled from the best YouTube content, scored and ordered by AI.
+            Search any topic to build a custom learning path, or browse our featured courses below.
           </p>
+        </div>
+
+        {/* Live path builder */}
+        <section className="mb-12">
+          <SearchTopicForm />
+        </section>
+
+        {/* Featured catalog header */}
+        <div className="mb-6 pt-6 border-t border-border">
+          <h2 className="text-xl font-semibold text-white mb-1">Featured paths</h2>
+          <p className="text-sm text-white/40">Hand-picked learning paths ready to start instantly.</p>
         </div>
 
         {/* Search + filter row */}
