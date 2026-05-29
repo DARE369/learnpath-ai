@@ -97,8 +97,80 @@ class AuthService:
         user = self.get_user_by_email(db, email)
         if not user:
             return None
+        if not user.password_hash:
+            return None
         if not verify_password(password, user.password_hash):
             return None
+        return user
+
+    def signin_with_google(self, db: Session, access_token: str) -> User:
+        """Verify a Google OAuth2 access token via the userinfo endpoint
+        and return (or create) the matching user."""
+        import httpx
+
+        if not settings.GOOGLE_CLIENT_ID:
+            raise ValueError("Google sign-in is not configured")
+
+        try:
+            resp = httpx.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10.0,
+            )
+        except httpx.HTTPError as e:
+            raise ValueError(f"Could not reach Google: {e}")
+
+        if resp.status_code != 200:
+            raise ValueError("Invalid Google access token")
+
+        info = resp.json()
+        email = (info.get("email") or "").lower().strip()
+        if not email:
+            raise ValueError("Google account has no email")
+        if not info.get("email_verified"):
+            raise ValueError("Google email not verified")
+
+        google_id = info["sub"]
+        full_name = info.get("name")
+        picture = info.get("picture")
+
+        user = db.query(User).filter(User.google_id == google_id).first()
+        if not user:
+            user = self.get_user_by_email(db, email)
+
+        if user:
+            updated = False
+            if not user.google_id:
+                user.google_id = google_id
+                updated = True
+            if user.auth_provider != "google":
+                user.auth_provider = "google" if not user.password_hash else "hybrid"
+                updated = True
+            if not user.profile_image_url and picture:
+                user.profile_image_url = picture
+                updated = True
+            if not user.email_verified:
+                user.email_verified = True
+                updated = True
+            user.last_login = datetime.utcnow()
+            if updated:
+                db.commit()
+                db.refresh(user)
+            return user
+
+        user = User(
+            email=email,
+            password_hash=None,
+            full_name=full_name,
+            google_id=google_id,
+            auth_provider="google",
+            email_verified=True,
+            profile_image_url=picture,
+            last_login=datetime.utcnow(),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
         return user
 
     def generate_tokens(self, user_id: str) -> Dict[str, str]:

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import axios from "axios";
+import GoogleButton from "./GoogleButton";
 
 interface FormState {
   email: string;
@@ -354,6 +355,21 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
           "Create account"
         )}
       </button>
+
+      {/* Divider */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/8" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="px-3 bg-surface text-white/30 text-xs">or sign up with</span>
+        </div>
+      </div>
+
+      <GoogleButton
+        onSuccess={(token) => onSuccess?.(token)}
+        label="Continue with Google"
+      />
 
       <p className="text-center text-xs text-white/25 mt-4">
         By signing up you agree to our Terms of Service and Privacy Policy.

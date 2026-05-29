@@ -20,6 +20,10 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleSignIn(BaseModel):
+    access_token: str = Field(..., min_length=10)
+
+
 class UserResponse(UserBase):
     id: UUID
     tier: str

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from schemas import UserCreate, UserLogin, UserResponse
+from schemas import UserCreate, UserLogin, UserResponse, GoogleSignIn
 from services.auth_service import auth_service
 
 router = APIRouter()
@@ -72,6 +72,30 @@ async def login(payload: UserLogin, response: Response, db: Session = Depends(ge
         max_age=7 * 24 * 60 * 60,
     )
     logger.info(f"User logged in: {user.email}")
+    return {
+        "user": UserResponse.model_validate(user).model_dump(mode="json"),
+        "access_token": tokens["access_token"],
+        "token_type": "bearer",
+    }
+
+
+@router.post("/google", response_model=dict)
+async def google_signin(payload: GoogleSignIn, response: Response, db: Session = Depends(get_db)):
+    try:
+        user = auth_service.signin_with_google(db, payload.access_token)
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    tokens = auth_service.generate_tokens(str(user.id))
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens["refresh_token"],
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=7 * 24 * 60 * 60,
+    )
+    logger.info(f"Google sign-in: {user.email}")
     return {
         "user": UserResponse.model_validate(user).model_dump(mode="json"),
         "access_token": tokens["access_token"],

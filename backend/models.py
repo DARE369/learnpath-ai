@@ -15,8 +15,10 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False, index=True)
-    password_hash = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)
     full_name = Column(String)
+    google_id = Column(String, unique=True, nullable=True, index=True)
+    auth_provider = Column(String, default="email", nullable=False)
     country = Column(String)
     age = Column(Integer)
     email_verified = Column(Boolean, default=False)
