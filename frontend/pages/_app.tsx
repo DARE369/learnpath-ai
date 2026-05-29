@@ -69,20 +69,23 @@ function Shell({ Component, pageProps }: AppProps) {
 }
 
 export default function App(props: AppProps) {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  // Always provide GoogleOAuthProvider so child hooks never throw during prerender.
+  // GoogleButton is itself dynamically imported with ssr:false, so the Google SDK
+  // never loads on the server — the clientId fallback below only exists to satisfy
+  // the provider's prop type during early client mount.
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "missing-client-id";
 
-  const tree = (
-    <AuthProvider>
-      <ProgressProvider>
-        <Head>
-          <title>LearnPath AI</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-        </Head>
-        <Shell {...props} />
-      </ProgressProvider>
-    </AuthProvider>
+  return (
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <ProgressProvider>
+          <Head>
+            <title>LearnPath AI</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+          </Head>
+          <Shell {...props} />
+        </ProgressProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
-
-  if (!googleClientId) return tree;
-  return <GoogleOAuthProvider clientId={googleClientId}>{tree}</GoogleOAuthProvider>;
 }

@@ -1,8 +1,15 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import axios from "axios";
-import GoogleButton from "./GoogleButton";
+import dynamic from "next/dynamic";
 import { useAuth } from "../../hooks/useAuth";
+
+const GoogleButton = dynamic(() => import("./GoogleButton"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[42px] w-full rounded-xl border border-white/8 bg-surface-elevated animate-pulse" />
+  ),
+});
 
 interface FormState {
   email: string;
