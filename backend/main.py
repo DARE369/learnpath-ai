@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT} | Debug: {settings.DEBUG}")
+
+    # Ensure all tables exist. create_all() is idempotent — it only creates
+    # tables that don't already exist, never drops or alters existing ones.
+    # Importing models here registers them with Base.metadata before create_all runs.
+    try:
+        import models  # noqa: F401  (side effect: registers tables)
+        from database import Base, _get_engine
+        Base.metadata.create_all(bind=_get_engine())
+        logger.info("Database tables ensured (create_all complete)")
+    except Exception as e:
+        logger.error(f"Failed to ensure database tables: {e}", exc_info=True)
+
     yield
     logger.info(f"Shutting down {settings.APP_NAME}")
 
