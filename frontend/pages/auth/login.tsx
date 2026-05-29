@@ -8,7 +8,8 @@ export default function LoginPage() {
   const router = useRouter();
 
   function handleSuccess() {
-    router.push("/");
+    const next = typeof router.query.next === "string" ? router.query.next : "/dashboard";
+    router.push(next);
   }
 
   return (

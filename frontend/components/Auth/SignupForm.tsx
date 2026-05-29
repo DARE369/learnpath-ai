@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import axios from "axios";
 import GoogleButton from "./GoogleButton";
+import { useAuth } from "../../hooks/useAuth";
 
 interface FormState {
   email: string;
@@ -116,6 +117,7 @@ function CheckItem({ met, label }: CheckItemProps) {
 }
 
 export default function SignupForm({ onSuccess }: SignupFormProps) {
+  const { signup } = useAuth();
   const [form, setForm] = useState<FormState>({
     email: "",
     fullName: "",
@@ -164,16 +166,8 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     setErrors({});
 
     try {
-      const res = await axios.post("/api/auth/signup", {
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-        full_name: form.fullName.trim() || undefined,
-      });
-      const { access_token } = res.data;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("access_token", access_token);
-      }
-      onSuccess?.(access_token);
+      await signup(form.email, form.password, form.fullName);
+      onSuccess?.("");
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const detail = err.response?.data?.detail;

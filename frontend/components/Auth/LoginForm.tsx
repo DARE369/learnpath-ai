@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import axios from "axios";
 import GoogleButton from "./GoogleButton";
+import { useAuth } from "../../hooks/useAuth";
 
 interface FormState {
   email: string;
@@ -43,6 +44,7 @@ function Spinner() {
 }
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
+  const { login } = useAuth();
   const [form, setForm] = useState<FormState>({ email: "", password: "" });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -71,19 +73,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     setErrors({});
 
     try {
-      const res = await axios.post("/api/auth/login", {
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-      });
-      const { access_token } = res.data;
-      if (typeof window !== "undefined") {
-        if (rememberMe) {
-          localStorage.setItem("access_token", access_token);
-        } else {
-          sessionStorage.setItem("access_token", access_token);
-        }
-      }
-      onSuccess?.(access_token);
+      await login(form.email, form.password, rememberMe);
+      onSuccess?.("");
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const detail = err.response?.data?.detail;

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
+import { useAuth } from "../../hooks/useAuth";
 
 interface GoogleButtonProps {
   onSuccess: (accessToken: string) => void;
@@ -9,6 +10,7 @@ interface GoogleButtonProps {
 }
 
 export default function GoogleButton({ onSuccess, rememberMe = false, label = "Google" }: GoogleButtonProps) {
+  const { loginWithGoogleToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const enabled = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -22,19 +24,8 @@ export default function GoogleButton({ onSuccess, rememberMe = false, label = "G
     },
     onSuccess: async (tokenResponse) => {
       try {
-        const res = await axios.post("/api/auth/google", {
-          access_token: tokenResponse.access_token,
-        });
-
-        const { access_token } = res.data;
-        if (typeof window !== "undefined") {
-          if (rememberMe) {
-            localStorage.setItem("access_token", access_token);
-          } else {
-            sessionStorage.setItem("access_token", access_token);
-          }
-        }
-        onSuccess(access_token);
+        await loginWithGoogleToken(tokenResponse.access_token, rememberMe);
+        onSuccess("");
       } catch (err: unknown) {
         if (axios.isAxiosError(err)) {
           setError(err.response?.data?.detail || "Google sign-in failed. Please try again.");

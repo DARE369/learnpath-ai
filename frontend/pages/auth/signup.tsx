@@ -8,7 +8,7 @@ export default function SignupPage() {
   const router = useRouter();
 
   function handleSuccess() {
-    router.push("/");
+    router.push("/dashboard");
   }
 
   return (
