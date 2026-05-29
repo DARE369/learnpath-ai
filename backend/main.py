@@ -59,6 +59,61 @@ async def health_check():
     }
 
 
+def _mask_database_url(url: str) -> dict:
+    """Parse DATABASE_URL into safe-to-display parts (no password)."""
+    import re
+    if not url:
+        return {"set": False}
+    m = re.match(
+        r"^(?P<scheme>[^:]+)://(?P<user>[^:]+):(?P<pw>[^@]+)@(?P<host>[^:/]+)(:(?P<port>\d+))?/(?P<db>[^?]+)(\?(?P<query>.*))?$",
+        url,
+    )
+    if not m:
+        return {
+            "set": True,
+            "parseable": False,
+            "scheme_prefix": url.split("://")[0] if "://" in url else "?",
+        }
+    return {
+        "set": True,
+        "parseable": True,
+        "scheme": m.group("scheme"),
+        "user": m.group("user"),
+        "host": m.group("host"),
+        "port": m.group("port") or "default",
+        "database": m.group("db"),
+        "query": m.group("query") or "",
+        "is_pooler": "pooler.supabase.com" in m.group("host"),
+        "is_direct": m.group("host").startswith("db.") and "supabase.co" in m.group("host"),
+    }
+
+
+@app.get("/db-health", tags=["system"])
+async def db_health_check():
+    """Diagnostic: shows masked DATABASE_URL parts and connection status (no password)."""
+    from database import check_connection
+
+    url_info = _mask_database_url(settings.DATABASE_URL or "")
+    connected = False
+    error_msg = None
+    try:
+        connected = check_connection()
+    except Exception as e:
+        error_msg = str(e)
+
+    return {
+        "database_url": url_info,
+        "connected": connected,
+        "error": error_msg,
+        "cors_origins": settings.ALLOWED_ORIGINS,
+        "google_oauth_configured": bool(settings.GOOGLE_CLIENT_ID),
+        "claude_configured": bool(settings.CLAUDE_API_KEY),
+        "youtube_configured": bool(settings.YOUTUBE_API_KEY),
+        "frontend_url": settings.FRONTEND_URL,
+        "environment": settings.ENVIRONMENT,
+    }
+
+
 @app.get("/", tags=["system"])
 async def root():
     return {
