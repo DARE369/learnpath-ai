@@ -83,19 +83,27 @@ class SearchService:
         logger.info(f"YouTube returned {len(videos)} candidates")
 
         # ----------------------------------------------------------------
-        # Step 4: Transcript fetch + EQS scoring (top 10 with transcripts)
+        # Step 4: Transcript fetch (best-effort) + EQS scoring
         # ----------------------------------------------------------------
+        # Transcripts are NOT required — youtube-transcript-api gets blocked
+        # from cloud IPs (Railway, etc.). EQS already supports scoring on
+        # title + description alone. We score every candidate; videos with
+        # transcripts get richer signals, but missing transcripts are fine.
         scored_videos = []
+        transcripts_fetched = 0
         for video in videos[:10]:
             yt_id = video["youtube_id"]
             title = video["title"]
 
-            transcript = await self.youtube.get_transcript(yt_id)
-            if not transcript:
-                logger.info(f"No transcript — skipping {yt_id}")
-                continue
+            transcript = None
+            try:
+                transcript = await self.youtube.get_transcript(yt_id)
+            except Exception as e:
+                logger.info(f"Transcript fetch failed for {yt_id}: {e}")
 
-            video["transcript"] = transcript
+            if transcript:
+                transcripts_fetched += 1
+                video["transcript"] = transcript
 
             try:
                 score_result = await self.eqs.score_video(
@@ -109,23 +117,39 @@ class SearchService:
             except ValueError:
                 logger.warning(f"CLAUDE_API_KEY missing — EQS skipped for {yt_id}")
                 video["eqs_score"] = 0
+            except Exception as e:
+                logger.warning(f"EQS scoring failed for {yt_id}: {e}")
+                video["eqs_score"] = 0
 
-            # Use youtube_id as video_id for path service compatibility
             video["video_id"] = yt_id
             scored_videos.append(video)
 
+        logger.info(
+            f"Scored {len(scored_videos)} videos "
+            f"({transcripts_fetched} with transcripts)"
+        )
+
         if not scored_videos:
-            raise ValueError(f"No transcripts available for any videos on: '{query}'")
+            raise ValueError(f"Could not score any videos for: '{query}'")
 
         # ----------------------------------------------------------------
-        # Step 5: Summary generation (use first scored video)
+        # Step 5: Summary generation
+        # Prefer a video that has a transcript. If none do, fall back to the
+        # top-scoring video's description so the rest of the pipeline still
+        # has *some* text to extract concepts from.
         # ----------------------------------------------------------------
         summary_data: Optional[Dict] = None
-        for video in scored_videos:
+        candidates_with_transcript = [v for v in scored_videos if v.get("transcript")]
+        candidates = candidates_with_transcript or scored_videos
+
+        for video in candidates:
+            text_for_summary = video.get("transcript") or video.get("description") or ""
+            if len(text_for_summary.strip()) < 50:
+                continue
             try:
                 summary_data = await self.summary.generate_summary(
                     youtube_id=video["youtube_id"],
-                    transcript=video["transcript"],
+                    transcript=text_for_summary,
                     title=video["title"],
                 )
                 video["summary"] = summary_data.get("summary", "")
@@ -191,6 +215,7 @@ class SearchService:
             "path": path,
             "concepts": concept_order,
             "generation_time_seconds": elapsed,
+            "transcripts_fetched": transcripts_fetched,
         }
 
 
