@@ -57,40 +57,6 @@ jobs:
           cd frontend
           echo "Frontend tests not configured in Stage 0 - skipping"
 
-  deploy-frontend:
-    needs: [test-backend, test-frontend]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check Vercel configuration
-        id: vercel_config
-        run: |
-          missing=()
-          [ -z "$VERCEL_TOKEN" ] && missing+=("VERCEL_TOKEN")
-          [ -z "$VERCEL_PROJECT_ID" ] && missing+=("VERCEL_PROJECT_ID")
-          [ -z "$VERCEL_ORG_ID" ] && missing+=("VERCEL_ORG_ID")
-
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping Vercel deployment; missing: ${missing[*]}"
-            exit 0
-          fi
-
-          echo "configured=true" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Node for deploy
-        if: steps.vercel_config.outputs.configured == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.19.0'
-
-      - name: Deploy to Vercel
-        if: steps.vercel_config.outputs.configured == 'true'
-        working-directory: frontend
-        run: npx --yes vercel@latest --token "$VERCEL_TOKEN" --prod --yes
+  # Vercel deploys frontend automatically via its GitHub integration on push to main.
+  # Railway deploys backend automatically via its GitHub integration on push to main.
+  # No CI deploy job needed — each platform handles its own deploys.
