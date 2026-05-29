@@ -1,5 +1,6 @@
 # CI requirements — lean set for linting + tests
-# Heavy packages (psycopg2, anthropic, google-generativeai) excluded from CI build
+# psycopg2-binary required for SQLAlchemy postgres dialect loading
+# (used by FastAPI Depends(get_db) — needed even when no real DB query runs)
 
 fastapi==0.104.1
 uvicorn==0.24.0
@@ -7,6 +8,7 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
 sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
 httpx==0.25.1
 youtube-transcript-api==0.6.1
 pytest==7.4.3
