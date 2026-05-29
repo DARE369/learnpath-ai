@@ -198,6 +198,16 @@ class SearchService:
             concept_graph=concept_graph_input,
         )
 
+        # path_service returns video_sequence (IDs only). Rehydrate full video
+        # objects in path["videos"] so downstream callers (router, frontend)
+        # don't need to re-fetch by ID.
+        video_by_id = {v.get("video_id"): v for v in scored_videos}
+        path["videos"] = [
+            video_by_id[vid] for vid in path.get("video_sequence", [])
+            if vid in video_by_id
+        ]
+        path["videos_considered"] = len(videos)
+
         # ----------------------------------------------------------------
         # Step 8: Cache both layers
         # ----------------------------------------------------------------
