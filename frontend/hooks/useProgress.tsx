@@ -35,13 +35,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (!accessToken || !user) return;
     setLoading(true);
     try {
+      const headers = { Authorization: `Bearer ${accessToken}` };
       const [statsRes, streakRes] = await Promise.allSettled([
-        axios.get(`/api/progress/stats/${user.id}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }),
-        axios.get(`/api/progress/streak/${user.id}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }),
+        axios.get("/api/progress/stats", { headers }),
+        axios.get("/api/progress/streak", { headers }),
       ]);
 
       if (statsRes.status === "fulfilled") {
@@ -54,7 +51,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         });
       }
       if (streakRes.status === "fulfilled") {
-        setStreak(streakRes.value.data.current_streak ?? 0);
+        setStreak(streakRes.value.data.streak_days ?? 0);
       }
     } finally {
       setLoading(false);

@@ -97,12 +97,16 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
       onBuilt?.(res.data);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        const detail = err.response?.data?.detail;
-        if (err.response?.status === 401) {
+        const status = err.response?.status;
+        const data = err.response?.data;
+        const detail = typeof data === "object" && data !== null ? (data as { detail?: string }).detail : undefined;
+        if (status === 401) {
           setError("Please sign in to build a learning path.");
-        } else if (err.response?.status === 400) {
+        } else if (status === 400) {
           setError(detail || "We couldn't build a path for that topic. Try a more specific search.");
-        } else if (err.response?.status === 503) {
+        } else if (status === 404) {
+          setError("Search endpoint not available yet. The backend may still be deploying — try again in a minute.");
+        } else if (status === 503) {
           setError("Search service is starting up. Try again in a moment.");
         } else {
           setError(detail || "Something went wrong. Please try again.");
