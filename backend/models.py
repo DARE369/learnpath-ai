@@ -165,6 +165,37 @@ class ConceptProgress(Base):
     last_seen_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ExpandedVideoScore(Base):
+    """
+    11-criterion expanded EQS scores (Packet 3.3).
+
+    Coexists with the legacy VideoScore table — old EQS (0-100) still powers
+    the search pipeline; this table feeds the confidence dashboard and any
+    future migration. Keyed on youtube_id (string), no FK to videos.id.
+    """
+    __tablename__ = "expanded_video_scores"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    youtube_id = Column(String, nullable=False, index=True)
+
+    base_scores = Column(JSON, default=dict)                # {pedagogy, clarity, credibility, length}
+    bonus_scores = Column(JSON, default=dict)               # {engagement, production, recency, ...}
+    base_score = Column(Integer, nullable=False)            # 0-100 (sum of base_scores)
+    total_score = Column(Integer, nullable=False, index=True)  # 0-170 (base + bonus)
+    confidence_level = Column(String, nullable=False, index=True)  # poor|acceptable|good|excellent|outstanding
+    cache_ttl_days = Column(Integer, default=0)
+
+    reasoning = Column(Text)
+    algorithm_version = Column(String, default="expanded_v1")
+    is_valid = Column(Boolean, default=True, index=True)
+
+    evaluated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    next_reevaluation_at = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class VideoBlacklist(Base):
     """
     Soft- or hard-blacklisted videos (Packet 3.2).

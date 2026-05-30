@@ -58,6 +58,11 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_video_blacklist_is_active ON video_blacklist(is_active)",
     "CREATE INDEX IF NOT EXISTS ix_blacklist_feedback_youtube_id ON blacklist_feedback(youtube_id)",
     "CREATE INDEX IF NOT EXISTS ix_blacklist_feedback_user_id ON blacklist_feedback(user_id)",
+    # expanded_video_scores — Packet 3.3
+    "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_youtube_id ON expanded_video_scores(youtube_id)",
+    "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_total_score ON expanded_video_scores(total_score)",
+    "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_confidence_level ON expanded_video_scores(confidence_level)",
+    "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_is_valid ON expanded_video_scores(is_valid)",
 ]
 
 
@@ -253,9 +258,10 @@ app.include_router(questions.router, prefix="/api/questions", tags=["questions"]
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 
 # Stage 3: Intelligence layer routers
-from routers import branching, blacklist
+from routers import branching, blacklist, eqs_expanded
 app.include_router(branching.router, prefix="/api/branching", tags=["branching"])
 app.include_router(blacklist.router, prefix="/api/blacklist", tags=["blacklist"])
+app.include_router(eqs_expanded.router, prefix="/api/eqs/expanded", tags=["eqs-expanded"])
 
 
 if __name__ == "__main__":

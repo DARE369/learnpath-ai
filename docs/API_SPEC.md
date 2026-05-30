@@ -656,6 +656,40 @@ See [BLACKLIST_SYSTEM.md](BLACKLIST_SYSTEM.md) for full details.
 
 ---
 
+## Expanded EQS Scoring (Packet 3.3)
+
+11-criteria educational quality scoring (0–170 points) with score-dependent cache TTL. Coexists with the legacy `/api/eqs/score` endpoint — search pipeline still uses the 0-100 EQS; this is a parallel rail consumed by the confidence dashboard.
+
+### POST `/api/eqs/expanded/score`
+Score a video on the 11-criterion rubric.
+
+**Body:**
+```json
+{
+  "youtube_id": "abc123",
+  "video_summary": "...",
+  "title": "optional",
+  "transcript_excerpt": "optional, first 2000 chars used"
+}
+```
+
+**Response:** `{id, youtube_id, base_scores, bonus_scores, base_score, bonus_total, total_score, confidence_level, cache_ttl_days, reasoning, cost_remaining_ngn}`
+
+**Errors:**
+- `400` — summary too short (<10 chars) or missing key
+- `429` — daily `eqs_expanded` budget (₦0.50) exhausted
+- `502` — Claude returned malformed scoring JSON
+
+### GET `/api/eqs/expanded/list`
+List active expanded scores with optional `confidence_level` filter and pagination.
+
+### GET `/api/eqs/expanded/stats`
+Aggregate statistics: `total_scored`, `average_score`, `median_score`, `distribution` (by confidence level), `criteria_averages` (per-criterion), `cache_distribution`.
+
+See [CONFIDENCE_SCORING_EXPANDED.md](CONFIDENCE_SCORING_EXPANDED.md) for the full breakdown of criteria weights, confidence levels, and TTL ladder.
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request

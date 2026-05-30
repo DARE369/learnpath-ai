@@ -23,6 +23,7 @@
 - **[Active Recall](ACTIVE_RECALL.md)** - Question generation, answer evaluation, spaced repetition
 - **[Concept Branching](CONCEPT_BRANCHING.md)** - Progressive learning branches per concept (Packet 3.1)
 - **[Blacklist System](BLACKLIST_SYSTEM.md)** - Soft/hard video quality control with shadow testing (Packet 3.2)
+- **[Expanded Confidence Scoring](CONFIDENCE_SCORING_EXPANDED.md)** - 11-criteria EQS (0–170) with score-dependent cache TTL (Packet 3.3)
 
 ## Database
 
@@ -66,7 +67,7 @@
 ### Stage 3: Intelligence Layer
 - ✅ Concept Branching (Packet 3.1) — Claude Opus splits each concept into 3–5 progressive branches; DB-cached for 30 days; per-feature daily budget enforced
 - ✅ Blacklist System (Packet 3.2) — soft/hard video blacklist with 90-day soft retry, shadow testing for 1-in-10 users, auto-blacklist on EQS<65 during search, admin dashboard, EQS re-eval budget-gated
-- ⬜ Expanded Confidence Scoring (Packet 3.3)
+- ✅ Expanded Confidence Scoring (Packet 3.3) — 11-criteria EQS (4 base + 7 bonus, 0–170 points), 5 confidence levels, score-dependent cache TTL (0/7/14/30/60d), expanded_video_scores table, confidence dashboard; coexists with legacy 0–100 EQS, pipeline migration deferred
 - ⬜ Auto-Remediation (Packet 3.4)
 - ⬜ Self-Building Mechanism (Packet 3.5)
 
@@ -166,4 +167,4 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 ---
 
 **Last updated:** May 30, 2026
-**Status:** 🔄 Stage 3 in progress — Packets 3.1 (Concept Branching) and 3.2 (Blacklist System) shipped
+**Status:** 🔄 Stage 3 in progress — Packets 3.1 (Concept Branching), 3.2 (Blacklist System), and 3.3 (Expanded Confidence Scoring) shipped

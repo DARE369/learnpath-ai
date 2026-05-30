@@ -25,6 +25,7 @@ class CostTracker:
         "remediation": 0.50,
         "expansion": 0.50,
         "blacklist_reeval": 0.50,
+        "eqs_expanded": 0.50,
     }
 
     def __init__(self, budgets: Dict[str, float] = None):
