@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import { useAuth } from "../../hooks/useAuth";
@@ -74,9 +74,8 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
     return () => clearInterval(id);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = query.trim();
+  async function runSearch(rawQuery: string) {
+    const trimmed = rawQuery.trim();
     if (trimmed.length < 2) {
       setError("Please enter a topic (at least 2 characters)");
       return;
@@ -106,8 +105,8 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
           setError(detail || "We couldn't build a path for that topic. Try a more specific search.");
         } else if (status === 404) {
           setError("Search endpoint not available yet. The backend may still be deploying — try again in a minute.");
-        } else if (status === 503) {
-          setError("Search service is starting up. Try again in a moment.");
+        } else if (status === 502 || status === 503 || status === 504) {
+          setError("Search service is temporarily unreachable (the backend may be redeploying). Try again in 30 seconds.");
         } else {
           setError(detail || "Something went wrong. Please try again.");
         }
@@ -119,6 +118,26 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
       setLoading(false);
     }
   }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await runSearch(query);
+  }
+
+  // Auto-run search when arriving with ?q=...&autorun=1 — used by catalog
+  // "Start learning" buttons so a single click pipes a curated course title
+  // through the real search pipeline.
+  const autorunFiredRef = useRef(false);
+  useEffect(() => {
+    if (!router.isReady || autorunFiredRef.current) return;
+    const q = router.query.q;
+    const autorun = router.query.autorun;
+    if (typeof q === "string" && q && autorun === "1") {
+      autorunFiredRef.current = true;
+      setQuery(q);
+      void runSearch(q);
+    }
+  }, [router.isReady, router.query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleStartLearning() {
     if (!result || result.learning_path.length === 0) return;

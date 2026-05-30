@@ -122,7 +122,9 @@ export default function CourseDetailPage() {
             </p>
           </div>
           <Link
-            href={`/learning/${course.id}/0`}
+            // Catalog courses have no real videos — pipe the title through
+            // the search pipeline so the user gets curated YouTube videos.
+            href={`/explore?q=${encodeURIComponent(course.title)}&autorun=1`}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity whitespace-nowrap"
           >
             Start learning
