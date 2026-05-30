@@ -165,6 +165,47 @@ class ConceptProgress(Base):
     last_seen_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class VideoBlacklist(Base):
+    """
+    Soft- or hard-blacklisted videos (Packet 3.2).
+
+    Keyed by youtube_id (string), not videos.id (UUID) — matches the
+    path_sessions.youtube_id pattern. SearchService deals in youtube_ids
+    and doesn't always materialise a videos row.
+    """
+    __tablename__ = "video_blacklist"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    youtube_id = Column(String, nullable=False, index=True)
+
+    blacklist_type = Column(String, nullable=False, default="soft")  # "soft" | "hard"
+    reason = Column(String)
+    last_score = Column(Integer)  # EQS that triggered (null for manual)
+
+    blacklist_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    retry_date = Column(DateTime)  # null for hard
+
+    is_active = Column(Boolean, default=True, index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BlacklistFeedback(Base):
+    """User feedback on shadow-tested blacklisted videos (Packet 3.2)."""
+    __tablename__ = "blacklist_feedback"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    youtube_id = Column(String, nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+
+    rating = Column(Integer)  # 1-5
+    feedback = Column(Text)
+    helpful = Column(Boolean)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ConceptBranch(Base):
     """
     Progressive learning branches for a concept (Packet 3.1).

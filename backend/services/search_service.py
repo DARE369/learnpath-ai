@@ -2,13 +2,23 @@
 Search orchestration service.
 Runs the full Stage 1 pipeline end-to-end:
   YouTube search → EQS scoring → Summary → Concept graph → Path assembly → Cache
+
+Stage 3.2 integration:
+  - Pre-filter blacklisted youtube_ids before EQS scoring (saves Claude tokens),
+    unless the caller is a shadow-test user (deterministic 1-in-10 slice).
+  - After scoring, soft-blacklist any youtube_id with EQS < 65 so future
+    searches skip it.
 """
 
 import logging
 from datetime import datetime
 from typing import Dict, Optional
 
+from sqlalchemy.orm import Session
+
 logger = logging.getLogger(__name__)
+
+LOW_SCORE_THRESHOLD = 65
 
 
 class SearchService:
@@ -37,6 +47,8 @@ class SearchService:
         self,
         query: str,
         use_cache: bool = True,
+        user_id: Optional[str] = None,
+        db: Optional[Session] = None,
     ) -> Dict:
         """
         Complete learning-path pipeline for a topic query.
@@ -81,6 +93,29 @@ class SearchService:
         if not videos:
             raise ValueError(f"No YouTube videos found for: '{query}'")
         logger.info(f"YouTube returned {len(videos)} candidates")
+
+        # ----------------------------------------------------------------
+        # Step 3.5: Blacklist pre-filter (Packet 3.2)
+        # Skip already-blacklisted youtube_ids before EQS scoring to save
+        # Claude tokens. Shadow-test users (1-in-10) bypass the filter so
+        # we can collect feedback on soft-blacklisted videos.
+        # ----------------------------------------------------------------
+        is_shadow_tester = False
+        if db is not None:
+            from services.blacklist_service import blacklist_service
+            is_shadow_tester = blacklist_service.should_shadow_test(user_id)
+            if not is_shadow_tester:
+                yt_ids = [v["youtube_id"] for v in videos]
+                allowed = set(blacklist_service.filter_blacklisted(db, yt_ids))
+                pre_filtered_count = len(videos)
+                videos = [v for v in videos if v["youtube_id"] in allowed]
+                skipped = pre_filtered_count - len(videos)
+                if skipped:
+                    logger.info(f"Blacklist pre-filter dropped {skipped} videos")
+                if not videos:
+                    raise ValueError(
+                        f"All YouTube results for '{query}' are blacklisted"
+                    )
 
         # ----------------------------------------------------------------
         # Step 4: Transcript fetch (best-effort) + EQS scoring
@@ -131,6 +166,45 @@ class SearchService:
 
         if not scored_videos:
             raise ValueError(f"Could not score any videos for: '{query}'")
+
+        # ----------------------------------------------------------------
+        # Step 4.5: Auto-blacklist low scores (Packet 3.2)
+        # Any youtube_id whose EQS came back below the threshold gets a
+        # soft-blacklist row. Pure DB writes, no extra Claude cost.
+        # ----------------------------------------------------------------
+        if db is not None:
+            from services.blacklist_service import blacklist_service
+            blacklisted_now = 0
+            for v in scored_videos:
+                score = int(v.get("eqs_score") or 0)
+                if score and score < LOW_SCORE_THRESHOLD:
+                    try:
+                        blacklist_service.blacklist_video(
+                            db,
+                            youtube_id=v["youtube_id"],
+                            reason=f"Auto-blacklist: EQS {score} < {LOW_SCORE_THRESHOLD}",
+                            blacklist_type="soft",
+                            last_score=score,
+                        )
+                        blacklisted_now += 1
+                    except Exception as e:
+                        logger.warning(
+                            f"Auto-blacklist write failed for {v['youtube_id']}: {e}"
+                        )
+            if blacklisted_now:
+                logger.info(f"Auto-blacklisted {blacklisted_now} videos this search")
+            # If we're a shadow-tester, keep blacklisted videos in scored_videos
+            # so they can surface in the path and collect feedback. Otherwise,
+            # drop newly-flagged ones from the assembly pool.
+            if not is_shadow_tester:
+                scored_videos = [
+                    v for v in scored_videos
+                    if int(v.get("eqs_score") or 0) >= LOW_SCORE_THRESHOLD
+                ]
+            if not scored_videos:
+                raise ValueError(
+                    f"All scored videos for '{query}' fell below quality threshold"
+                )
 
         # ----------------------------------------------------------------
         # Step 5: Summary generation

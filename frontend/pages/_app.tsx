@@ -16,6 +16,7 @@ const PROTECTED_PREFIXES = [
   "/courses",
   "/learning",
   "/settings",
+  "/admin",
 ];
 
 function isProtectedPath(pathname: string): boolean {

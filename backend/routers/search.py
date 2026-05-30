@@ -11,8 +11,10 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 import services.search_service as _search_mod
+from database import get_db
 from models import User
 from routers.auth import get_current_user
 
@@ -131,7 +133,8 @@ async def get_cached_path(
 @router.post("/build-path", response_model=BuildPathResponse)
 async def build_path(
     payload: BuildPathRequest,
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Build (or fetch cached) learning path for a topic query."""
     service = _search_mod.search_service
@@ -142,6 +145,8 @@ async def build_path(
         result = await service.search_and_build_path(
             query=payload.query.strip(),
             use_cache=payload.use_cache,
+            user_id=str(user.id) if getattr(user, "id", None) else None,
+            db=db,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

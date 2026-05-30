@@ -599,6 +599,63 @@ See [CONCEPT_BRANCHING.md](CONCEPT_BRANCHING.md) for full details.
 
 ---
 
+## Blacklist System (Packet 3.2)
+
+Soft/hard video blacklist with auto-trigger from EQS scoring, lazy re-evaluation, shadow testing, and an admin dashboard. Keyed by `youtube_id` (string). Admin endpoints are login-required but not role-gated — see [BLACKLIST_SYSTEM.md](BLACKLIST_SYSTEM.md) for the gap.
+
+### POST `/api/blacklist`
+Manually blacklist a video.
+
+**Body:**
+```json
+{ "youtube_id": "abc123", "reason": "Inaccurate content", "blacklist_type": "hard" }
+```
+
+**Response:**
+```json
+{
+  "youtube_id": "abc123",
+  "blacklist_type": "hard",
+  "blacklist_date": "2026-05-30T...",
+  "retry_date": null
+}
+```
+
+### DELETE `/api/blacklist/{youtube_id}`
+Lift active blacklist. Returns `404` if none.
+
+### PATCH `/api/blacklist/{youtube_id}`
+Convert soft↔hard. Body: `{ blacklist_type: "soft"|"hard", reason? }`.
+
+### GET `/api/blacklist/status/{youtube_id}`
+Returns `{is_blacklisted, blacklist_type, reason, last_score, blacklist_date, retry_date, expired}`. Soft blacklists past `retry_date` return `is_blacklisted: false`.
+
+### GET `/api/blacklist?blacklist_type=soft&limit=100&offset=0`
+List active blacklist rows with per-row feedback aggregates.
+
+### POST `/api/blacklist/auto-blacklist-low-scores?score_threshold=65`
+Batch scan `video_scores` and create soft-blacklist rows for low-EQS youtube_ids not already blacklisted.
+
+### POST `/api/blacklist/re-evaluate?limit=100`
+Re-score expired soft blacklists via EQS. Returns `{evaluated, lifted, extended, errors, skipped_budget, total_expired}`. Budget-gated through `cost_tracker("blacklist_reeval")` — ₦0.50/day.
+
+### POST `/api/blacklist/feedback`
+**Body:** `{youtube_id, rating: 1-5, feedback?, helpful?, user_id?}`.
+
+### GET `/api/blacklist/stats`
+Aggregates: `total_active`, `soft`, `hard`, `pending_re_evaluation`, `feedback_count`, `feedback_avg_rating`.
+
+### GET `/api/blacklist/shadow-test/{user_id}`
+Diagnostic: returns `{user_id, is_shadow_tester}`. Used to verify the 1-in-10 distribution.
+
+### Search pipeline impact
+
+`POST /api/search/build-path` now threads the authenticated `user_id` and `db` session into `SearchService.search_and_build_path`. The pipeline pre-filters blacklisted videos before EQS scoring (saving Claude tokens) and auto-creates soft-blacklist rows for any video that scores below 65. Shadow-test users bypass the pre-filter so they can submit feedback.
+
+See [BLACKLIST_SYSTEM.md](BLACKLIST_SYSTEM.md) for full details.
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request
