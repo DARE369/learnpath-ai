@@ -547,6 +547,58 @@ See [AUTHENTICATION.md](AUTHENTICATION.md) for full details.
 
 ---
 
+## Concept Branching (Packet 3.1)
+
+Splits a concept into 3–5 progressive learning branches via Claude Opus. Generated branches are cached in the `concept_branches` table for 30 days.
+
+### GET `/api/branching/{concept_name}`
+Returns cached branches, or generates them on cache miss.
+
+**Query params:**
+- `base_concept_summary` (optional) — extra context for Claude on first generation.
+
+**Response (200):**
+```json
+{
+  "concept_name": "Addition",
+  "branches": [
+    {
+      "branch_id": "uuid",
+      "concept_name": "Addition",
+      "branch_title": "Single-digit addition",
+      "description": "Adding two numbers where each is under 10.",
+      "difficulty_level": 1,
+      "prerequisites": [],
+      "estimated_duration_minutes": 15,
+      "branch_order": 0
+    }
+  ],
+  "source": "cache",
+  "cost_remaining_ngn": 0.35
+}
+```
+
+**Errors:**
+- `400` — empty concept name
+- `429` — daily branching budget (₦0.50) exhausted
+- `502` — Claude returned a set that failed validation (count out of 3–5, non-monotonic difficulty, or unknown prerequisite)
+
+### POST `/api/branching/{concept_name}/regenerate`
+Admin: force-regenerate, bypassing the cache. Same response/error shapes as the GET. Body: `{base_concept_summary, force_regenerate}`.
+
+### POST `/api/branching/{concept_name}/branches/{branch_id}/learning-path`
+Stub for Packet 3.1 — returns `{branch_id, branch_title, status: "not_yet_implemented"}`. Real branch-scoped path assembly arrives in a follow-up packet.
+
+### POST `/api/branching/validate`
+Admin: validate a candidate branch set without persisting. Body: `{branches: [...]}`. Returns `{is_valid, issues}`.
+
+### GET `/api/branching/admin/cost-stats`
+Returns per-feature daily spend and remaining budget (NGN).
+
+See [CONCEPT_BRANCHING.md](CONCEPT_BRANCHING.md) for full details.
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request

@@ -49,6 +49,10 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR UNIQUE",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR NOT NULL DEFAULT 'email'",
     "CREATE INDEX IF NOT EXISTS ix_users_google_id ON users(google_id)",
+    # concept_branches — Packet 3.1
+    "CREATE INDEX IF NOT EXISTS ix_concept_branches_concept_key ON concept_branches(concept_key)",
+    "CREATE INDEX IF NOT EXISTS ix_concept_branches_is_active ON concept_branches(is_active)",
+    "CREATE INDEX IF NOT EXISTS ix_concept_branches_branch_order ON concept_branches(branch_order)",
 ]
 
 
@@ -242,6 +246,10 @@ app.include_router(session.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(progress.router, prefix="/api/progress", tags=["progress"])
 app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
+
+# Stage 3: Intelligence layer routers
+from routers import branching
+app.include_router(branching.router, prefix="/api/branching", tags=["branching"])
 
 
 if __name__ == "__main__":

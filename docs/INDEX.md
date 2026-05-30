@@ -21,6 +21,7 @@
 - **[Authentication](AUTHENTICATION.md)** - JWT auth, signup/login flows
 - **[Learning Sessions](LEARNING_SESSIONS.md)** - Video tracking, session lifecycle, API endpoints
 - **[Active Recall](ACTIVE_RECALL.md)** - Question generation, answer evaluation, spaced repetition
+- **[Concept Branching](CONCEPT_BRANCHING.md)** - Progressive learning branches per concept (Packet 3.1)
 
 ## Database
 
@@ -59,10 +60,16 @@
 - ✅ Learning Sessions & Video Tracking (Packet 2.2) — custom video player, progress tracking, concept sidebar, session API
 - ✅ User Progress Dashboard (Packet 2.3) — stats cards, activity heatmap, progress chart, achievements, recommended courses, recent activity feed
 - ✅ Active Recall & AI Grading (Packet 2.4) — Claude-powered question generation, answer evaluation, spaced repetition scheduling
-- ⬜ Spaced repetition (Packet 2.5)
+- ✅ User Journey Integration (Packet 2.5) — Navbar, useAuth/useProgress contexts, explore/courses/settings pages, route protection
 
-### Stage 3-7
-- ⬜ Intelligence features
+### Stage 3: Intelligence Layer
+- ✅ Concept Branching (Packet 3.1) — Claude Opus splits each concept into 3–5 progressive branches; DB-cached for 30 days; per-feature daily budget enforced
+- ⬜ Blacklist System (Packet 3.2)
+- ⬜ Expanded Confidence Scoring (Packet 3.3)
+- ⬜ Auto-Remediation (Packet 3.4)
+- ⬜ Self-Building Mechanism (Packet 3.5)
+
+### Stage 4-7
 - ⬜ Monetization
 - ⬜ B2B features
 - ⬜ Polish & deployment
@@ -157,5 +164,5 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 
 ---
 
-**Last updated:** May 28, 2026
-**Status:** 🔄 Stage 2 in progress — Packets 2.1, 2.2, 2.3, 2.4 complete
+**Last updated:** May 30, 2026
+**Status:** 🔄 Stage 3 in progress — Stage 2 complete, Packet 3.1 (Concept Branching) shipped

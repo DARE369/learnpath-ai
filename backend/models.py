@@ -165,6 +165,34 @@ class ConceptProgress(Base):
     last_seen_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ConceptBranch(Base):
+    """
+    Progressive learning branches for a concept (Packet 3.1).
+
+    `concept_key` is the lowercased concept name and is the lookup key —
+    branches do NOT FK to topics.id because search-built concepts live
+    outside the topics table (same pattern as path_sessions.path_id).
+    """
+    __tablename__ = "concept_branches"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    concept_key = Column(String, nullable=False, index=True)
+    concept_name = Column(String, nullable=False)
+
+    branch_title = Column(String, nullable=False)
+    description = Column(Text)
+    difficulty_level = Column(Integer)
+    prerequisites = Column(JSON, default=list)
+    estimated_duration_minutes = Column(Integer, default=30)
+    branch_order = Column(Integer, default=0, index=True)
+
+    algorithm_version = Column(String, default="v1")
+    is_active = Column(Boolean, default=True, index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class QuestionAnswer(Base):
     """Stores answered questions and drives spaced-repetition scheduling."""
     __tablename__ = "question_answers"
