@@ -247,27 +247,59 @@ export default function LearningSessionPage() {
       void feedback;
       setShowQuestion(false);
       setAiQuestion(null);
-      const hasNext = videoIndex < DEMO_VIDEOS.length - 1;
+      const hasNext = videoIndex < videos.length - 1;
       if (score >= 0 && hasNext) {
         router.push(`/learning/${pathId}/${videoIndex + 1}`);
       } else if (!hasNext) {
         router.push(`/dashboard?pathComplete=true`);
       }
     },
-    [videoIndex, pathId, router],
+    [videoIndex, pathId, router, videos.length],
   );
 
   const handleNavigate = (idx: number) => {
     router.push(`/learning/${pathId}/${idx}`);
   };
 
-  const videosWithProgress = DEMO_VIDEOS.map((v) => ({
+  const videosWithProgress = videos.map((v, i) => ({
     ...v,
-    watchPercentage: videoProgress[v.index] ?? 0,
-    completed: completedVideos.has(v.index),
+    index: i,
+    watchPercentage: videoProgress[i] ?? 0,
+    completed: completedVideos.has(i),
   }));
 
-  const hasNext = videoIndex < DEMO_VIDEOS.length - 1;
+  // Derive concepts from the built path if we have one — every video object
+  // from the API has a "concepts" string[] field. Aggregate, dedupe, mark
+  // current video's as "learning" and others as "not_started". Falls back
+  // to the curated DEMO_CONCEPTS for catalog/demo paths.
+  const derivedConcepts = useMemo(() => {
+    if (!builtVideos) return DEMO_CONCEPTS;
+    const seen = new Set<string>();
+    const list: { name: string; status: "mastered" | "learning" | "not_started"; mastery: number }[] = [];
+    builtVideos.forEach((_, i) => {
+      // builtVideos doesn't carry concepts directly; we need to pull from the
+      // raw stashed path. Read it once here.
+      const raw = typeof window !== "undefined" ? sessionStorage.getItem(`builtPath:${decodedPathId}`) : null;
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as BuiltPathLite;
+        const concepts = (parsed.learning_path?.[i] as { concepts?: string[] } | undefined)?.concepts || [];
+        concepts.forEach((c) => {
+          if (!seen.has(c)) {
+            seen.add(c);
+            list.push({
+              name: c,
+              status: i === videoIndex ? "learning" : "not_started",
+              mastery: i === videoIndex ? 30 : 0,
+            });
+          }
+        });
+      } catch { /* malformed stash — ignore */ }
+    });
+    return list.length > 0 ? list : DEMO_CONCEPTS;
+  }, [builtVideos, decodedPathId, videoIndex]);
+
+  const hasNext = videoIndex < videos.length - 1;
   const hasPrev = videoIndex > 0;
 
   return (
@@ -296,7 +328,7 @@ export default function LearningSessionPage() {
             </div>
             <div className="flex-1" />
             <span className="text-xs text-white/30 tabular-nums hidden sm:block">
-              {videoIndex + 1} / {DEMO_VIDEOS.length}
+              {videoIndex + 1} / {videos.length}
             </span>
             <button
               onClick={() => setSidebarOpen((v) => !v)}
@@ -326,7 +358,7 @@ export default function LearningSessionPage() {
                 <div className="min-w-0">
                   <h1 className="text-lg font-semibold text-white leading-snug">{currentVideo.title}</h1>
                   <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-xs text-white/30">Video {videoIndex + 1} of {DEMO_VIDEOS.length}</span>
+                    <span className="text-xs text-white/30">Video {videoIndex + 1} of {videos.length}</span>
                     {completedVideos.has(videoIndex) && (
                       <span className="flex items-center gap-1 text-xs text-emerald-400">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -415,7 +447,7 @@ export default function LearningSessionPage() {
                     onNavigate={handleNavigate}
                   />
                   <ConceptSidebar
-                    concepts={DEMO_CONCEPTS}
+                    concepts={derivedConcepts}
                     videoTitle={currentVideo.title}
                     notes={notes}
                     onNotesChange={setNotes}
@@ -435,7 +467,7 @@ export default function LearningSessionPage() {
                 />
                 <div className="flex-1" style={{ minHeight: 400 }}>
                   <ConceptSidebar
-                    concepts={DEMO_CONCEPTS}
+                    concepts={derivedConcepts}
                     videoTitle={currentVideo.title}
                     notes={notes}
                     onNotesChange={setNotes}
