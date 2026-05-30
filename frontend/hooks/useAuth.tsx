@@ -77,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Bootstrap: declared AFTER the interceptor effect below so the interceptor
+  // is installed before /me fires. Inside the effect we still try a manual
+  // refresh on failure as a belt-and-braces second path.
   useEffect(() => {
     const token = readStoredToken();
     if (!token) {
@@ -84,7 +87,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAccessToken(token);
-    fetchMe(token).then((u) => {
+    (async () => {
+      let u = await fetchMe(token);
+      if (!u) {
+        // /me failed (likely expired token). Try refresh once before giving up.
+        try {
+          const refreshRes = await axios.post("/api/auth/refresh");
+          const newToken: string | undefined = refreshRes.data?.access_token;
+          if (newToken) {
+            const remember = !!localStorage.getItem(TOKEN_KEY);
+            persistToken(newToken, remember);
+            setAccessToken(newToken);
+            u = await fetchMe(newToken);
+          }
+        } catch {
+          /* refresh failed — fall through to clear state */
+        }
+      }
       if (u) {
         setUser(u);
       } else {
@@ -92,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(null);
       }
       setLoading(false);
-    });
+    })();
   }, [fetchMe]);
 
   const setSessionFromToken = useCallback(
