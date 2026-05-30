@@ -27,20 +27,34 @@ def start_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    session = session_service.start_session(
-        db,
-        user_id=current_user.id,
-        topic_id=payload.topic_id,
-        video_index=payload.video_index,
-        youtube_id=payload.youtube_id,
-        path_id=payload.path_id,
-        video_id=payload.video_id,
-    )
-    return {
-        "session_id": str(session.id),
-        "session_number": session.session_number,
-        "started_at": session.started_at.isoformat(),
-    }
+    try:
+        session = session_service.start_session(
+            db,
+            user_id=current_user.id,
+            topic_id=payload.topic_id,
+            video_index=payload.video_index,
+            youtube_id=payload.youtube_id,
+            path_id=payload.path_id,
+            video_id=payload.video_id,
+        )
+        return {
+            "session_id": str(session.id),
+            "session_number": session.session_number,
+            "started_at": session.started_at.isoformat(),
+        }
+    except Exception as e:
+        logger.exception(f"start_session failed: {e}")
+        db.rollback()
+        # Don't block video viewing on session-tracking failure. Return a stub
+        # session_id so the frontend can render; subsequent progress updates
+        # to this id will gracefully no-op.
+        from uuid import uuid4
+        return {
+            "session_id": f"stub-{uuid4()}",
+            "session_number": 0,
+            "started_at": "",
+            "stub": True,
+        }
 
 
 @router.put("/progress/{session_id}", response_model=dict)

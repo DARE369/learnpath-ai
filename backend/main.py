@@ -35,6 +35,15 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS notes TEXT",
     "CREATE INDEX IF NOT EXISTS ix_path_sessions_path_id ON path_sessions(path_id)",
     "CREATE INDEX IF NOT EXISTS ix_path_sessions_youtube_id ON path_sessions(youtube_id)",
+    # Drop FK constraints — search-built paths use synthetic topic_ids
+    # that don't exist in the topics table. The MVP treats these as logical
+    # references, not enforced FKs. Pre-existing constraint names follow
+    # Postgres default: <table>_<col>_fkey.
+    "ALTER TABLE path_sessions DROP CONSTRAINT IF EXISTS path_sessions_topic_id_fkey",
+    "ALTER TABLE path_sessions DROP CONSTRAINT IF EXISTS path_sessions_video_id_fkey",
+    "ALTER TABLE path_sessions ALTER COLUMN topic_id DROP NOT NULL",
+    "ALTER TABLE concept_progress DROP CONSTRAINT IF EXISTS concept_progress_topic_id_fkey",
+    "ALTER TABLE question_answers DROP CONSTRAINT IF EXISTS question_answers_topic_id_fkey",
     # users — Google OAuth (Packet 2.5 extension)
     "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR UNIQUE",
