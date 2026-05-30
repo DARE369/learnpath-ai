@@ -14,21 +14,73 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Idempotent schema patches for tables that pre-date a column. create_all()
+# never alters existing tables, so when the model gains a new column the live
+# table stays at its old shape and queries 500 with "UndefinedColumn". Each
+# statement here uses ADD COLUMN IF NOT EXISTS so re-runs are no-ops.
+_SCHEMA_PATCHES = [
+    # path_sessions — added across packets 2.2 → 2.4
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS path_id VARCHAR",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS youtube_id VARCHAR",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS video_index INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS session_number INTEGER",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS max_position_seconds INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS timestamp_watched VARCHAR",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS post_video_question TEXT",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS post_video_answer TEXT",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS answer_feedback TEXT",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS answer_score INTEGER",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_answered INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_correct INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS notes TEXT",
+    "CREATE INDEX IF NOT EXISTS ix_path_sessions_path_id ON path_sessions(path_id)",
+    "CREATE INDEX IF NOT EXISTS ix_path_sessions_youtube_id ON path_sessions(youtube_id)",
+    # users — Google OAuth (Packet 2.5 extension)
+    "ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR UNIQUE",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR NOT NULL DEFAULT 'email'",
+    "CREATE INDEX IF NOT EXISTS ix_users_google_id ON users(google_id)",
+]
+
+
+def _apply_schema_patches():
+    """Run each patch in its own transaction so one failure doesn't block the rest."""
+    from sqlalchemy import text
+    from database import _get_engine
+    engine = _get_engine()
+    applied = 0
+    for sql in _SCHEMA_PATCHES:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(sql))
+            applied += 1
+        except Exception as e:
+            # Most common harmless failure: table doesn't exist yet (will after
+            # create_all on the next boot) or the column already exists in a
+            # form that pg can't compare. Log and continue.
+            logger.warning(f"Schema patch skipped: {sql} → {e}")
+    logger.info(f"Schema patches: {applied}/{len(_SCHEMA_PATCHES)} applied")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT} | Debug: {settings.DEBUG}")
 
-    # Ensure all tables exist. create_all() is idempotent — it only creates
-    # tables that don't already exist, never drops or alters existing ones.
-    # Importing models here registers them with Base.metadata before create_all runs.
+    # 1. Create any missing tables (idempotent — never alters existing).
     try:
-        import models  # noqa: F401  (side effect: registers tables)
+        import models  # noqa: F401  (side effect: registers tables with Base.metadata)
         from database import Base, _get_engine
         Base.metadata.create_all(bind=_get_engine())
         logger.info("Database tables ensured (create_all complete)")
     except Exception as e:
         logger.error(f"Failed to ensure database tables: {e}", exc_info=True)
+
+    # 2. Patch existing tables with any columns the model gained later.
+    try:
+        _apply_schema_patches()
+    except Exception as e:
+        logger.error(f"Schema-patch step failed: {e}", exc_info=True)
 
     yield
     logger.info(f"Shutting down {settings.APP_NAME}")
