@@ -122,6 +122,11 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
 
   function handleStartLearning() {
     if (!result || result.learning_path.length === 0) return;
+    // Stash the built path so the learning page can render it instantly without
+    // a second round-trip. Falls back to GET /api/search/path/{topic_id} if missing.
+    try {
+      sessionStorage.setItem(`builtPath:${result.topic_id}`, JSON.stringify(result));
+    } catch { /* sessionStorage unavailable — page will fetch instead */ }
     router.push(`/learning/${encodeURIComponent(result.topic_id)}/0`);
   }
 

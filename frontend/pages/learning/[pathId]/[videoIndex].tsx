@@ -62,12 +62,50 @@ interface AIQuestion {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+interface PathVideo {
+  index: number;
+  title: string;
+  youtubeId: string;
+  durationSeconds: number;
+  summary: string;
+}
+
+interface BuiltPathLite {
+  topic_id: string;
+  topic_name: string;
+  learning_path: Array<{
+    video_id?: string;
+    youtube_id: string;
+    title: string;
+    duration_minutes?: number;
+    summary?: string;
+  }>;
+}
+
+function pathVideoFromApi(v: BuiltPathLite["learning_path"][number], i: number): PathVideo {
+  return {
+    index: i,
+    title: v.title || `Video ${i + 1}`,
+    youtubeId: v.youtube_id || "",
+    durationSeconds: Math.max(60, (v.duration_minutes || 0) * 60),
+    summary: v.summary || "",
+  };
+}
+
 export default function LearningSessionPage() {
   const router = useRouter();
   const { pathId, videoIndex: videoIndexParam } = router.query;
+  const decodedPathId = useMemo(() => {
+    if (typeof pathId !== "string") return "";
+    try { return decodeURIComponent(pathId); } catch { return pathId; }
+  }, [pathId]);
+
+  const [builtVideos, setBuiltVideos] = useState<PathVideo[] | null>(null);
+  const [builtTopicName, setBuiltTopicName] = useState<string>("");
 
   const videoIndex = Number(videoIndexParam ?? 0);
-  const currentVideo = DEMO_VIDEOS[videoIndex] ?? DEMO_VIDEOS[0];
+  const videos: PathVideo[] = builtVideos ?? DEMO_VIDEOS;
+  const currentVideo = videos[videoIndex] ?? videos[0];
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [videoProgress, setVideoProgress] = useState<Record<number, number>>({});
@@ -89,6 +127,48 @@ export default function LearningSessionPage() {
     (): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     [accessToken],
   );
+
+  // Load the actual built path so the page shows the user's real search,
+  // not the demo ML videos. Priority:
+  //  1. sessionStorage stash from SearchTopicForm (instant)
+  //  2. GET /api/search/path/{topic_id} (cache lookup, no rebuild)
+  //  3. Fall back to DEMO_VIDEOS (only when neither yielded anything)
+  useEffect(() => {
+    if (!router.isReady || !decodedPathId) return;
+    let cancelled = false;
+
+    const stashKey = `builtPath:${decodedPathId}`;
+    try {
+      const raw = sessionStorage.getItem(stashKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as BuiltPathLite;
+        if (parsed?.learning_path?.length) {
+          setBuiltVideos(parsed.learning_path.map(pathVideoFromApi));
+          setBuiltTopicName(parsed.topic_name || decodedPathId);
+          return;
+        }
+      }
+    } catch { /* stashed value malformed — fall through to fetch */ }
+
+    (async () => {
+      try {
+        const res = await axios.get<BuiltPathLite>(
+          `/api/search/path/${encodeURIComponent(decodedPathId)}`,
+          { headers: authHeader },
+        );
+        if (cancelled) return;
+        if (res.data?.learning_path?.length) {
+          setBuiltVideos(res.data.learning_path.map(pathVideoFromApi));
+          setBuiltTopicName(res.data.topic_name || decodedPathId);
+        }
+      } catch {
+        // 404 (no cached path) or 401 — fall back to DEMO_VIDEOS for now.
+        // Catalog course IDs (e.g. "photosynthesis-101") also land here.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [router.isReady, decodedPathId, authHeader]);
 
   // Start session on mount
   useEffect(() => {
@@ -208,7 +288,7 @@ export default function LearningSessionPage() {
             </Link>
             <div className="w-px h-4 bg-white/10" />
             <div className="flex items-center gap-2 text-sm min-w-0">
-              <span className="text-white/30 truncate hidden sm:block">Learning Path</span>
+              <span className="text-white/30 truncate hidden sm:block">{builtTopicName || "Learning Path"}</span>
               <svg className="w-3 h-3 text-white/20 flex-shrink-0 hidden sm:block" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>

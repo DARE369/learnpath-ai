@@ -85,6 +85,49 @@ def _video_to_response(v: dict) -> PathVideo:
 # ─── Endpoints ──────────────────────────────────────────────────────────────
 
 
+def _path_to_response(path: dict, topic_name: str, source: str, generation_time: float, concepts_count: int = 0) -> BuildPathResponse:
+    videos = path.get("videos", []) or []
+    avg_score = float(path.get("average_score") or 0)
+    return BuildPathResponse(
+        topic_id=path.get("topic_id", ""),
+        topic_name=topic_name,
+        learning_path=[_video_to_response(v) for v in videos],
+        stats=PathStats(
+            videos_found=int(path.get("videos_considered") or len(videos)),
+            videos_used=len(videos),
+            average_quality_score=round(avg_score, 1),
+            confidence=_confidence_label(avg_score),
+            concepts_covered=concepts_count,
+        ),
+        time_to_build_seconds=generation_time,
+        source=source,
+    )
+
+
+@router.get("/path/{topic_id:path}", response_model=BuildPathResponse)
+async def get_cached_path(
+    topic_id: str,
+    _user: User = Depends(get_current_user),
+):
+    """Return a previously-built learning path from cache without rebuilding."""
+    from urllib.parse import unquote
+    service = _search_mod.search_service
+    if service is None:
+        raise HTTPException(status_code=503, detail="Search service not initialized")
+
+    decoded = unquote(topic_id).strip()
+    cached = service.cache.get_topic_path(decoded)
+    if not cached:
+        # Try the query-mapping layer too (in case topic_id is the original query)
+        mapped = service.cache.get_query_mapping(decoded)
+        if mapped:
+            cached = service.cache.get_topic_path(mapped)
+    if not cached:
+        raise HTTPException(status_code=404, detail=f"No cached path for: {decoded}")
+
+    return _path_to_response(cached, topic_name=decoded, source="cache", generation_time=0)
+
+
 @router.post("/build-path", response_model=BuildPathResponse)
 async def build_path(
     payload: BuildPathRequest,
@@ -107,20 +150,10 @@ async def build_path(
         raise HTTPException(status_code=500, detail=f"Search failed: {e}")
 
     path = result.get("path", {}) or {}
-    videos = path.get("videos", []) or []
-    avg_score = float(path.get("average_score") or 0)
-
-    return BuildPathResponse(
-        topic_id=path.get("topic_id", ""),
+    return _path_to_response(
+        path,
         topic_name=payload.query.strip(),
-        learning_path=[_video_to_response(v) for v in videos],
-        stats=PathStats(
-            videos_found=int(path.get("videos_considered") or len(videos)),
-            videos_used=len(videos),
-            average_quality_score=round(avg_score, 1),
-            confidence=_confidence_label(avg_score),
-            concepts_covered=len(result.get("concepts") or []),
-        ),
-        time_to_build_seconds=float(result.get("generation_time_seconds") or 0),
         source=result.get("source", "generated"),
+        generation_time=float(result.get("generation_time_seconds") or 0),
+        concepts_count=len(result.get("concepts") or []),
     )
