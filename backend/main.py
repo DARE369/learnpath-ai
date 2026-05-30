@@ -63,6 +63,11 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_total_score ON expanded_video_scores(total_score)",
     "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_confidence_level ON expanded_video_scores(confidence_level)",
     "CREATE INDEX IF NOT EXISTS ix_expanded_video_scores_is_valid ON expanded_video_scores(is_valid)",
+    # remediation_events — Packet 3.4
+    "CREATE INDEX IF NOT EXISTS ix_remediation_events_query_normalized ON remediation_events(query_normalized)",
+    "CREATE INDEX IF NOT EXISTS ix_remediation_events_user_id ON remediation_events(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_remediation_events_tier_used ON remediation_events(tier_used)",
+    "CREATE INDEX IF NOT EXISTS ix_remediation_events_success ON remediation_events(success)",
 ]
 
 
@@ -258,10 +263,11 @@ app.include_router(questions.router, prefix="/api/questions", tags=["questions"]
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 
 # Stage 3: Intelligence layer routers
-from routers import branching, blacklist, eqs_expanded
+from routers import branching, blacklist, eqs_expanded, remediation
 app.include_router(branching.router, prefix="/api/branching", tags=["branching"])
 app.include_router(blacklist.router, prefix="/api/blacklist", tags=["blacklist"])
 app.include_router(eqs_expanded.router, prefix="/api/eqs/expanded", tags=["eqs-expanded"])
+app.include_router(remediation.router, prefix="/api/remediation", tags=["remediation"])
 
 
 if __name__ == "__main__":

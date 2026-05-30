@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import { useAuth } from "../../hooks/useAuth";
+import RemediationNotification, {
+  RemediatedPathSummary,
+} from "../RemediationNotification";
+
+const LOW_CONFIDENCE_THRESHOLD = 60;
 
 interface PathVideo {
   video_id: string;
@@ -61,6 +66,7 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
   const [stageIndex, setStageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BuiltPath | null>(null);
+  const [remediationOpen, setRemediationOpen] = useState(false);
 
   function rotateStages() {
     const start = Date.now();
@@ -149,6 +155,34 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
     router.push(`/learning/${encodeURIComponent(result.topic_id)}/0`);
   }
 
+  function handleRemediatedPath(remediatedPath: RemediatedPathSummary) {
+    if (!result) return;
+    // Merge the remediated path into our result shape so the UI updates in place.
+    const videos = Array.isArray(remediatedPath.videos) ? remediatedPath.videos : [];
+    const next: BuiltPath = {
+      ...result,
+      topic_id: (remediatedPath.topic_id as string) || result.topic_id,
+      learning_path: videos.map((v) => ({
+        video_id: v.video_id || v.youtube_id,
+        youtube_id: v.youtube_id,
+        title: v.title,
+        duration_minutes: 0,
+        eqs_score: 0,
+        summary: "",
+        concepts: [],
+        thumbnail_url: "",
+      })),
+      stats: {
+        ...result.stats,
+        videos_used: videos.length,
+        average_quality_score: Number(remediatedPath.average_score ?? result.stats.average_quality_score),
+      },
+      source: "remediated",
+    };
+    setResult(next);
+    setRemediationOpen(false);
+  }
+
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -233,17 +267,33 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleStartLearning}
-              disabled={result.learning_path.length === 0}
-              className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              Start learning
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </button>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleStartLearning}
+                disabled={result.learning_path.length === 0}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                Start learning
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+
+              {result.stats.average_quality_score < LOW_CONFIDENCE_THRESHOLD && (
+                <button
+                  type="button"
+                  onClick={() => setRemediationOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-warning-muted text-warning text-sm font-medium hover:bg-warning-muted/80 transition-colors"
+                  title={`This path scored ${result.stats.average_quality_score}/100 — below the ${LOW_CONFIDENCE_THRESHOLD}-point quality threshold.`}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+                  </svg>
+                  Find better content
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Video list */}
@@ -276,6 +326,17 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
             </div>
           )}
         </div>
+      )}
+
+      {result && (
+        <RemediationNotification
+          open={remediationOpen}
+          query={result.topic_name}
+          originalScore={result.stats.average_quality_score}
+          accessToken={accessToken}
+          onClose={() => setRemediationOpen(false)}
+          onAccept={handleRemediatedPath}
+        />
       )}
     </div>
   );

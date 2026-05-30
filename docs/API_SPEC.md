@@ -690,6 +690,36 @@ See [CONFIDENCE_SCORING_EXPANDED.md](CONFIDENCE_SCORING_EXPANDED.md) for the ful
 
 ---
 
+## Auto-Remediation (Packet 3.4)
+
+Opt-in 3-tier fallback for paths with `average_score < 60`. Tier 1 = Claude variant queries, Tier 2 = Gemini variant queries, Tier 3 = original path with "best available" notification. Each tier raises `BudgetExceeded` to the next when the daily `remediation` budget (₦0.50) is spent.
+
+### POST `/api/remediation/auto-remediate`
+Requires authentication. Always writes a `remediation_events` row.
+
+**Body:**
+```json
+{
+  "query": "addition for kids",
+  "original_score": 45,
+  "original_path": { "...opaque, returned in fallback...": "" }
+}
+```
+
+**Response:** `{success, tier_used, original_score, remediated_score, variant_query, notification: {state, message}, duration_seconds, path}`
+
+**Errors:**
+- `400` — `original_score >= 60` (caller shouldn't have triggered)
+- `401` — Not authenticated
+- `500` — Unrecoverable error
+
+### GET `/api/remediation/stats`
+Admin: aggregate counts, per-tier success rates, average duration, and top remediated queries.
+
+See [AUTO_REMEDIATION.md](AUTO_REMEDIATION.md) for the full design.
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request

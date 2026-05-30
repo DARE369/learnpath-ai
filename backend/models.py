@@ -165,6 +165,30 @@ class ConceptProgress(Base):
     last_seen_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class RemediationEvent(Base):
+    """
+    Auto-remediation attempt log (Packet 3.4).
+
+    Written once per remediation attempt (success or failure) so the stats
+    endpoint can compute success rate by tier and average duration.
+    """
+    __tablename__ = "remediation_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    query_normalized = Column(String, nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+
+    original_score = Column(Integer)
+    remediated_score = Column(Integer)
+    tier_used = Column(String, nullable=False, index=True)  # tier_1|tier_2|tier_3|none
+    success = Column(Boolean, default=False, index=True)
+    duration_ms = Column(Integer)
+
+    notes = Column(Text)  # error message, fallback reason, etc.
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ExpandedVideoScore(Base):
     """
     11-criterion expanded EQS scores (Packet 3.3).
