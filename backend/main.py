@@ -68,6 +68,16 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_remediation_events_user_id ON remediation_events(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_remediation_events_tier_used ON remediation_events(tier_used)",
     "CREATE INDEX IF NOT EXISTS ix_remediation_events_success ON remediation_events(success)",
+    # search_events + topic_aliases + topic_keywords + nightly_runs — Packet 3.5
+    "CREATE INDEX IF NOT EXISTS ix_search_events_query_normalized ON search_events(query_normalized)",
+    "CREATE INDEX IF NOT EXISTS ix_search_events_user_id ON search_events(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_search_events_created_at ON search_events(created_at)",
+    "CREATE INDEX IF NOT EXISTS ix_topic_aliases_alias_query ON topic_aliases(alias_query)",
+    "CREATE INDEX IF NOT EXISTS ix_topic_aliases_canonical_query ON topic_aliases(canonical_query)",
+    "CREATE INDEX IF NOT EXISTS ix_topic_aliases_is_active ON topic_aliases(is_active)",
+    "CREATE INDEX IF NOT EXISTS ix_topic_keywords_topic_query ON topic_keywords(topic_query)",
+    "CREATE INDEX IF NOT EXISTS ix_topic_keywords_keyword ON topic_keywords(keyword)",
+    "CREATE INDEX IF NOT EXISTS ix_nightly_runs_started_at ON nightly_runs(started_at)",
 ]
 
 
@@ -110,8 +120,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Schema-patch step failed: {e}", exc_info=True)
 
+    # 3. Start the nightly self-expansion scheduler (Packet 3.5).
+    # No-op when EXPANSION_SCHEDULER_ENABLED=False or apscheduler is missing.
+    try:
+        from jobs.nightly_expansion import setup_scheduler
+        setup_scheduler(app)
+    except Exception as e:
+        logger.error(f"Scheduler setup failed: {e}", exc_info=True)
+
     yield
     logger.info(f"Shutting down {settings.APP_NAME}")
+    try:
+        from jobs.nightly_expansion import shutdown_scheduler
+        shutdown_scheduler(app)
+    except Exception as e:
+        logger.warning(f"Scheduler shutdown error: {e}")
 
 
 app = FastAPI(
@@ -263,11 +286,12 @@ app.include_router(questions.router, prefix="/api/questions", tags=["questions"]
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 
 # Stage 3: Intelligence layer routers
-from routers import branching, blacklist, eqs_expanded, remediation
+from routers import branching, blacklist, eqs_expanded, remediation, expansion
 app.include_router(branching.router, prefix="/api/branching", tags=["branching"])
 app.include_router(blacklist.router, prefix="/api/blacklist", tags=["blacklist"])
 app.include_router(eqs_expanded.router, prefix="/api/eqs/expanded", tags=["eqs-expanded"])
 app.include_router(remediation.router, prefix="/api/remediation", tags=["remediation"])
+app.include_router(expansion.router, prefix="/api/expansion", tags=["expansion"])
 
 
 if __name__ == "__main__":

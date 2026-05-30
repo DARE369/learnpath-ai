@@ -21,6 +21,41 @@ logger = logging.getLogger(__name__)
 LOW_SCORE_THRESHOLD = 65
 
 
+def _log_search_event(
+    db: Optional[Session],
+    *,
+    query: str,
+    user_id: Optional[str],
+    source: str,
+    average_score: int,
+) -> None:
+    """
+    Best-effort SearchEvent write (Packet 3.5). Never raises — the search
+    pipeline must never fail because of an analytics write. Skips silently
+    when db is None (e.g. anonymous / pre-Packet-3.2 callers).
+    """
+    if db is None:
+        return
+    try:
+        from models import SearchEvent
+        import uuid as _uuid
+        user_uuid = None
+        if user_id:
+            try:
+                user_uuid = _uuid.UUID(str(user_id))
+            except (ValueError, TypeError):
+                user_uuid = None
+        db.add(SearchEvent(
+            query_normalized=query.lower().strip(),
+            user_id=user_uuid,
+            source=source,
+            average_score=average_score,
+        ))
+        db.commit()
+    except Exception as e:
+        logger.warning(f"SearchEvent write failed (non-fatal): {e}")
+
+
 class SearchService:
     """
     Thin orchestrator: delegates every step to its injected services.
@@ -76,6 +111,13 @@ class SearchService:
                 cached_path = self.cache.get_topic_path(cached_topic_id)
                 if cached_path:
                     logger.info(f"Serving from cache: {cached_topic_id}")
+                    _log_search_event(
+                        db,
+                        query=query,
+                        user_id=user_id,
+                        source="cache",
+                        average_score=int(cached_path.get("average_score") or 0),
+                    )
                     return {
                         "source": "cache",
                         "path": cached_path,
@@ -292,6 +334,14 @@ class SearchService:
         logger.info(
             f"Pipeline complete in {elapsed}s — "
             f"{path['video_count']} videos, avg EQS {path['average_score']}"
+        )
+
+        _log_search_event(
+            db,
+            query=query,
+            user_id=user_id,
+            source="generated",
+            average_score=int(path.get("average_score") or 0),
         )
 
         return {

@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Self-Building Mechanism (Packet 3.5) — Nightly expansion job
+    EXPANSION_SCHEDULER_ENABLED: bool = False
+    EXPANSION_SCHEDULER_HOUR_UTC: int = 2  # 2 AM UTC = midnight WAT
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

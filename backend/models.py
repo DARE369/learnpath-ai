@@ -165,6 +165,79 @@ class ConceptProgress(Base):
     last_seen_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class SearchEvent(Base):
+    """
+    Per-search log (Packet 3.5).
+
+    Written by SearchService after every successful search_and_build_path call.
+    Powers the "popular topic" identification — count distinct query_normalized
+    over the last 30 days, threshold at >10. Wrapped in best-effort try/except
+    in SearchService so a write failure can never block search.
+    """
+    __tablename__ = "search_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    query_normalized = Column(String, nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    source = Column(String)  # cache | generated | remediated
+    average_score = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class TopicAlias(Base):
+    """
+    Semantic dedup map (Packet 3.5).
+
+    Nightly job clusters recent search queries via Claude Opus and writes one
+    TopicAlias row per non-canonical query: alias_query → canonical_query.
+
+    NOTE: SearchService does NOT consult this map yet — alias mappings are
+    surfaced in the admin dashboard for human validation before any auto-
+    redirect behavior gets wired up.
+    """
+    __tablename__ = "topic_aliases"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alias_query = Column(String, nullable=False, index=True)
+    canonical_query = Column(String, nullable=False, index=True)
+    similarity_score = Column(Float)  # Claude's confidence 0-1
+    is_active = Column(Boolean, default=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TopicKeyword(Base):
+    """Keyword index for popular topics (Packet 3.5)."""
+    __tablename__ = "topic_keywords"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    topic_query = Column(String, nullable=False, index=True)
+    keyword = Column(String, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class NightlyRun(Base):
+    """One row per nightly_expansion run (Packet 3.5)."""
+    __tablename__ = "nightly_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    started_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    finished_at = Column(DateTime)
+    duration_seconds = Column(Float)
+
+    distinct_queries_scanned = Column(Integer, default=0)
+    aliases_created = Column(Integer, default=0)
+    popular_topics_count = Column(Integer, default=0)
+    keywords_extracted = Column(Integer, default=0)
+    topics_expanded = Column(Integer, default=0)
+
+    expansion_cost_ngn = Column(Float, default=0)
+    branching_cost_ngn = Column(Float, default=0)
+    skipped_budget = Column(Boolean, default=False)
+
+    errors = Column(JSON, default=list)
+    status = Column(String, default="running")  # running | success | partial | failed
+
+
 class RemediationEvent(Base):
     """
     Auto-remediation attempt log (Packet 3.4).

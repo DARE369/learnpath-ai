@@ -720,6 +720,32 @@ See [AUTO_REMEDIATION.md](AUTO_REMEDIATION.md) for the full design.
 
 ---
 
+## Self-Building Expansion (Packet 3.5)
+
+Nightly job (AsyncIOScheduler, gated by `EXPANSION_SCHEDULER_ENABLED`) that dedups recent searches, indexes keywords for popular topics, and auto-expands popular topics via `branching_service`. Search behavior is unchanged — alias mappings are informational this packet.
+
+### POST `/api/expansion/run-now`
+Synchronous manual trigger. Returns the full run summary (status, counts, costs, errors). Works regardless of the scheduler flag.
+
+### GET `/api/expansion/runs?limit=10`
+Most recent N nightly runs (id, status, duration, per-step counts, costs).
+
+### GET `/api/expansion/popular?threshold=10&days=30`
+Topics with `> threshold` searches in the lookback window.
+
+### GET `/api/expansion/aliases?limit=100`
+Active TopicAlias rows (alias → canonical with similarity confidence). Informational.
+
+### GET `/api/expansion/keywords?topic=...`
+Indexed keywords grouped by topic. Omit `topic` for all.
+
+### GET `/api/expansion/stats`
+Today's spend on `expansion` and `branching` budgets.
+
+See [SELF_BUILDING_MECHANISM.md](SELF_BUILDING_MECHANISM.md) for full details.
+
+---
+
 ## Error Responses
 
 ### 400 Bad Request
