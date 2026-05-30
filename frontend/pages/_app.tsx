@@ -35,7 +35,13 @@ function Shell({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     if (!loading && needsAuth && !user) {
-      router.replace(`/auth/login?next=${encodeURIComponent(router.asPath)}`);
+      // Use window.location instead of router.asPath: on first render before
+      // hydration, router.asPath still has unresolved dynamic params like
+      // "/courses/[courseId]". window.location.pathname is always the real URL.
+      const next = typeof window !== "undefined"
+        ? window.location.pathname + window.location.search
+        : router.asPath;
+      router.replace(`/auth/login?next=${encodeURIComponent(next)}`);
     }
   }, [loading, needsAuth, user, router]);
 

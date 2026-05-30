@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
-import axios from "axios";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 export interface AuthUser {
   id: string;
@@ -60,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // refs so the global axios interceptor always reads the latest values
+  // without being torn down and re-installed on every render
+  const tokenRef = useRef<string | null>(null);
+  const refreshingRef = useRef<Promise<string | null> | null>(null);
+  useEffect(() => { tokenRef.current = accessToken; }, [accessToken]);
 
   const fetchMe = useCallback(async (token: string): Promise<AuthUser | null> => {
     try {
@@ -159,6 +164,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const u = await fetchMe(accessToken);
     if (u) setUser(u);
   }, [accessToken, fetchMe]);
+
+  // Global axios interceptor: on 401, hit /api/auth/refresh (uses httpOnly
+  // refresh-token cookie), retry the original request with the new token.
+  // Installed once on mount; reads token from ref so it always sees the latest.
+  useEffect(() => {
+    const isAuthEndpoint = (url?: string) =>
+      !!url && (url.includes("/api/auth/refresh") || url.includes("/api/auth/login") ||
+                url.includes("/api/auth/signup") || url.includes("/api/auth/google"));
+
+    const tryRefresh = async (): Promise<string | null> => {
+      if (refreshingRef.current) return refreshingRef.current;
+      refreshingRef.current = (async () => {
+        try {
+          const res = await axios.post("/api/auth/refresh");
+          const newToken = res.data?.access_token as string | undefined;
+          if (!newToken) return null;
+          const remember = typeof window !== "undefined" && !!localStorage.getItem(TOKEN_KEY);
+          persistToken(newToken, remember);
+          setAccessToken(newToken);
+          return newToken;
+        } catch {
+          return null;
+        } finally {
+          refreshingRef.current = null;
+        }
+      })();
+      return refreshingRef.current;
+    };
+
+    const interceptor = axios.interceptors.response.use(
+      (resp) => resp,
+      async (error: AxiosError) => {
+        const original = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
+        const status = error.response?.status;
+        if (status !== 401 || !original || original._retried || isAuthEndpoint(original.url)) {
+          return Promise.reject(error);
+        }
+        original._retried = true;
+        const newToken = await tryRefresh();
+        if (!newToken) {
+          // Refresh failed — clear local state. Don't force-navigate here;
+          // the next protected page render will handle the redirect.
+          clearStoredToken();
+          setAccessToken(null);
+          setUser(null);
+          return Promise.reject(error);
+        }
+        original.headers = original.headers || {};
+        (original.headers as Record<string, string>).Authorization = `Bearer ${newToken}`;
+        return axios(original);
+      },
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, []);
 
   const value: AuthContextValue = {
     user,
