@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
+import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
+
+const PREFS_STORAGE_KEY = "learnpath:learning-prefs:v1";
 
 interface ProfileForm {
   fullName: string;
@@ -67,7 +70,7 @@ function Section({ title, description, children }: {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, accessToken, logout } = useAuth();
 
   const [profile, setProfile] = useState<ProfileForm>({ fullName: "", email: "" });
   const [profileSave, setProfileSave] = useState<SaveState>({ type: "idle" });
@@ -87,26 +90,61 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  function fakeSave(setState: (s: SaveState) => void) {
-    setState({ type: "saving" });
-    setTimeout(() => {
-      setState({ type: "saved" });
-      setTimeout(() => setState({ type: "idle" }), 2200);
-    }, 600);
+  // Load preferences from localStorage on mount. Preferences live client-side
+  // until a backend table exists for them.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(PREFS_STORAGE_KEY);
+      if (raw) setPrefs((p) => ({ ...p, ...JSON.parse(raw) }));
+    } catch { /* malformed JSON — ignore */ }
+  }, []);
+
+  function flashSaved(setState: (s: SaveState) => void) {
+    setState({ type: "saved" });
+    setTimeout(() => setState({ type: "idle" }), 2200);
   }
 
-  function handleProfileSubmit(e: React.FormEvent) {
+  async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!profile.fullName.trim()) {
       setProfileSave({ type: "error", message: "Full name is required" });
       return;
     }
-    fakeSave(setProfileSave);
+    if (!accessToken) {
+      setProfileSave({ type: "error", message: "You're not signed in." });
+      return;
+    }
+    setProfileSave({ type: "saving" });
+    try {
+      await axios.patch(
+        "/api/auth/me",
+        { full_name: profile.fullName.trim() },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      flashSaved(setProfileSave);
+    } catch (err: unknown) {
+      let message = "Couldn't save your profile.";
+      if (axios.isAxiosError(err)) {
+        const detail = (err.response?.data as { detail?: string } | undefined)?.detail;
+        if (detail) message = detail;
+        else if (err.response?.status === 401) message = "Session expired. Please sign in again.";
+      }
+      setProfileSave({ type: "error", message });
+    }
   }
 
   function handlePrefsSubmit(e: React.FormEvent) {
     e.preventDefault();
-    fakeSave(setPrefsSave);
+    setPrefsSave({ type: "saving" });
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
+      }
+      flashSaved(setPrefsSave);
+    } catch {
+      setPrefsSave({ type: "error", message: "Couldn't save preferences locally." });
+    }
   }
 
   function handleLogout() {

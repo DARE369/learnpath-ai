@@ -65,6 +65,28 @@ async def evaluate_answer(
     payload: EvaluateRequest,
     current_user: User = Depends(get_current_user),
 ):
+    # Enforce per-day question-evaluation rate limit.
+    try:
+        from services.rate_limiting_service import rate_limiting_service
+        plan_type = getattr(current_user, "tier", "free") or "free"
+        rl = rate_limiting_service.check_and_increment(
+            str(current_user.id), "questions:evaluate", plan_type
+        )
+        if not rl["allowed"]:
+            raise HTTPException(
+                status_code=429,
+                detail="Daily question limit reached. Upgrade your plan for more questions.",
+                headers={
+                    "Retry-After": str(rl["retry_after"]),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": rl.get("reset_time", ""),
+                },
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"question rate limit check failed (degrading to allowed): {e}")
+
     try:
         return await question_service.evaluate_answer(
             question=payload.question,

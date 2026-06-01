@@ -153,14 +153,37 @@ async def create_branch_path(
     db: Session = Depends(get_db),
 ):
     """
-    Create a learning path for a specific branch.
-    Stub for Packet 3.1 — real path assembly arrives in a follow-up.
+    Build a real learning path for a specific branch by feeding the parent
+    concept + branch title through SearchService.
+
+    Returns the full path response (same shape as POST /api/search/build-path)
+    plus branch_id, branch_title, and branch_query for client-side stashing.
     """
+    import services.search_service as _search_mod
+
+    search_service = _search_mod.search_service
+    if search_service is None:
+        raise HTTPException(status_code=503, detail="Search service not initialized")
+
     cached = branching_service.get_branches_for_concept(concept_name, db)
     branch = next((b for b in cached if b.branch_id == branch_id), None)
     if branch is None:
         raise HTTPException(status_code=404, detail="Branch not found")
-    return branching_service.create_branch_learning_path(branch)
+
+    try:
+        result = await branching_service.create_branch_learning_path(
+            branch=branch,
+            search_service=search_service,
+            db=db,
+            user_id=None,  # not required for this endpoint; caller may pass auth later
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Branch path build failed for '{branch_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Branch path build failed")
+
+    return result
 
 
 @router.post("/validate", response_model=ValidateResponse)

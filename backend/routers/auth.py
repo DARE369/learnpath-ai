@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -121,4 +122,31 @@ async def logout(response: Response):
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    country: Optional[str] = None
+    age: Optional[int] = None
+    bio: Optional[str] = None
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    payload: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update the authenticated user's editable profile fields."""
+    if payload.full_name is not None:
+        current_user.full_name = payload.full_name.strip() or None
+    if payload.country is not None:
+        current_user.country = payload.country.strip() or None
+    if payload.age is not None:
+        current_user.age = payload.age
+    if payload.bio is not None:
+        current_user.bio = payload.bio.strip() or None
+    db.commit()
+    db.refresh(current_user)
     return current_user

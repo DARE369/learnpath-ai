@@ -170,3 +170,31 @@ See [Contributing](CONTRIBUTING.md) for code standards and process.
 
 **Last updated:** May 30, 2026
 **Status:** ✅ Stage 3 complete — all 5 packets (3.1 Concept Branching, 3.2 Blacklist System, 3.3 Expanded Confidence Scoring, 3.4 Auto-Remediation, 3.5 Self-Building Mechanism) shipped
+
+
+## Stage 4 - Monetization Layer
+
+- 4.1 Payment System & Subscription Models - Flutterwave checkout, Free/Pro/Premium
+  plans (NGN), usage limits, pro-rated upgrades, queued downgrades, auto-renewal,
+  billing history. See [PACKET_4_1_PAYMENT_SYSTEM.md](PACKET_4_1_PAYMENT_SYSTEM.md)
+  and [SUBSCRIPTION_SERVICE.md](SUBSCRIPTION_SERVICE.md).
+
+- 4.2 Usage Limits & Rate Limiting -- per-plan monthly video/hour quotas
+  and hourly/daily endpoint rate limits. Enforced at session start, question
+  evaluate, and search build-path. `UsageAlert` on dashboard warns at 80%.
+  See [PACKET_4_2_USAGE_LIMITS.md](PACKET_4_2_USAGE_LIMITS.md).
+
+- 4.3 Free Tier Experience -- upgrade CTAs (AdBanner, UpgradePrompt), success
+  stories widget, feature-availability gate. No DB tables; CTAs are hardcoded
+  internal prompts, not third-party ads. See [PACKET_4_3_FREE_TIER.md](PACKET_4_3_FREE_TIER.md).
+
+- 4.4 Feature Unlock System -- `FeatureUnlockService` with per-feature benefit
+  lists and promo payloads; `FeatureLock` (in-context lock card) and
+  `FeatureMatrix` (comparison table, embedded on billing page).
+  See [PACKET_4_4_FEATURE_UNLOCK.md](PACKET_4_4_FEATURE_UNLOCK.md).
+
+- 4.5 Analytics & Usage Dashboard -- `AnalyticsService` derives all metrics
+  from existing event tables (no analytics DB table); in-memory TTL cache
+  (60-900 s). Admin dashboard at `/admin/analytics` with tabs for Overview,
+  Revenue, Users, Personal; recharts line chart and cohort retention table.
+  See [PACKET_4_5_ANALYTICS.md](PACKET_4_5_ANALYTICS.md).

@@ -208,17 +208,36 @@ Respond in this EXACT JSON format, with NO commentary before or after:
         """Return cached branches for a concept (empty list if none)."""
         return self._get_cached(db, concept_name.strip().lower()) or []
 
-    def create_branch_learning_path(self, branch: Branch) -> Dict:
+    async def create_branch_learning_path(
+        self,
+        branch: Branch,
+        search_service,
+        db: Optional[Session] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict:
         """
-        Stub — real path building reuses SearchService. Wired in a follow-up
-        once we decide how branch context shapes the search query.
+        Build a real learning path for this branch by running the search
+        pipeline with a query that combines the parent concept and the branch
+        focus (e.g. "Addition Two-digit Addition"). Falls through to the
+        existing query-mapping cache so repeat clicks on the same branch
+        return instantly.
+
+        Returns the full SearchService result shape:
+          {source, path, concepts, generation_time_seconds, ...}
         """
-        return {
-            "branch_id": branch.branch_id,
-            "branch_title": branch.branch_title,
-            "status": "not_yet_implemented",
-            "message": "Branch-scoped path assembly arrives in a follow-up packet.",
-        }
+        query = f"{branch.concept_name} {branch.branch_title}".strip()
+        result = await search_service.search_and_build_path(
+            query=query,
+            use_cache=True,
+            user_id=user_id,
+            db=db,
+        )
+        # Annotate the response with branch context so the frontend can stash
+        # it under both the branch id and the topic id.
+        result["branch_id"] = branch.branch_id
+        result["branch_title"] = branch.branch_title
+        result["branch_query"] = query
+        return result
 
     # ------------------------------------------------------------------
     # DB helpers — import models lazily to avoid circular imports

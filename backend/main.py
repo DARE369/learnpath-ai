@@ -78,6 +78,33 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_topic_keywords_topic_query ON topic_keywords(topic_query)",
     "CREATE INDEX IF NOT EXISTS ix_topic_keywords_keyword ON topic_keywords(keyword)",
     "CREATE INDEX IF NOT EXISTS ix_nightly_runs_started_at ON nightly_runs(started_at)",
+    # users — account credit balance for referral/loyalty rewards (Packet 4.6)
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_credit_ngn FLOAT DEFAULT 0",
+    # referral_codes + referrals + loyalty_points + loyalty_history + reward_codes — Packet 4.6
+    "CREATE INDEX IF NOT EXISTS ix_referral_codes_user_id ON referral_codes(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_referral_codes_code ON referral_codes(code)",
+    "CREATE INDEX IF NOT EXISTS ix_referrals_referrer_id ON referrals(referrer_id)",
+    "CREATE INDEX IF NOT EXISTS ix_referrals_referred_user_id ON referrals(referred_user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_referrals_referral_code ON referrals(referral_code)",
+    "CREATE INDEX IF NOT EXISTS ix_loyalty_points_user_id ON loyalty_points(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_loyalty_history_user_id ON loyalty_history(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_loyalty_history_created_at ON loyalty_history(created_at)",
+    "CREATE INDEX IF NOT EXISTS ix_reward_codes_user_id ON reward_codes(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_reward_codes_code ON reward_codes(code)",
+    # subscriptions + transactions + billing_history — Packet 4.1
+    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS pending_plan_type VARCHAR",
+    "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP",
+    "CREATE INDEX IF NOT EXISTS ix_subscriptions_user_id ON subscriptions(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_subscriptions_status ON subscriptions(status)",
+    "CREATE INDEX IF NOT EXISTS ix_subscriptions_renewal_date ON subscriptions(renewal_date)",
+    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS flutterwave_id VARCHAR",
+    "CREATE INDEX IF NOT EXISTS ix_transactions_user_id ON transactions(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_transactions_reference ON transactions(reference)",
+    "CREATE INDEX IF NOT EXISTS ix_transactions_status ON transactions(status)",
+    "CREATE INDEX IF NOT EXISTS ix_transactions_created_at ON transactions(created_at)",
+    "CREATE INDEX IF NOT EXISTS ix_transactions_flutterwave_id ON transactions(flutterwave_id)",
+    "CREATE INDEX IF NOT EXISTS ix_billing_history_user_id ON billing_history(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_billing_history_billing_date ON billing_history(billing_date)",
 ]
 
 
@@ -292,6 +319,17 @@ app.include_router(blacklist.router, prefix="/api/blacklist", tags=["blacklist"]
 app.include_router(eqs_expanded.router, prefix="/api/eqs/expanded", tags=["eqs-expanded"])
 app.include_router(remediation.router, prefix="/api/remediation", tags=["remediation"])
 app.include_router(expansion.router, prefix="/api/expansion", tags=["expansion"])
+
+# Stage 4: Monetization layer routers
+from routers import subscriptions, usage, free_tier, features, analytics, referral, loyalty
+app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["subscriptions"])
+app.include_router(subscriptions.payments_router, prefix="/api/payments", tags=["payments"])
+app.include_router(usage.router, prefix="/api/usage", tags=["usage"])
+app.include_router(free_tier.router, prefix="/api/free-tier", tags=["free-tier"])
+app.include_router(features.router, prefix="/api/features", tags=["features"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+app.include_router(referral.router, prefix="/api/referral", tags=["referral"])
+app.include_router(loyalty.router, prefix="/api/loyalty", tags=["loyalty"])
 
 
 if __name__ == "__main__":

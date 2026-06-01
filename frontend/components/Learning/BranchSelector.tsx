@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { config } from "../../env.config";
 
 export interface Branch {
@@ -49,10 +50,12 @@ function DifficultyDots({ level }: { level: number }) {
 }
 
 export default function BranchSelector({ conceptName, onSelect }: BranchSelectorProps) {
+  const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<"cache" | "generated" | null>(null);
+  const [busyBranch, setBusyBranch] = useState<string | null>(null);
 
   useEffect(() => {
     if (!conceptName) return;
@@ -110,6 +113,56 @@ export default function BranchSelector({ conceptName, onSelect }: BranchSelector
     return null;
   }
 
+  async function startBranch(branch: Branch) {
+    // If the parent gave us an onSelect handler, defer to it — keeps the
+    // component flexible. Otherwise call the real endpoint, stash the path,
+    // and route to /learning ourselves.
+    if (onSelect) {
+      onSelect(branch);
+      return;
+    }
+    setBusyBranch(branch.branch_id);
+    setError(null);
+    try {
+      const url = `${config.apiUrl}/api/branching/${encodeURIComponent(branch.concept_name)}/branches/${encodeURIComponent(branch.branch_id)}/learning-path`;
+      const res = await fetch(url, { method: "POST" });
+      if (!res.ok) {
+        if (res.status === 503) throw new Error("Search pipeline isn't ready yet — try again in a minute.");
+        throw new Error(`Couldn't build that branch (${res.status}).`);
+      }
+      const data = await res.json();
+      const path = data?.path;
+      if (!path?.topic_id) {
+        throw new Error("Branch path missing topic_id — backend returned no usable path.");
+      }
+      // Stash the result so the learning page renders instantly.
+      // The learning page expects a `learning_path` array on the stashed
+      // BuiltPath, which path.videos already provides.
+      const stash = {
+        topic_id: path.topic_id,
+        topic_name: `${branch.concept_name} — ${branch.branch_title}`,
+        learning_path: path.videos || [],
+        stats: {
+          videos_found: path.videos_considered || (path.videos || []).length,
+          videos_used: (path.videos || []).length,
+          average_quality_score: path.average_score || 0,
+          confidence: "branch",
+          concepts_covered: 0,
+        },
+        time_to_build_seconds: data.generation_time_seconds || 0,
+        source: data.source || "branch",
+      };
+      try {
+        sessionStorage.setItem(`builtPath:${path.topic_id}`, JSON.stringify(stash));
+      } catch { /* sessionStorage unavailable — page will fetch instead */ }
+      router.push(`/learning/${encodeURIComponent(path.topic_id)}/0`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to build branch path");
+    } finally {
+      setBusyBranch(null);
+    }
+  }
+
   return (
     <section className="mb-10">
       <div className="flex items-baseline justify-between mb-4">
@@ -157,10 +210,11 @@ export default function BranchSelector({ conceptName, onSelect }: BranchSelector
 
             <button
               type="button"
-              onClick={() => onSelect?.(branch)}
-              className="mt-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-accent-muted text-accent-light text-sm font-medium hover:bg-accent-muted/80 transition-colors"
+              disabled={busyBranch === branch.branch_id}
+              onClick={() => startBranch(branch)}
+              className="mt-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-accent-muted text-accent-light text-sm font-medium hover:bg-accent-muted/80 transition-colors disabled:opacity-50 disabled:cursor-wait"
             >
-              Learn this branch
+              {busyBranch === branch.branch_id ? "Building…" : "Learn this branch"}
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>

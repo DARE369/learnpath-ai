@@ -16,6 +16,10 @@ const PROTECTED_PREFIXES = [
   "/courses",
   "/learning",
   "/settings",
+  "/billing",
+  "/payment",
+  "/referral",
+  "/loyalty",
   "/admin",
 ];
 

@@ -137,6 +137,31 @@ async def build_path(
     db: Session = Depends(get_db),
 ):
     """Build (or fetch cached) learning path for a topic query."""
+    # Enforce per-hour search rate limit.
+    try:
+        from services.rate_limiting_service import rate_limiting_service
+        plan_type = getattr(user, "tier", "free") or "free"
+        rl = rate_limiting_service.check_and_increment(
+            str(user.id), "search:build-path", plan_type
+        )
+        if not rl["allowed"]:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Search limit reached for your {plan_type.title()} plan. "
+                    f"Try again in {rl['retry_after']} seconds or upgrade."
+                ),
+                headers={
+                    "Retry-After": str(rl["retry_after"]),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": rl.get("reset_time", ""),
+                },
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"search rate limit check failed (degrading to allowed): {e}")
+
     service = _search_mod.search_service
     if service is None:
         raise HTTPException(status_code=503, detail="Search service not initialized")

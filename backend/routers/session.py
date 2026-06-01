@@ -27,6 +27,23 @@ def start_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Enforce monthly video limit before creating the session. This check is
+    # best-effort: any DB failure inside check_limit degrades to "allowed" so
+    # the limit never blocks a user due to a monitoring error.
+    try:
+        from services.usage_tracking_service import usage_tracking_service
+        check = usage_tracking_service.check_limit(db, str(current_user.id), "watch_video")
+        if not check["allowed"]:
+            raise HTTPException(
+                status_code=429,
+                detail=check["reason"],
+                headers={"Retry-After": "2592000"},  # ~30 days
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"usage limit check failed (degrading to allowed): {e}")
+
     try:
         session = session_service.start_session(
             db,

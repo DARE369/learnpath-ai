@@ -9,6 +9,12 @@ import ProgressChart from "../components/Dashboard/ProgressChart";
 import ActivityHeatmap from "../components/Dashboard/ActivityHeatmap";
 import RecentActivity from "../components/Dashboard/RecentActivity";
 import RecommendedCourses from "../components/Dashboard/RecommendedCourses";
+import UsageAlert from "../components/Billing/UsageAlert";
+import AdBanner from "../components/Ads/AdBanner";
+import SuccessStoriesWidget from "../components/Success/SuccessStoriesWidget";
+import { useProgress } from "../hooks/useProgress";
+import { useAuth } from "../hooks/useAuth";
+import type { UsageData } from "../components/Billing/UsageCard";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -33,36 +39,20 @@ const ClockIcon = () => (
   </svg>
 );
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
+// ─── Demo data for surfaces without backend yet ──────────────────────────────
+// Achievements, recent activity, and recommended courses don't have backing
+// tables/endpoints — kept as static placeholders. Stats / streak / weekly
+// activity / heatmap now load from /api/progress/* via useProgress.
 
-const DEMO_CHART_DATA = [
-  { date: "Mon", videos: 2, minutes: 45 },
-  { date: "Tue", videos: 3, minutes: 67 },
-  { date: "Wed", videos: 1, minutes: 28 },
-  { date: "Thu", videos: 4, minutes: 94 },
-  { date: "Fri", videos: 2, minutes: 52 },
-  { date: "Sat", videos: 5, minutes: 120 },
-  { date: "Sun", videos: 3, minutes: 80 },
+const EMPTY_WEEKLY = [
+  { date: "Mon", videos: 0, minutes: 0 },
+  { date: "Tue", videos: 0, minutes: 0 },
+  { date: "Wed", videos: 0, minutes: 0 },
+  { date: "Thu", videos: 0, minutes: 0 },
+  { date: "Fri", videos: 0, minutes: 0 },
+  { date: "Sat", videos: 0, minutes: 0 },
+  { date: "Sun", videos: 0, minutes: 0 },
 ];
-
-function buildHeatmapData() {
-  const entries = [];
-  const today = new Date();
-  for (let i = 111; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const hasActivity = Math.random() > 0.55;
-    const minutes = hasActivity ? Math.floor(Math.random() * 90) + 5 : 0;
-    entries.push({
-      date: d.toISOString().split("T")[0],
-      minutes,
-      videos: Math.floor(minutes / 20),
-    });
-  }
-  return entries;
-}
-
-const DEMO_HEATMAP_DATA = buildHeatmapData();
 
 const DEMO_ACHIEVEMENTS = [
   { id: "1", name: "First Step", description: "Watched your first video", icon: "🎬", unlockedAt: "2026-05-01", rarity: "common" as const },
@@ -151,24 +141,38 @@ function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: 
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
-  const [streak] = useState(7);
+  const [usageData, setUsageData] = useState<UsageData | null>(null);
+  const userPlan = user?.tier || "free";
+
+  // Real data from the backend via useProgress (calls /api/progress/*)
+  const { stats: realStats, streak, weekly, heatmap } = useProgress();
 
   const stats = {
-    videosWatched: 24,
-    conceptsMastered: 8,
-    coursesStarted: 3,
-    hoursLearned: 12.5,
+    videosWatched: realStats.videosWatched,
+    conceptsMastered: realStats.conceptsMastered,
+    coursesStarted: realStats.coursesStarted,
+    hoursLearned: realStats.hoursLearned,
   };
 
-  // Try to load user name from stored token
+  // Weekly chart: backend returns 7 entries (Mon-Sun). Fall back to empty week
+  // shape while loading so the chart axes render correctly.
+  const chartData = weekly.length === 7 ? weekly : EMPTY_WEEKLY;
+
+  // Try to load user name and usage data from stored token
   useEffect(() => {
     const token =
       localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token");
     if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
     axios
-      .get("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } })
+      .get("/api/auth/me", { headers })
       .then((res) => setUserName(res.data.full_name ?? res.data.email?.split("@")[0] ?? null))
+      .catch(() => {});
+    axios
+      .get("/api/usage/current", { headers })
+      .then((res) => setUsageData(res.data as UsageData))
       .catch(() => {});
   }, []);
 
@@ -218,6 +222,9 @@ export default function DashboardPage() {
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+          {/* Usage limit alert — shown when any metric exceeds 80% */}
+          {usageData && <UsageAlert data={usageData} />}
+
           {/* Welcome banner */}
           <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-[#141414] border border-indigo-500/20 p-6">
             <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(ellipse at top right, rgba(99,102,241,0.3) 0%, transparent 60%)" }} />
@@ -240,20 +247,21 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Stats grid */}
+          {/* Upgrade banner — only shown to free users, dismissable */}
+          <AdBanner placement="banner" userPlan={userPlan} />
+
+          {/* Stats grid — real data from /api/progress/stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatsCard
               icon={<VideoIcon />}
               label="Videos Watched"
               value={stats.videosWatched}
-              trend={{ value: 33, isPositive: true }}
               color="blue"
             />
             <StatsCard
               icon={<BrainIcon />}
               label="Concepts Mastered"
               value={stats.conceptsMastered}
-              trend={{ value: 50, isPositive: true }}
               color="green"
             />
             <StatsCard
@@ -266,15 +274,13 @@ export default function DashboardPage() {
               icon={<ClockIcon />}
               label="Hours Learned"
               value={stats.hoursLearned.toFixed(1)}
-              trend={{ value: 25, isPositive: true }}
               color="orange"
-              sublabel="this week"
             />
           </div>
 
           {/* Chart + Activity (2/3 + 1/3) */}
           <div className="grid lg:grid-cols-[1fr_300px] gap-6">
-            <ProgressChart data={DEMO_CHART_DATA} />
+            <ProgressChart data={chartData} />
 
             {/* Today's goal */}
             <div className="bg-[#141414] rounded-2xl border border-white/[0.06] p-5 flex flex-col">
@@ -325,7 +331,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Heatmap */}
-          <ActivityHeatmap data={DEMO_HEATMAP_DATA} weeks={16} />
+          <ActivityHeatmap data={heatmap} weeks={16} />
 
           {/* Achievements */}
           <div className="bg-[#141414] rounded-2xl border border-white/[0.06] p-6">
@@ -365,6 +371,9 @@ export default function DashboardPage() {
               />
               <RecentActivity items={DEMO_ACTIVITY} />
             </div>
+
+            {/* Success stories — shown to all users, extra motivation */}
+            <SuccessStoriesWidget />
           </div>
         </main>
       </div>

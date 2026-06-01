@@ -775,3 +775,243 @@ FastAPI auto-generates full interactive documentation:
 - Swagger UI: `GET /docs`
 - ReDoc: `GET /redoc`
 - OpenAPI JSON: `GET /openapi.json`
+
+
+---
+
+## Payments & Subscriptions - Packet 4.1
+
+All routes require a Bearer token EXCEPT `GET /api/subscriptions/plans`
+(public pricing) and `POST /api/payments/webhook` (verified by the Flutterwave
+`verif-hash` header). Prices are in NGN.
+
+### GET /api/subscriptions/plans
+Public plan catalogue for the pricing/comparison UI.
+Response (200):
+```json
+{ "plans": [ { "plan_type": "pro", "name": "Pro Plan", "price": 2999,
+  "currency": "NGN", "yearly_price": 29990, "videos_per_month": 100,
+  "hours_per_month": 100, "questions_per_day": 20, "concepts_per_topic": 999999,
+  "features": ["offline_access", "ad_free"] } ] }
+```
+
+### GET /api/subscriptions/current
+Current plan + live usage for the signed-in user. Returns `plan_type`,
+`renewal_date`, `auto_renew`, `pending_plan_type`, `limits`, `usage`,
+`remaining_*`, and `usage_percentage`. Users with no subscription are reported
+as Free.
+
+### POST /api/subscriptions/create
+Body: `{ "plan_type": "free", "billing_cycle": "monthly" }`.
+Only the Free plan may be created here - paid plans return 400 ("use
+/api/payments/initialize").
+
+### POST /api/subscriptions/upgrade
+Body: `{ "new_plan": "premium" }`. Validates it is an upgrade, computes the
+pro-rated charge, and returns a Flutterwave `payment_link` (same shape as
+`/api/payments/initialize`). 400 if not an upgrade.
+
+### POST /api/subscriptions/downgrade
+Body: `{ "new_plan": "pro" }`. Queues the downgrade for the next renewal.
+Returns the subscription plus `effective_date`. 404 if no active sub, 400 if
+not a downgrade.
+
+### POST /api/subscriptions/cancel
+Body: `{ "reason": "..." }`. Turns off auto-renew; access continues until
+`access_until`. 404 if no active subscription.
+
+### GET /api/subscriptions/history
+Returns `{ "history": [ { "date", "amount", "plan", "description", "status" } ] }`.
+
+### POST /api/payments/initialize
+Body: `{ "plan_type": "pro", "billing_cycle": "monthly" }`. Records a pending
+`Transaction` and returns
+`{ transaction_id, reference, status, amount, payment_link, timestamp }`.
+502 if Flutterwave is unreachable/unconfigured.
+
+### GET /api/payments/verify/{reference}
+Verifies a payment with Flutterwave and, on success, provisions the plan
+(idempotent). Returns `{ "status": "successful" | "failed" | "pending", ... }`.
+
+### POST /api/payments/webhook
+Flutterwave webhook. Requires a valid `verif-hash` header (401 otherwise),
+then reconciles the transaction. Returns `{ "status": "ok" }`.
+
+
+---
+
+## Usage Limits & Rate Limiting - Packet 4.2
+
+All routes require a Bearer token. Usage data is derived live from existing
+event tables -- no separate counters. Rate limits are in-memory per process.
+
+### GET /api/usage/current
+Current month usage + plan limits.
+Response (200):
+```json
+{ "plan_type": "pro", "videos_watched": 47, "videos_limit": 100,
+  "videos_percentage": 47.0, "videos_remaining": 53,
+  "hours_learned": 25.5, "hours_limit": 100, "hours_percentage": 25.5,
+  "questions_today": 5, "questions_day_limit": 20, "questions_percentage": 25.0,
+  "month": "June 2026", "reset_date": "2026-07-01" }
+```
+
+### GET /api/usage/percentage
+Compact percentages for alert threshold checks.
+Response (200):
+```json
+{ "videos": 47.0, "hours": 25.5, "questions": 25.0, "overall": 32.5 }
+```
+
+### GET /api/usage/limits
+The user's plan limits + per-endpoint rate limits.
+Response (200):
+```json
+{ "plan_type": "free", "monthly_limits": { ... },
+  "endpoint_rate_limits": { "search:build-path": {"limit": 2, "window": "hourly"} } }
+```
+
+### POST /api/usage/check
+Body: `{ "action_type": "watch_video" }`.
+Returns `{ allowed, reason, remaining, upgrade_needed }`.
+Never returns 429 -- safe to call before gating UI elements.
+
+### Enforcement (added to existing endpoints)
+- `POST /api/sessions/start` -- 429 if monthly video quota exceeded
+- `POST /api/questions/evaluate` -- 429 if daily question rate exceeded
+- `POST /api/search/build-path` -- 429 if hourly search rate exceeded
+
+All 429 responses include `Retry-After`, `X-RateLimit-Remaining`,
+`X-RateLimit-Reset` headers.
+
+
+---
+
+## Free Tier Experience - Packet 4.3
+
+All routes require a Bearer token. Ad/prompt routes return null for paid users
+so callers can invoke them unconditionally.
+
+### GET /api/free-tier/ads/{placement}
+Get a rotating upgrade CTA for placement ("banner", "sidebar", "modal").
+Returns `{ "ad": null }` for Pro/Premium users.
+Response (200):
+```json
+{ "ad": { "ad_id": "cta-pro-videos", "title": "...", "cta_text": "Upgrade to Pro",
+  "cta_url": "/billing?plan=pro", "placement": "banner" } }
+```
+
+### GET /api/free-tier/upgrade-prompt/{context}
+Contexts: feature_locked, video_limit_reached, approaching_limit, question_limit,
+search_limit, general. Returns { show_prompt: false } for paid users.
+Response (200):
+```json
+{ "show_prompt": true, "prompt_type": "feature_lock", "title": "...",
+  "message": "...", "highlights": ["..."], "cta_text": "...", "cta_url": "/billing?plan=pro",
+  "dismiss_enabled": true }
+```
+
+### GET /api/free-tier/features
+Full feature availability map for the user's current plan.
+Response (200):
+```json
+{ "plan_type": "free", "features": { "watch_videos": true, "offline_download": false, ... } }
+```
+
+### POST /api/free-tier/features/check
+Body: `{ "feature_name": "offline_download" }`.
+Returns `{ available, reason, upgrade_needed, suggested_plan }`.
+
+### GET /api/free-tier/success-stories?count=3
+Returns up to `count` shuffled success stories.
+Response (200):
+```json
+{ "stories": [ { "user_name": "Adaeze O.", "achievement": "...", "story": "...",
+  "before_plan": "free", "after_plan": "pro", "metric": "3 months to certification" } ] }
+```
+
+
+---
+
+## Feature Unlock System - Packet 4.4
+
+All routes require auth except GET /api/features/plan/{plan_type} (public).
+
+### GET /api/features/check/{feature_name}
+Per-user feature availability check, enriched with upgrade cost and benefit.
+Response (200):
+```json
+{ "available": false, "feature_name": "offline_download", "user_plan": "free",
+  "min_plan_required": "pro", "upgrade_cost_monthly": 2999, "upgrade_cost_yearly": 29990,
+  "upgrade_benefit": "Download videos to watch without an internet connection.",
+  "upgrade_needed": true, "suggested_plan": "pro" }
+```
+
+### GET /api/features/available
+Available and locked feature lists for the current user's plan.
+Response (200):
+```json
+{ "plan_type": "free", "features": {"offline_download": false, ...},
+  "available_features": [...], "locked_features": ["offline_download", ...],
+  "limits": {"videos_per_month": 10, ...} }
+```
+
+### GET /api/features/plan/{plan_type}
+Public plan feature matrix -- no auth. plan_type: free | pro | premium.
+
+### GET /api/features/info/{feature_name}
+Promo payload for a locked feature (used by FeatureLock component).
+Response (200):
+```json
+{ "feature_name": "offline_download", "title": "Offline Download",
+  "description": "...", "benefits": [...], "required_plan": "pro",
+  "cost_monthly": 2999, "cost_yearly": 29990, "cta": "Upgrade to Pro",
+  "cta_url": "/billing?plan=pro" }
+```
+
+### GET /api/features/all
+Full FEATURE_INFO catalogue -- all features with description and benefits.
+
+### POST /api/features/{feature_name}/log
+Body: `{ "action": "viewed" }`. Best-effort usage log; always returns 200.
+
+
+---
+
+## Analytics & Usage Dashboard - Packet 4.5
+
+All routes require a Bearer token. Metrics are cached in-memory (TTL 60-900 s
+per endpoint). All routes degrade gracefully -- DB errors return zeros/empty
+lists, never 500 on the admin dashboard.
+
+### GET /api/analytics/user
+Personal analytics for the signed-in user (60 s cache).
+Response (200): { videos_watched_total, hours_learned_total, questions_answered,
+accuracy_percentage, learning_velocity (vid/day), days_active, last_active }
+
+### GET /api/analytics/platform
+Platform-wide user and activity metrics (300 s cache).
+Response (200): { total_users, new_users_this_month, active_users_30d,
+active_users_7d, active_users_today, total_videos_watched, total_hours_learned,
+avg_user_retention_pct }
+
+### GET /api/analytics/revenue
+MRR, ARPU, user counts by plan, 6-month revenue trend (300 s cache).
+
+### GET /api/analytics/churn
+Monthly churn rate, cancelled subs, at-risk paid users (300 s cache).
+
+### GET /api/analytics/cohorts
+User cohort retention table (last 6 signup months, 900 s cache).
+
+### GET /api/analytics/engagement
+Avg session length, sessions/user, video completion rate (300 s cache).
+
+### GET /api/analytics/funnel
+Signup -> first video -> paid conversion rates (900 s cache).
+
+### GET /api/analytics/health
+DB ping health check (60 s cache).
+
+### DELETE /api/analytics/cache
+Admin: flush the in-memory analytics cache immediately.

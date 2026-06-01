@@ -1,0 +1,61 @@
+{
+  "report": [
+    {
+      "name": "01-landing",
+      "path": "/",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/",
+      "title": "LearnPath AI — Learn anything, faster",
+      "ms": 7725
+    },
+    {
+      "name": "02-login",
+      "path": "/auth/login",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/auth/login",
+      "title": "Sign in — LearnPath AI",
+      "ms": 3572
+    },
+    {
+      "name": "03-signup",
+      "path": "/auth/signup",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/auth/signup",
+      "title": "Create account — LearnPath AI",
+      "ms": 2847
+    },
+    {
+      "name": "04-explore-anon",
+      "path": "/explore",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/auth/login?next=%2Fexplore",
+      "title": "Sign in — LearnPath AI",
+      "ms": 3306
+    },
+    {
+      "name": "05-dashboard-anon",
+      "path": "/dashboard",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/auth/login?next=%2Fdashboard",
+      "title": "Sign in — LearnPath AI",
+      "ms": 3071
+    },
+    {
+      "name": "06-courses-list-anon",
+      "path": "/courses/photosynthesis-101",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/auth/login?next=%2Fcourses%2Fphotosynthesis-101",
+      "title": "Sign in — LearnPath AI",
+      "ms": 3316
+    },
+    {
+      "name": "07-settings-anon",
+      "path": "/settings",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/auth/login?next=%2Fsettings",
+      "title": "Sign in — LearnPath AI",
+      "ms": 3456
+    }
+  ],
+  "errors": []
+}

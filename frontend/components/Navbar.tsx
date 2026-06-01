@@ -15,6 +15,8 @@ interface NavbarProps {
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/explore", label: "Explore" },
+  { href: "/referral", label: "Referral" },
+  { href: "/loyalty", label: "Loyalty" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -132,6 +134,24 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                         <p className="text-xs text-white/40 truncate">{user.email}</p>
                       </div>
                       <div className="py-1">
+                        <Link
+                          href="/referral"
+                          className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-surface-hover transition-colors"
+                        >
+                          Refer a friend
+                        </Link>
+                        <Link
+                          href="/loyalty"
+                          className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-surface-hover transition-colors"
+                        >
+                          Loyalty rewards
+                        </Link>
+                        <Link
+                          href="/billing"
+                          className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-surface-hover transition-colors"
+                        >
+                          Billing &amp; plan
+                        </Link>
                         <Link
                           href="/settings"
                           className="block px-4 py-2 text-sm text-white/70 hover:text-white hover:bg-surface-hover transition-colors"

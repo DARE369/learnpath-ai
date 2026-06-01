@@ -9,9 +9,23 @@ export interface ProgressStats {
   coursesStarted: number;
 }
 
+export interface WeeklyActivityPoint {
+  date: string;       // "Mon", "Tue", ...
+  videos: number;
+  minutes: number;
+}
+
+export interface HeatmapPoint {
+  date: string;       // ISO date "2026-05-30"
+  minutes: number;
+  videos: number;
+}
+
 interface ProgressContextValue {
   stats: ProgressStats;
   streak: number;
+  weekly: WeeklyActivityPoint[];
+  heatmap: HeatmapPoint[];
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -29,6 +43,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const { accessToken, user } = useAuth();
   const [stats, setStats] = useState<ProgressStats>(DEFAULT_STATS);
   const [streak, setStreak] = useState(0);
+  const [weekly, setWeekly] = useState<WeeklyActivityPoint[]>([]);
+  const [heatmap, setHeatmap] = useState<HeatmapPoint[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -36,9 +52,11 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
-      const [statsRes, streakRes] = await Promise.allSettled([
+      const [statsRes, streakRes, weeklyRes, heatmapRes] = await Promise.allSettled([
         axios.get("/api/progress/stats", { headers }),
         axios.get("/api/progress/streak", { headers }),
+        axios.get("/api/progress/weekly-activity", { headers }),
+        axios.get("/api/progress/heatmap?days=112", { headers }),
       ]);
 
       if (statsRes.status === "fulfilled") {
@@ -53,6 +71,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       if (streakRes.status === "fulfilled") {
         setStreak(streakRes.value.data.streak_days ?? 0);
       }
+      if (weeklyRes.status === "fulfilled") {
+        const activity = weeklyRes.value.data.activity ?? [];
+        setWeekly(activity);
+      }
+      if (heatmapRes.status === "fulfilled") {
+        const data = heatmapRes.value.data.data ?? [];
+        setHeatmap(data);
+      }
     } finally {
       setLoading(false);
     }
@@ -64,11 +90,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     } else {
       setStats(DEFAULT_STATS);
       setStreak(0);
+      setWeekly([]);
+      setHeatmap([]);
     }
   }, [accessToken, user, refresh]);
 
   return (
-    <ProgressContext.Provider value={{ stats, streak, loading, refresh }}>
+    <ProgressContext.Provider value={{ stats, streak, weekly, heatmap, loading, refresh }}>
       {children}
     </ProgressContext.Provider>
   );

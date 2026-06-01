@@ -268,10 +268,37 @@ export default function LearningSessionPage() {
     completed: completedVideos.has(i),
   }));
 
+  // Pull the user's real concept mastery from /api/progress/concepts so the
+  // sidebar reflects what they've actually learned. Falls back gracefully if
+  // the endpoint fails (e.g. no auth, no concept_progress rows yet).
+  const [conceptMastery, setConceptMastery] = useState<Record<string, { status: string; mastery: number }>>({});
+  useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get<{ concepts: Array<{ concept_name: string; status: string; mastery_score: number }> }>(
+          "/api/progress/concepts",
+          { headers: authHeader },
+        );
+        if (cancelled) return;
+        const map: Record<string, { status: string; mastery: number }> = {};
+        for (const c of res.data.concepts || []) {
+          map[c.concept_name.toLowerCase()] = {
+            status: c.status,
+            mastery: Math.round(c.mastery_score * 100),
+          };
+        }
+        setConceptMastery(map);
+      } catch { /* non-fatal — sidebar shows derived defaults */ }
+    })();
+    return () => { cancelled = true; };
+  }, [accessToken, authHeader]);
+
   // Derive concepts from the built path if we have one — every video object
-  // from the API has a "concepts" string[] field. Aggregate, dedupe, mark
-  // current video's as "learning" and others as "not_started". Falls back
-  // to the curated DEMO_CONCEPTS for catalog/demo paths.
+  // from the API has a "concepts" string[] field. Aggregate, dedupe, merge
+  // with real mastery data from /api/progress/concepts. Falls back to the
+  // curated DEMO_CONCEPTS for catalog/demo paths.
   const derivedConcepts = useMemo(() => {
     if (!builtVideos) return DEMO_CONCEPTS;
     const seen = new Set<string>();
@@ -285,19 +312,29 @@ export default function LearningSessionPage() {
         const parsed = JSON.parse(raw) as BuiltPathLite;
         const concepts = (parsed.learning_path?.[i] as { concepts?: string[] } | undefined)?.concepts || [];
         concepts.forEach((c) => {
-          if (!seen.has(c)) {
-            seen.add(c);
-            list.push({
-              name: c,
-              status: i === videoIndex ? "learning" : "not_started",
-              mastery: i === videoIndex ? 30 : 0,
-            });
+          if (seen.has(c)) return;
+          seen.add(c);
+          const real = conceptMastery[c.toLowerCase()];
+          let status: "mastered" | "learning" | "not_started";
+          let mastery: number;
+          if (real) {
+            // Real mastery wins over heuristic
+            status = real.status === "mastered"
+              ? "mastered"
+              : real.mastery > 0
+                ? "learning"
+                : "not_started";
+            mastery = real.mastery;
+          } else {
+            status = i === videoIndex ? "learning" : "not_started";
+            mastery = i === videoIndex ? 30 : 0;
           }
+          list.push({ name: c, status, mastery });
         });
       } catch { /* malformed stash — ignore */ }
     });
     return list.length > 0 ? list : DEMO_CONCEPTS;
-  }, [builtVideos, decodedPathId, videoIndex]);
+  }, [builtVideos, decodedPathId, videoIndex, conceptMastery]);
 
   const hasNext = videoIndex < videos.length - 1;
   const hasPrev = videoIndex > 0;

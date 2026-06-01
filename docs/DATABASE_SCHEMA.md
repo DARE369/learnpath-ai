@@ -183,3 +183,58 @@ LIMIT 10;
 | path_sessions | Own only | Own only | Private data |
 | concept_graphs | Yes | Backend only | Algorithm output |
 | learning_paths | Yes | Backend only | Algorithm output |
+
+
+## Payments - Packet 4.1
+
+### subscriptions
+One row per subscription period; at most one `active` row per user (enforced in
+`SubscriptionService`, not the DB).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK users.id, indexed |
+| plan_type | String | free / pro / premium |
+| pending_plan_type | String | queued downgrade target |
+| billing_cycle | String | monthly / yearly |
+| start_date | DateTime | |
+| renewal_date | DateTime | indexed |
+| price_paid | Float | NGN |
+| currency | String | default NGN |
+| status | String | active / cancelled / expired, indexed |
+| auto_renew | Boolean | |
+| cancelled_at | DateTime | |
+
+### transactions
+One row per Flutterwave payment attempt. `reference` (our `tx_ref`) is the
+idempotency key.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK users.id, indexed |
+| subscription_id | UUID | FK subscriptions.id, nullable |
+| plan_type | String | |
+| amount | Float | NGN |
+| currency | String | |
+| payment_method | String | card / bank_transfer / ussd / mobile_money |
+| reference | String | unique, indexed (our tx_ref) |
+| flutterwave_id | String | Flutterwave's tx id, indexed |
+| status | String | pending / successful / failed / refunded, indexed |
+
+### billing_history
+Immutable line items written on each successful charge / renewal, with a usage
+snapshot at billing time.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | PK |
+| user_id | UUID | FK users.id, indexed |
+| transaction_id | UUID | FK transactions.id, nullable |
+| billing_date | DateTime | indexed |
+| amount | Float | NGN |
+| plan_used | String | |
+| description | String | |
+| videos_watched | Integer | snapshot |
+| hours_learned | Float | snapshot |

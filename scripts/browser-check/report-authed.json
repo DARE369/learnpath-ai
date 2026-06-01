@@ -1,0 +1,53 @@
+{
+  "report": [
+    {
+      "name": "08-authed-landing",
+      "path": "/",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/dashboard",
+      "title": "Dashboard — LearnPath AI",
+      "ms": 5559
+    },
+    {
+      "name": "09-authed-dashboard",
+      "path": "/dashboard",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/dashboard",
+      "title": "Dashboard — LearnPath AI",
+      "ms": 3758
+    },
+    {
+      "name": "10-authed-explore",
+      "path": "/explore",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/explore",
+      "title": "Explore — LearnPath AI",
+      "ms": 3416
+    },
+    {
+      "name": "11-authed-course-detail",
+      "path": "/courses/photosynthesis-101",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/courses/photosynthesis-101",
+      "title": "Photosynthesis: From Light to Glucose — LearnPath AI",
+      "ms": 3365
+    },
+    {
+      "name": "12-authed-course-detail-ml",
+      "path": "/courses/neural-networks-foundations",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/courses/neural-networks-foundations",
+      "title": "Neural Networks: Foundations — LearnPath AI",
+      "ms": 3423
+    },
+    {
+      "name": "13-authed-settings",
+      "path": "/settings",
+      "status": 200,
+      "finalUrl": "https://learnpath-ai-eight.vercel.app/settings",
+      "title": "Settings — LearnPath AI",
+      "ms": 3334
+    }
+  ],
+  "errors": []
+}

@@ -362,6 +362,188 @@ class ConceptBranch(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Subscription(Base):
+    """
+    A user's subscription record (Packet 4.1).
+
+    One user can have many rows over time, but at most ONE active row at a
+    time (enforced in SubscriptionService, not the DB). `plan_type` is the
+    plan currently in effect; `pending_plan_type` holds a queued downgrade
+    that the daily renewal job applies at `renewal_date`.
+    """
+    __tablename__ = "subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    plan_type = Column(String, nullable=False, default="free")   # free | pro | premium
+    pending_plan_type = Column(String, nullable=True)            # queued downgrade target
+    billing_cycle = Column(String, nullable=False, default="monthly")  # monthly | yearly
+
+    start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    renewal_date = Column(DateTime, index=True)
+
+    price_paid = Column(Float, default=0)
+    currency = Column(String, default="NGN")
+
+    status = Column(String, nullable=False, default="active", index=True)  # active | cancelled | expired
+    auto_renew = Column(Boolean, default=True)
+    cancelled_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Transaction(Base):
+    """
+    A single payment attempt against Flutterwave (Packet 4.1).
+
+    `reference` is our tx_ref sent to Flutterwave and is the idempotency key
+    for verification + webhook reconciliation.
+    """
+    __tablename__ = "transactions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id"), nullable=True)
+
+    plan_type = Column(String)  # plan this payment is for
+    amount = Column(Float, nullable=False)
+    currency = Column(String, default="NGN")
+
+    payment_method = Column(String)  # card | bank_transfer | ussd | mobile_money
+    reference = Column(String, unique=True, nullable=False, index=True)  # our tx_ref
+    flutterwave_id = Column(String, index=True)  # Flutterwave's transaction id (on success)
+
+    status = Column(String, nullable=False, default="pending", index=True)  # pending | successful | failed | refunded
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BillingHistory(Base):
+    """
+    Immutable billing line items (Packet 4.1).
+
+    Written on every successful charge and on each auto-renewal, capturing a
+    usage snapshot at billing time so invoices stay accurate even as live
+    usage counters keep moving.
+    """
+    __tablename__ = "billing_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id"), nullable=True)
+
+    billing_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    amount = Column(Float, default=0)
+    currency = Column(String, default="NGN")
+    plan_used = Column(String)  # which plan was billed
+    description = Column(String)  # e.g. "Pro plan — monthly renewal"
+
+    # usage snapshot at billing time
+    videos_watched = Column(Integer, default=0)
+    hours_learned = Column(Float, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ReferralCode(Base):
+    """
+    One row per user — created on first request, persists for life.
+    `earnings_this_month` resets transparently in ReferralService when the
+    stored `earnings_month` (YYYY-MM) differs from the current month, so no
+    cron job is needed to enforce the monthly cap.
+    """
+    __tablename__ = "referral_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    code = Column(String(20), unique=True, nullable=False, index=True)
+
+    total_referrals = Column(Integer, default=0)
+    successful_referrals = Column(Integer, default=0)
+    total_earnings = Column(Float, default=0.0)
+    earnings_this_month = Column(Float, default=0.0)
+    earnings_month = Column(String(7))  # "YYYY-MM"; resets when month changes
+
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Referral(Base):
+    """One row per referred-user relationship (Packet 4.6)."""
+    __tablename__ = "referrals"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    referrer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    referred_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    referral_code = Column(String(20), nullable=False, index=True)
+
+    status = Column(String, nullable=False, default="pending")  # pending | signed_up | rewarded
+    clicked_at = Column(DateTime, nullable=True)
+    signed_up_at = Column(DateTime, nullable=True)
+    reward_given_at = Column(DateTime, nullable=True)
+    reward_amount = Column(Float, default=0.0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class LoyaltyPoints(Base):
+    """
+    Running loyalty point balance per user (Packet 4.6).
+    `total_points` is spendable (decrements on redemption).
+    `lifetime_points` only ever increases and drives tier calculation so users
+    don't lose tier status when they redeem rewards.
+    """
+    __tablename__ = "loyalty_points"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True)
+
+    total_points = Column(Integer, default=0)       # spendable balance
+    lifetime_points = Column(Integer, default=0)    # always-increasing tier driver
+
+    current_tier = Column(String, default="bronze")
+    bonus_multiplier = Column(Float, default=1.0)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LoyaltyHistory(Base):
+    """Immutable ledger of every point earn/spend (Packet 4.6)."""
+    __tablename__ = "loyalty_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    action_type = Column(String, nullable=False)   # video_watch | question | upgrade | referral | redeem
+    points_delta = Column(Integer, nullable=False)  # positive = earned, negative = spent
+    balance_after = Column(Integer, nullable=False)
+    description = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class RewardCode(Base):
+    """Generated reward codes produced when a user redeems loyalty points (Packet 4.6)."""
+    __tablename__ = "reward_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    code = Column(String(20), unique=True, nullable=False, index=True)
+    reward_type = Column(String, nullable=False)   # discount | free_month | three_months
+    reward_value = Column(Integer, nullable=False)  # NGN amount or months
+    points_cost = Column(Integer, nullable=False)
+
+    is_used = Column(Boolean, default=False)
+    used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class QuestionAnswer(Base):
     """Stores answered questions and drives spaced-repetition scheduling."""
     __tablename__ = "question_answers"

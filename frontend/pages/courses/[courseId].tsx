@@ -3,7 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { getCourse, Difficulty } from "../../utils/catalog";
-import BranchSelector, { Branch } from "../../components/Learning/BranchSelector";
+import BranchSelector from "../../components/Learning/BranchSelector";
 
 const DIFFICULTY_STYLE: Record<Difficulty, string> = {
   beginner: "bg-success-muted text-success",
@@ -39,13 +39,6 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const { courseId } = router.query;
   const course = getCourse(typeof courseId === "string" ? courseId : undefined);
-
-  const handleBranchSelect = (branch: Branch) => {
-    // Branch-specific path is a stub (Packet 3.1). For now, drive the existing
-    // search pipeline with the branch title so the learner still gets curated
-    // videos. Real branch-scoped path assembly arrives in a follow-up.
-    router.push(`/explore?q=${encodeURIComponent(branch.branch_title)}&autorun=1`);
-  };
 
   if (!course) {
     return (
@@ -142,8 +135,9 @@ export default function CourseDetailPage() {
           </Link>
         </div>
 
-        {/* Branches */}
-        <BranchSelector conceptName={course.title} onSelect={handleBranchSelect} />
+        {/* Branches — BranchSelector calls the real branch-path endpoint and
+            navigates to /learning itself when no onSelect is provided. */}
+        <BranchSelector conceptName={course.title} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Syllabus */}

@@ -51,6 +51,18 @@ class Settings(BaseSettings):
     EXPANSION_SCHEDULER_ENABLED: bool = False
     EXPANSION_SCHEDULER_HOUR_UTC: int = 2  # 2 AM UTC = midnight WAT
 
+    # Payments (Packet 4.1) — Flutterwave gateway
+    # All optional: when the secret key is unset the PaymentService degrades
+    # gracefully (raises PaymentError instead of making live API calls), so
+    # dev/CI never hit the network.
+    FLUTTERWAVE_PUBLIC_KEY: Optional[str] = None
+    FLUTTERWAVE_SECRET_KEY: Optional[str] = None
+    FLUTTERWAVE_WEBHOOK_SECRET: Optional[str] = None
+    FLUTTERWAVE_BASE_URL: str = "https://api.flutterwave.com/v3"
+    PAYMENT_SUCCESS_URL: str = "http://localhost:3000/billing?status=success"
+    PAYMENT_CANCEL_URL: str = "http://localhost:3000/billing?status=cancelled"
+    PAYMENT_CURRENCY: str = "NGN"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
