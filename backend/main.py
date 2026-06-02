@@ -353,6 +353,10 @@ app.include_router(organizations.router, prefix="/api/organizations", tags=["org
 app.include_router(teachers.router, prefix="/api/teachers", tags=["teachers"])
 app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
 
+# NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
+from routers import quizzes
+app.include_router(quizzes.router)
+
 
 if __name__ == "__main__":
     import uvicorn

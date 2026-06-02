@@ -12,6 +12,7 @@ import RecommendedCourses from "../components/Dashboard/RecommendedCourses";
 import UsageAlert from "../components/Billing/UsageAlert";
 import AdBanner from "../components/Ads/AdBanner";
 import SuccessStoriesWidget from "../components/Success/SuccessStoriesWidget";
+import QuizModal from "../components/Quiz/QuizModal";
 import { useProgress } from "../hooks/useProgress";
 import { useAuth } from "../hooks/useAuth";
 import type { UsageData } from "../components/Billing/UsageCard";
@@ -144,6 +145,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [userName, setUserName] = useState<string | null>(null);
   const [usageData, setUsageData] = useState<UsageData | null>(null);
+  const [quizModalOpen, setQuizModalOpen] = useState(false);
   const userPlan = user?.tier || "free";
 
   // Real data from the backend via useProgress (calls /api/progress/*)
@@ -322,10 +324,16 @@ export default function DashboardPage() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-white/[0.06]">
-                <div className="flex items-center justify-between text-xs text-white/30">
+                <div className="flex items-center justify-between text-xs text-white/30 mb-3">
                   <span>1/3 goals complete</span>
                   <span className="text-indigo-400 font-medium">33%</span>
                 </div>
+                <button
+                  onClick={() => setQuizModalOpen(true)}
+                  className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
+                >
+                  🎯 Take a Quick Quiz
+                </button>
               </div>
             </div>
           </div>
@@ -376,6 +384,12 @@ export default function DashboardPage() {
             <SuccessStoriesWidget />
           </div>
         </main>
+
+        {/* Quiz Modal */}
+        <QuizModal
+          isOpen={quizModalOpen}
+          onClose={() => setQuizModalOpen(false)}
+        />
       </div>
     </>
   );

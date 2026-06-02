@@ -726,3 +726,151 @@ class SchoolAnalytics(Base):
     time_spent_hours = Column(Integer, default=0)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
+
+class QuizSession(Base):
+    """Quiz session - groups all questions in one quiz attempt (NEW-PACKET-C)"""
+    __tablename__ = "quiz_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    topic_id = Column(UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True, index=True)
+
+    session_started_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    session_completed_at = Column(DateTime, nullable=True)
+
+    # Quiz metadata
+    quiz_type = Column(String, default="section")  # section | module | full_path | mock_exam
+    total_questions = Column(Integer, default=5)
+    questions_answered = Column(Integer, default=0)
+    correct_answers = Column(Integer, default=0)
+    score_percent = Column(Integer, default=0)
+
+    # Timing
+    total_time_seconds = Column(Integer, default=0)
+    avg_time_per_question = Column(Integer, default=0)
+
+    # IRT results
+    estimated_ability = Column(Float, default=0.0)  # θ ability estimate
+    ability_range = Column(JSON, default=dict)  # {"low": -1.5, "high": 0.8}
+
+    # Analysis
+    weak_concepts = Column(ARRAY(String), default=list)
+    strong_concepts = Column(ARRAY(String), default=list)
+
+    # Feedback
+    performance_level = Column(String)  # below_average | average | above_average | expert
+    recommendation = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class QuizQuestion(Base):
+    """Quiz questions - cached for fast loading (NEW-PACKET-C)"""
+    __tablename__ = "quiz_questions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    topic_id = Column(UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True, index=True)
+
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String, default="multiple_choice")  # multiple_choice | true_false | short_answer
+
+    # Options (for MC/TF)
+    options = Column(JSON, default=list)  # [{"text": "A", "correct": true, "id": "A"}, ...]
+
+    # IRT parameters
+    difficulty_parameter = Column(Float, default=0.0)  # -3 to +3 (lower = easier)
+    discrimination_parameter = Column(Float, default=1.0)  # How well it measures ability
+    guessing_parameter = Column(Float, default=0.0)  # Probability of guessing correctly
+
+    # Answer explanation
+    correct_answer_id = Column(String)
+    explanation = Column(Text)
+    explanation_for_each_option = Column(JSON, default=dict)  # {"A": "Why...", "B": "Why...", ...}
+
+    # Metadata
+    concept_id = Column(String, index=True)  # Link to knowledge concept
+    tags = Column(ARRAY(String), default=list)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class QuizResponse(Base):
+    """User quiz responses - core data for IRT + analytics (NEW-PACKET-C)"""
+    __tablename__ = "quiz_responses"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    quiz_session_id = Column(UUID(as_uuid=True), ForeignKey("quiz_sessions.id"), nullable=False, index=True)
+    question_id = Column(UUID(as_uuid=True), ForeignKey("quiz_questions.id"), nullable=False, index=True)
+
+    # User's answer
+    user_answer_id = Column(String)
+    is_correct = Column(Boolean, default=False)
+
+    # Confidence (1-10 scale)
+    confidence_rating = Column(Integer, default=5)  # 1 = not sure, 10 = very sure
+    confidence_appropriate = Column(Boolean, default=False)  # Matches correctness?
+
+    # Timing
+    time_spent_seconds = Column(Integer, default=0)
+
+    # IRT tracking
+    learner_ability_before = Column(Float, default=0.0)  # θ before this Q
+    learner_ability_after = Column(Float, default=0.0)  # θ after this Q
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ConceptMastery(Base):
+    """Concept mastery tracking - aggregate progress per concept (NEW-PACKET-C)"""
+    __tablename__ = "concept_mastery"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    concept_id = Column(String, nullable=False, index=True)
+
+    # Mastery tracking
+    questions_attempted = Column(Integer, default=0)
+    questions_correct = Column(Integer, default=0)
+    accuracy_percent = Column(Integer, default=0)
+
+    # Progress
+    is_mastered = Column(Boolean, default=False)  # >80% accuracy
+    mastered_date = Column(DateTime, nullable=True)
+
+    last_attempted = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class FSRSCard(Base):
+    """Spaced repetition cards (FSRS scheduling) (NEW-PACKET-C)"""
+    __tablename__ = "fsrs_cards"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    # Card content (from failed quiz questions)
+    source_type = Column(String, default="quiz_question")  # quiz_question | flashcard
+    source_id = Column(UUID(as_uuid=True))
+
+    # FSRS state
+    state = Column(String, default="new")  # new | learning | reviewing | relearning
+    due_date = Column(DateTime, default=datetime.utcnow)
+
+    # Metrics
+    stability = Column(Float, default=1.0)  # Resistance to forgetting
+    difficulty = Column(Float, default=5.0)  # Estimated difficulty (0-10)
+    elapsed_days = Column(Integer, default=0)
+    scheduled_days = Column(Integer, default=1)
+    reps = Column(Integer, default=0)  # Number of reviews
+    lapses = Column(Integer, default=0)  # Number of failures
+    last_reviewed = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
