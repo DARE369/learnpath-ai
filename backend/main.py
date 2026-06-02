@@ -6,6 +6,8 @@ import logging
 from datetime import datetime
 
 from config import settings
+from config_validator import startup_checks
+from services.performance_monitor import PerformanceMiddleware
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
@@ -132,6 +134,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT} | Debug: {settings.DEBUG}")
 
+    # 0. Validate configuration (Packet 6.2)
+    try:
+        if not startup_checks():
+            logger.error("Startup checks failed. Exiting.")
+            import sys
+            sys.exit(1)
+    except Exception as e:
+        logger.error(f"Startup checks error: {e}", exc_info=True)
+        import sys
+        sys.exit(1)
+
     # 1. Create any missing tables (idempotent — never alters existing).
     try:
         import models  # noqa: F401  (side effect: registers tables with Base.metadata)
@@ -181,6 +194,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Performance monitoring middleware (Packet 6.2)
+app.add_middleware(PerformanceMiddleware)
 
 
 @app.middleware("http")
