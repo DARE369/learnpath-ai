@@ -6,6 +6,8 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import Navbar from "../components/Navbar";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { ProgressProvider } from "../hooks/useProgress";
+import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
+import { OfflineIndicator } from "../components/PWA/OfflineIndicator";
 import "../styles/globals.css";
 
 const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password"];
@@ -75,6 +77,8 @@ function Shell({ Component, pageProps }: AppProps) {
       <main>
         <Component {...pageProps} />
       </main>
+      <OfflineIndicator />
+      <PWAInstallPrompt />
     </>
   );
 }
@@ -93,6 +97,14 @@ export default function App(props: AppProps) {
           <Head>
             <title>LearnPath AI</title>
             <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <meta name="description" content="AI-powered personalized learning platform" />
+            <meta name="theme-color" content="#3b82f6" />
+            <meta name="apple-mobile-web-app-capable" content="yes" />
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+            <meta name="apple-mobile-web-app-title" content="LearnPath" />
+            <link rel="manifest" href="/manifest.json" />
+            <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+            <link rel="icon" type="image/png" href="/icons/icon-192x192.png" />
           </Head>
           <Shell {...props} />
         </ProgressProvider>

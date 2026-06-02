@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
 
 interface NavbarUser {
   name: string;
@@ -90,6 +91,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             {user ? (
               <>
                 {/* Mobile menu toggle */}
