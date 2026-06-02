@@ -1,0 +1,116 @@
+{
+  "name": "LearnPath AI",
+  "short_name": "LearnPath",
+  "description": "AI-powered personalized learning platform with intelligent video recommendations and adaptive quizzes",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "dir": "ltr",
+  "lang": "en-US",
+  "categories": ["education", "learning"],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard-540x720.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/dashboard-1280x720.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Learning Paths",
+      "short_name": "Learning",
+      "description": "View your active learning paths and progress",
+      "url": "/learning",
+      "icons": [
+        {
+          "src": "/icons/learning-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "View your dashboard with stats and recommendations",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icons/dashboard-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Community",
+      "short_name": "Community",
+      "description": "Connect with other learners",
+      "url": "/community",
+      "icons": [
+        {
+          "src": "/icons/community-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/api/share",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "protocol_handlers": [],
+  "file_handlers": [
+    {
+      "action": "/api/import/pdf",
+      "accept": {
+        "application/pdf": [".pdf"]
+      }
+    }
+  ]
+}
