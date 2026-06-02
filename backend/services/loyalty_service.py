@@ -20,9 +20,12 @@ import secrets
 import string
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    import models
 
 logger = logging.getLogger(__name__)
 
