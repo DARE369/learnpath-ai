@@ -83,40 +83,24 @@ def validate_database() -> bool:
 
 
 def validate_api_keys() -> bool:
-    """Validate external API keys at startup.
+    """Advisory presence check for external API keys.
 
-    Returns:
-        bool: True if critical APIs are reachable
+    Deliberately makes NO network calls — boot-time calls to Claude/YouTube
+    were both fragile (SDK drift, optional deps) and a startup hazard. We only
+    confirm the keys are configured and log warnings otherwise. Always returns
+    True: a missing optional key must never block startup.
     """
-    issues = []
-
-    # Test Claude API
     if os.getenv("CLAUDE_API_KEY"):
-        try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=os.getenv("CLAUDE_API_KEY"))
-            client.messages.count_tokens(messages=[{"role": "user", "content": "test"}])
-            logger.info("✓ Claude API verified")
-        except Exception as e:
-            issues.append(f"Claude API: {e}")
+        logger.info("✓ Claude API key present")
+    else:
+        logger.warning("CLAUDE_API_KEY not set — Claude-powered features disabled")
 
-    # Test YouTube API
     if os.getenv("YOUTUBE_API_KEY"):
-        try:
-            from googleapiclient.discovery import build
-            youtube = build("youtube", "v3", developerKey=os.getenv("YOUTUBE_API_KEY"))
-            youtube.videos().list(part="snippet", id="test").execute()
-        except Exception as e:
-            # Expected to fail with test ID, just checking if API is reachable
-            if "invalid" not in str(e).lower():
-                issues.append(f"YouTube API: {e}")
-            else:
-                logger.info("✓ YouTube API verified")
+        logger.info("✓ YouTube API key present")
+    else:
+        logger.warning("YOUTUBE_API_KEY not set — YouTube search disabled")
 
-    if issues:
-        logger.warning(f"API validation warnings: {', '.join(issues)}")
-
-    return len(issues) == 0
+    return True
 
 
 def startup_checks() -> bool:

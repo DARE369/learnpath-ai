@@ -134,16 +134,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT} | Debug: {settings.DEBUG}")
 
-    # 0. Validate configuration (Packet 6.2)
+    # 0. Validate configuration (Packet 6.2). startup_checks() exits the
+    # process itself if a CRITICAL check (Configuration/Database) fails.
+    # Non-critical checks (e.g. external API reachability) only warn — we do
+    # NOT treat a False return as fatal here, or a flaky optional dependency
+    # would brick the whole backend on boot.
     try:
-        if not startup_checks():
-            logger.error("Startup checks failed. Exiting.")
-            import sys
-            sys.exit(1)
+        startup_checks()
+    except SystemExit:
+        raise
     except Exception as e:
         logger.error(f"Startup checks error: {e}", exc_info=True)
-        import sys
-        sys.exit(1)
 
     # 1. Create any missing tables (idempotent — never alters existing).
     try:
