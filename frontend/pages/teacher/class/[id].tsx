@@ -167,7 +167,7 @@ export default function ClassPage() {
             {filteredStudents.length === 0 ? (
               <div className="bg-surface-elevated rounded-xl p-8 border border-border text-center">
                 <p className="text-white/60">
-                  No students in "{filter}" filter
+                  No students in &quot;{filter}&quot; filter
                 </p>
               </div>
             ) : (

@@ -29,6 +29,8 @@ Confidence ladder (per spec):
     0-50  poor          no cache (immediate re-eval)
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import re

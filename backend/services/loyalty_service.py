@@ -13,6 +13,8 @@ Applying them to a subscription (discounting the next invoice) is handled
 at checkout — deferred for full Flutterwave integration.
 """
 
+from __future__ import annotations
+
 import logging
 import secrets
 import string
