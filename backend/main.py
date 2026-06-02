@@ -331,6 +331,12 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"]
 app.include_router(referral.router, prefix="/api/referral", tags=["referral"])
 app.include_router(loyalty.router, prefix="/api/loyalty", tags=["loyalty"])
 
+# Stage 5: B2B & Institutional layer routers (Packet 5.0)
+from routers import organizations, teachers, schools
+app.include_router(organizations.router, prefix="/api/organizations", tags=["organizations"])
+app.include_router(teachers.router, prefix="/api/teachers", tags=["teachers"])
+app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
+
 
 if __name__ == "__main__":
     import uvicorn

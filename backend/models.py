@@ -572,3 +572,157 @@ class QuestionAnswer(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PACKET 5.0: B2B & INSTITUTIONAL (Schools, Teachers, Classes)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class Organization(Base):
+    """School or institution account (Packet 5.0)"""
+    __tablename__ = "organizations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False, index=True)
+    type = Column(String, default="school")  # school | coaching_center | corporate | bootcamp
+    country = Column(String)
+    city = Column(String)
+    admin_email = Column(String, nullable=False)
+    admin_name = Column(String)
+    phone = Column(String)
+    website = Column(String)
+
+    subscription_tier = Column(String, default="trial")  # trial | starter | pro | enterprise
+    subscription_start_date = Column(DateTime)
+    subscription_end_date = Column(DateTime)
+    status = Column(String, default="active")  # active | trial | suspended | canceled
+
+    student_count = Column(Integer, default=0)
+    teacher_count = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Teacher(Base):
+    """School staff member (Packet 5.0)"""
+    __tablename__ = "teachers"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    role = Column(String, default="teacher")  # teacher | department_head | principal
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Class(Base):
+    """School classroom/group (Packet 5.0)"""
+    __tablename__ = "classes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("teachers.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)  # e.g., "SS1 English", "Grade 10 Math"
+    subject = Column(String)
+    description = Column(Text)
+    max_students = Column(Integer, default=50)
+    enrolled_students = Column(Integer, default=0)
+    learning_path_id = Column(UUID(as_uuid=True), nullable=True)  # Link to learning path
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ClassMembership(Base):
+    """Student enrollment in a class (Packet 5.0)"""
+    __tablename__ = "class_memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    enrollment_status = Column(String, default="active")  # active | completed | dropped
+    enrolled_date = Column(DateTime, default=datetime.utcnow)
+    progress_percent = Column(Integer, default=0)
+    average_score = Column(Integer, default=0)
+    last_active = Column(DateTime)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class OrganizationSubscription(Base):
+    """School subscription tier and limits (Packet 5.0)"""
+    __tablename__ = "organization_subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, unique=True, index=True)
+    tier = Column(String, nullable=False)  # starter | pro | enterprise
+    student_limit = Column(Integer)
+    teacher_limit = Column(Integer)
+    class_limit = Column(Integer)
+    features = Column(JSON, default=dict)
+
+    start_date = Column(DateTime, default=datetime.utcnow)
+    end_date = Column(DateTime)
+    auto_renew = Column(Boolean, default=True)
+    status = Column(String, default="active")  # active | expired | canceled
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class OrganizationPayment(Base):
+    """School subscription payment (Packet 5.0)"""
+    __tablename__ = "organization_payments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    subscription_id = Column(UUID(as_uuid=True), ForeignKey("organization_subscriptions.id"), nullable=True)
+
+    amount = Column(Float, nullable=False)  # In NGN
+    currency = Column(String, default="NGN")
+    billing_period_start = Column(Date)
+    billing_period_end = Column(Date)
+    invoice_number = Column(String, unique=True, index=True)
+    status = Column(String, default="pending")  # paid | pending | overdue | failed
+
+    due_date = Column(Date)
+    paid_date = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TeacherAnalytics(Base):
+    """Daily analytics for teacher (Packet 5.0)"""
+    __tablename__ = "teacher_analytics"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("teachers.id"), nullable=False, index=True)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+
+    active_students = Column(Integer, default=0)
+    avg_quiz_score = Column(Float, default=0)
+    total_time_minutes = Column(Integer, default=0)
+    paths_completed = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SchoolAnalytics(Base):
+    """Daily analytics for school (Packet 5.0)"""
+    __tablename__ = "school_analytics"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+
+    total_active_students = Column(Integer, default=0)
+    total_active_teachers = Column(Integer, default=0)
+    avg_student_score = Column(Float, default=0)
+    paths_completed = Column(Integer, default=0)
+    time_spent_hours = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
