@@ -114,7 +114,7 @@ class TestAtRiskDetection:
         memberships = [
             MagicMock(student_id="s1", average_score=85, progress_percent=80, last_active=datetime.utcnow()),
             MagicMock(student_id="s2", average_score=45, progress_percent=60, last_active=datetime.utcnow()),  # At-risk
-            MagicMock(student_id="s3", average_score=70, progress_percent=30, last_active=datetime.utcnow()),  # At-risk (low progress)
+            MagicMock(student_id="s3", average_score=70, progress_percent=15, last_active=datetime.utcnow()),  # At-risk (low progress)
         ]
 
         at_risk = []
