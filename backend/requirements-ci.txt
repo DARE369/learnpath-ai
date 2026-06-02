@@ -7,7 +7,7 @@ uvicorn==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
-sqlalchemy==2.0.23
+sqlalchemy==2.0.50  # >=2.0.31 needed: postgresql.UUID must compile on SQLite for unit-test fixtures
 psycopg2-binary==2.9.9
 httpx==0.25.1
 youtube-transcript-api==0.6.1
