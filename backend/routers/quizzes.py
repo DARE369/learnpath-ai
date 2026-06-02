@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import uuid
 
 from database import get_db
 from models import User, QuizSession, QuizQuestion

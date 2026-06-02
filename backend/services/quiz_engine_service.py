@@ -1,11 +1,10 @@
 import math
-import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 
 from models import (
-    QuizSession, QuizQuestion, QuizResponse, ConceptMastery, FSRSCard, User
+    QuizSession, QuizQuestion, QuizResponse, ConceptMastery, FSRSCard
 )
 
 
