@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { Award, Zap, Check, TrendingUp, Gift } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LoyaltyStatus {
   total_points: number;
@@ -24,20 +25,18 @@ interface LoyaltyStatus {
 
 export default function LoyaltyPage() {
   const router = useRouter();
+  const { accessToken } = useAuth();
   const [status, setStatus] = useState<LoyaltyStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchStatus();
-  }, []);
-
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
+    if (!accessToken) return;
     try {
       const response = await fetch('/api/loyalty/status', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
-      if (response.status === 401) { router.push('/login'); return; }
+      if (response.status === 401) { router.push('/auth/login'); return; }
       if (!response.ok) throw new Error('Failed to fetch loyalty status');
       setStatus(await response.json());
     } catch (err) {
@@ -45,7 +44,11 @@ export default function LoyaltyPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, router]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   const handleRedeem = async (pointsCost: number, rewardType: string) => {
     try {
@@ -53,7 +56,7 @@ export default function LoyaltyPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${accessToken}`
         },
         body: JSON.stringify({ points_amount: pointsCost, reward_type: rewardType })
       });

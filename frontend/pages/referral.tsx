@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { Gift, Share2, Copy, Check, Clock, TrendingUp, Mail, MessageSquare } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ReferralStats {
   referral_code: string;
@@ -24,21 +25,19 @@ interface ReferralStats {
 
 export default function ReferralPage() {
   const router = useRouter();
+  const { accessToken } = useAuth();
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
+    if (!accessToken) return;
     try {
       const response = await fetch('/api/referral/stats', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
-      if (response.status === 401) { router.push('/login'); return; }
+      if (response.status === 401) { router.push('/auth/login'); return; }
       if (!response.ok) throw new Error('Failed to fetch referral stats');
       setStats(await response.json());
     } catch (err) {
@@ -46,7 +45,11 @@ export default function ReferralPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, router]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const handleCopyLink = () => {
     if (stats?.referral_url) {
