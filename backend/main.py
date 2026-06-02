@@ -161,6 +161,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Schema-patch step failed: {e}", exc_info=True)
 
+    # 2.5 Seed sample quiz questions on first boot (idempotent — no-ops once
+    # any question exists, so curated content added later is never touched).
+    try:
+        from jobs.quiz_seed import seed_quiz_questions_if_empty
+        seed_quiz_questions_if_empty()
+    except Exception as e:
+        logger.error(f"Quiz-seed step failed: {e}", exc_info=True)
+
     # 3. Start the nightly self-expansion scheduler (Packet 3.5).
     # No-op when EXPANSION_SCHEDULER_ENABLED=False or apscheduler is missing.
     try:
