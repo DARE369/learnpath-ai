@@ -37,13 +37,16 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import anthropic
 from sqlalchemy.orm import Session
 
 from config import settings
 from services.cost_tracker import cost_tracker, BudgetExceeded
+
+if TYPE_CHECKING:
+    from models import ExpandedVideoScore
 
 logger = logging.getLogger(__name__)
 
