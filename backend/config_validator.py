@@ -7,10 +7,14 @@ from typing import List
 
 logger = logging.getLogger(__name__)
 
+# NOTE: names must match the env vars the app actually reads in config.py.
+# The secret is JWT_SECRET (not JWT_SECRET_KEY) — a mismatch here makes
+# validate_config() fail and sys.exit(1) at boot, silently rolling the
+# deployment back to the last image that booted.
 REQUIRED_ENV_VARS = [
     "DATABASE_URL",
     "ENVIRONMENT",
-    "JWT_SECRET_KEY",
+    "JWT_SECRET",
     "FRONTEND_URL",
 ]
 
