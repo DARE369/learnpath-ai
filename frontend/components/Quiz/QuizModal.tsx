@@ -1,9 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import React from 'react';
 import QuizInterface from './QuizInterface';
 
 interface QuizModalProps {
@@ -14,19 +11,36 @@ interface QuizModalProps {
 }
 
 export default function QuizModal({ isOpen, onClose, topicId, topicName }: QuizModalProps) {
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:p-8"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-2xl rounded-xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">
             {topicName ? `${topicName} - Knowledge Check` : 'Knowledge Check'}
-          </DialogTitle>
-          <DialogClose className="absolute right-4 top-4">
-            <X className="h-4 w-4" />
-          </DialogClose>
-        </DialogHeader>
-        <QuizInterface topicId={topicId} onClose={onClose} />
-      </DialogContent>
-    </Dialog>
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close quiz"
+            className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <span className="text-xl leading-none">&times;</span>
+          </button>
+        </div>
+        <div className="p-6">
+          <QuizInterface topicId={topicId} onClose={onClose} />
+        </div>
+      </div>
+    </div>
   );
 }

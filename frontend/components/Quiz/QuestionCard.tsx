@@ -1,9 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, XCircle } from 'lucide-react';
 
 interface QuestionCardProps {
   question: {
@@ -20,7 +17,7 @@ interface QuestionCardProps {
 export default function QuestionCard({ question, onAnswer, disabled = false }: QuestionCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [isCorrect] = useState<boolean | null>(null);
 
   const handleSelect = (optionId: string) => {
     if (!submitted && !disabled) {
@@ -30,27 +27,22 @@ export default function QuestionCard({ question, onAnswer, disabled = false }: Q
 
   const handleSubmit = () => {
     if (!selectedAnswer) return;
-
-    // For now, we'll just check client-side
-    // In a real implementation, this would call the API
     setSubmitted(true);
-
-    // Determine correctness (this is a mock - real implementation would use the correct_answer_id)
-    // For now, we'll just allow the user to see their selection
     onAnswer?.(selectedAnswer, true);
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-lg">{question.text}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="w-full rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="border-b border-gray-100 px-6 py-4">
+        <h3 className="text-lg font-semibold text-gray-900">{question.text}</h3>
+      </div>
+      <div className="space-y-4 p-6">
         <div className="space-y-3">
           {question.options.map((option) => (
             <button
               key={option.id}
-              className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+              type="button"
+              className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
                 selectedAnswer === option.id
                   ? 'border-indigo-600 bg-indigo-50'
                   : 'border-gray-200 bg-white hover:border-indigo-400'
@@ -59,9 +51,11 @@ export default function QuestionCard({ question, onAnswer, disabled = false }: Q
               disabled={disabled || submitted}
             >
               <div className="flex items-center gap-3">
-                <span className={`text-lg ${
-                  selectedAnswer === option.id ? 'text-indigo-600' : 'text-gray-400'
-                }`}>
+                <span
+                  className={`text-lg ${
+                    selectedAnswer === option.id ? 'text-indigo-600' : 'text-gray-400'
+                  }`}
+                >
                   {selectedAnswer === option.id ? '◉' : '○'}
                 </span>
                 <span className="text-gray-900">{option.text}</span>
@@ -71,33 +65,34 @@ export default function QuestionCard({ question, onAnswer, disabled = false }: Q
         </div>
 
         {!submitted && (
-          <Button
+          <button
+            type="button"
             onClick={handleSubmit}
             disabled={!selectedAnswer || disabled}
-            className="w-full"
+            className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Check Answer
-          </Button>
+          </button>
         )}
 
         {submitted && selectedAnswer && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p className="text-sm text-gray-700">
               {isCorrect ? (
                 <span className="flex items-center gap-2 text-green-700">
-                  <CheckCircle className="w-5 h-5" />
+                  <span>✓</span>
                   Great job!
                 </span>
               ) : (
                 <span className="flex items-center gap-2 text-red-700">
-                  <XCircle className="w-5 h-5" />
+                  <span>✗</span>
                   Not quite, try again!
                 </span>
               )}
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

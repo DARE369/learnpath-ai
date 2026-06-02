@@ -10,7 +10,7 @@ interface NavbarUser {
 
 interface NavbarProps {
   user?: NavbarUser;
-  onLogout: () => void;
+  onLogout?: () => void;
 }
 
 const NAV_LINKS = [
@@ -164,7 +164,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
                           type="button"
                           onClick={() => {
                             setMenuOpen(false);
-                            onLogout();
+                            onLogout?.();
                           }}
                           className="w-full text-left block px-4 py-2 text-sm text-error/90 hover:text-error hover:bg-surface-hover transition-colors"
                         >

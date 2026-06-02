@@ -1,5 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 
+// Non-standard event fired by Chromium browsers before the install prompt.
+// Not part of the standard DOM lib, so we declare the shape we rely on.
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+  prompt(): Promise<void>;
+}
+
 interface PWAState {
   isOnline: boolean;
   isInstallable: boolean;

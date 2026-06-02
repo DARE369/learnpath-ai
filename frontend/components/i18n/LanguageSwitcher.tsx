@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
-import { useTranslation } from "next-i18next";
 
 export function LanguageSwitcher() {
   const router = useRouter();
-  const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const languages = [

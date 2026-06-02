@@ -1,9 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Slider } from '@/components/ui/slider';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
 import QuizResults from './QuizResults';
 
 interface Question {
@@ -45,12 +42,7 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
   const [questionNumber, setQuestionNumber] = useState(1);
   const [totalQuestions, setTotalQuestions] = useState(5);
 
-  // Start quiz on mount
-  useEffect(() => {
-    startQuiz();
-  }, []);
-
-  const startQuiz = async () => {
+  const startQuiz = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -79,7 +71,12 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
     } finally {
       setLoading(false);
     }
-  };
+  }, [topicId]);
+
+  // Start quiz on mount
+  useEffect(() => {
+    startQuiz();
+  }, [startQuiz]);
 
   const handleSubmit = async () => {
     if (!selectedAnswer || !currentSessionId || !question) return;
@@ -135,53 +132,57 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
 
   if (loading && !question) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-6">
+      <div className="mx-auto w-full max-w-2xl rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="px-6 pb-6 pt-6">
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-indigo-500"></div>
               <p className="text-gray-600">Loading question...</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="w-full max-w-2xl mx-auto border-red-500">
-        <CardContent className="pt-6">
-          <div className="text-red-600 mb-4">{error}</div>
-          <Button onClick={startQuiz} className="w-full">
+      <div className="mx-auto w-full max-w-2xl rounded-xl border-2 border-red-500 bg-white shadow-sm">
+        <div className="px-6 pb-6 pt-6">
+          <div className="mb-4 text-red-600">{error}</div>
+          <button
+            type="button"
+            onClick={startQuiz}
+            className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700"
+          >
             Try Again
-          </Button>
-        </CardContent>
-      </Card>
+          </button>
+        </div>
+      </div>
     );
   }
 
   if (!question) return null;
 
   return (
-    <div className="quiz-container w-full max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Knowledge Check</CardTitle>
+    <div className="quiz-container mx-auto w-full max-w-2xl">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Knowledge Check</h2>
             <div className="text-sm text-gray-600">
               Question {questionNumber} of {totalQuestions}
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+          <div className="mt-4 h-2 w-full rounded-full bg-gray-200">
             <div
-              className="bg-indigo-600 h-2 rounded-full transition-all"
+              className="h-2 rounded-full bg-indigo-600 transition-all"
               style={{ width: `${(questionNumber / totalQuestions) * 100}%` }}
             ></div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="space-y-6">
+        <div className="space-y-6 p-6">
           {/* Question */}
           <div className="question-section">
             <p className="text-lg font-semibold text-gray-900 mb-6">{question.text}</p>
@@ -226,16 +227,17 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
                 How confident are you in this answer?
               </label>
               <div className="flex items-center gap-4">
-                <span className="text-xs text-gray-600 w-16">Not sure</span>
-                <Slider
-                  value={[confidence]}
-                  onValueChange={(val) => setConfidence(val[0])}
+                <span className="w-16 text-xs text-gray-600">Not sure</span>
+                <input
+                  type="range"
+                  value={confidence}
+                  onChange={(e) => setConfidence(Number(e.target.value))}
                   min={1}
                   max={10}
                   step={1}
-                  className="flex-1"
+                  className="flex-1 accent-indigo-600"
                 />
-                <span className="text-xs text-gray-600 w-16 text-right">Very sure</span>
+                <span className="w-16 text-right text-xs text-gray-600">Very sure</span>
               </div>
               <div className="text-center mt-2 text-sm font-semibold text-indigo-600">
                 {confidence}/10
@@ -278,25 +280,26 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
 
           {/* Submit Button */}
           {!submitted && (
-            <Button
+            <button
+              type="button"
               onClick={handleSubmit}
               disabled={!selectedAnswer || loading}
-              className="w-full h-12 text-base"
+              className="h-12 w-full rounded-lg bg-indigo-600 text-base font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Submitting...' : 'Submit Answer'}
-            </Button>
+            </button>
           )}
 
           {/* Close Button */}
-          <Button
+          <button
+            type="button"
             onClick={onClose}
-            variant="outline"
-            className="w-full h-10"
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white text-base font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             Exit Quiz
-          </Button>
-        </CardContent>
-      </Card>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
