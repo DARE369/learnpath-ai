@@ -35,6 +35,18 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_answered INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_correct INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS notes TEXT",
+    # path_sessions — core watch/progress columns. The ORM SELECTs every mapped
+    # column, so a single missing one 500s all reads (e.g. /api/progress/*).
+    # Session writes were made fault-tolerant earlier (return a stub on failure),
+    # which masked this drift until the read paths surfaced it.
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS video_id UUID",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS video_watched BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS watch_percentage INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS last_position_seconds INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS total_watch_time_seconds INTEGER DEFAULT 0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS playback_speed FLOAT DEFAULT 1.0",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS started_at TIMESTAMP DEFAULT now()",
+    "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP",
     "CREATE INDEX IF NOT EXISTS ix_path_sessions_path_id ON path_sessions(path_id)",
     "CREATE INDEX IF NOT EXISTS ix_path_sessions_youtube_id ON path_sessions(youtube_id)",
     # Drop FK constraints — search-built paths use synthetic topic_ids
