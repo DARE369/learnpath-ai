@@ -148,7 +148,7 @@ class LoyaltyService:
 
     # ── Internal DB helpers ───────────────────────────────────────────────────
 
-    def _get_or_create(self, db: Session, user_id) -> "models.LoyaltyPoints":
+    def _get_or_create(self, db: Session, user_id) -> "LoyaltyPoints":
         from models import LoyaltyPoints
         row = db.query(LoyaltyPoints).filter(LoyaltyPoints.user_id == user_id).first()
         if row is None:
