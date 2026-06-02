@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, String, Integer, Float, Boolean,
-    DateTime, Text, ForeignKey, JSON,
+    DateTime, Date, Text, ForeignKey, JSON,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
