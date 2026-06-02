@@ -20,12 +20,9 @@ import secrets
 import string
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
-
-if TYPE_CHECKING:
-    from models import LoyaltyPoints
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +145,7 @@ class LoyaltyService:
 
     # ── Internal DB helpers ───────────────────────────────────────────────────
 
-    def _get_or_create(self, db: Session, user_id) -> "LoyaltyPoints":
+    def _get_or_create(self, db: Session, user_id) -> "models.LoyaltyPoints":
         from models import LoyaltyPoints
         row = db.query(LoyaltyPoints).filter(LoyaltyPoints.user_id == user_id).first()
         if row is None:
