@@ -76,9 +76,11 @@ def _parse_variants(text: str, max_count: int = VARIANT_COUNT) -> List[str]:
     if not isinstance(variants, list):
         return []
     cleaned = []
-    for v in variants[:max_count]:
+    for v in variants:
         if isinstance(v, str) and v.strip():
             cleaned.append(v.strip())
+        if len(cleaned) >= max_count:
+            break
     return cleaned
 
 
