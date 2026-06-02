@@ -207,6 +207,11 @@ Return EXACTLY this JSON shape, with NO commentary before or after:
         except json.JSONDecodeError as e:
             raise InvalidScoreResponse(f"JSON parse failed: {e}")
 
+        if "base_scores" not in data and "bonus_scores" not in data:
+            raise InvalidScoreResponse(
+                "Response is missing both base_scores and bonus_scores"
+            )
+
         base = data.get("base_scores") or {}
         bonus = data.get("bonus_scores") or {}
         if not isinstance(base, dict) or not isinstance(bonus, dict):
