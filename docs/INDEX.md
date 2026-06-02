@@ -18,14 +18,27 @@
 
 ## Feature Documentation
 
+### Core Learning Features
 - **[Authentication](AUTHENTICATION.md)** - JWT auth, signup/login flows
 - **[Learning Sessions](LEARNING_SESSIONS.md)** - Video tracking, session lifecycle, API endpoints
 - **[Active Recall](ACTIVE_RECALL.md)** - Question generation, answer evaluation, spaced repetition
+
+### Intelligence Layer (Stage 3)
 - **[Concept Branching](CONCEPT_BRANCHING.md)** - Progressive learning branches per concept (Packet 3.1)
 - **[Blacklist System](BLACKLIST_SYSTEM.md)** - Soft/hard video quality control with shadow testing (Packet 3.2)
 - **[Expanded Confidence Scoring](CONFIDENCE_SCORING_EXPANDED.md)** - 11-criteria EQS (0–170) with score-dependent cache TTL (Packet 3.3)
 - **[Auto-Remediation](AUTO_REMEDIATION.md)** - 3-tier fallback (Claude → Gemini → original) for low-confidence paths (Packet 3.4)
 - **[Self-Building Mechanism](SELF_BUILDING_MECHANISM.md)** - Nightly job: dedup, keyword indexing, popular-topic expansion (Packet 3.5)
+
+### Monetization (Stage 4)
+- **[Payment System](PACKET_4_1_PAYMENT_SYSTEM.md)** - Flutterwave integration, subscription management (Packet 4.1)
+- **[Usage Limits](PACKET_4_2_USAGE_LIMITS.md)** - Per-plan quotas and rate limiting (Packet 4.2)
+- **[Free Tier](PACKET_4_3_FREE_TIER.md)** - Free tier experience and upgrade CTAs (Packet 4.3)
+- **[Feature Unlock](PACKET_4_4_FEATURE_UNLOCK.md)** - Feature availability gating by plan (Packet 4.4)
+- **[Analytics](PACKET_4_5_ANALYTICS.md)** - Usage and revenue analytics (Packet 4.5)
+
+### B2B & Institutional (Stage 5)
+- **[B2B API](PACKET_5_0_B2B_API.md)** - Complete B2B SaaS API documentation for schools and institutions (Packet 5.0)
 
 ## Database
 
@@ -73,9 +86,22 @@
 - ✅ Auto-Remediation (Packet 3.4) — opt-in 3-tier fallback (Claude variants → Gemini variants → original) when path avg score < 60; remediation_events log + admin /stats; RemediationNotification modal mounted in SearchTopicForm; budget-gated via cost_tracker("remediation")
 - ✅ Self-Building Mechanism (Packet 3.5) — nightly AsyncIOScheduler job (2 AM UTC, env-gated) that dedups searches via Claude clustering, extracts keywords for popular topics, and auto-expands via branching_service; SearchEvent log added; TopicAlias / TopicKeyword / NightlyRun tables; admin dashboard at /admin/expansion with Run-now
 
-### Stage 4-7
-- ⬜ Monetization
-- ⬜ B2B features
+### Stage 4 - Monetization (Packet 4.1-4.6)
+- ✅ Payment System & Subscriptions (Packet 4.1)
+- ✅ Usage Limits & Rate Limiting (Packet 4.2)
+- ✅ Free Tier Experience (Packet 4.3)
+- ✅ Feature Unlock System (Packet 4.4)
+- ✅ Analytics & Usage Dashboard (Packet 4.5)
+- ✅ Referral & Loyalty (Packet 4.6)
+
+### Stage 5 - B2B & Institutional (Packet 5.0)
+- ✅ Organizations & School Management (Packet 5.1) — Multi-tenant B2B SaaS, 3-tier subscription model (Starter/Pro/Enterprise), organization lifecycle
+- ✅ Teacher & Class Management (Packet 5.2) — Teacher dashboards, class management, student enrollment, at-risk detection
+- ✅ School Admin Dashboard (Packet 5.3) — Institutional-level metrics, teacher/student/class management, health scoring
+- ✅ School Analytics & Reporting (Packet 5.4) — Daily aggregated analytics, engagement tracking, retention metrics
+
+### Stage 6-7
+- ⬜ Advanced B2B features
 - ⬜ Polish & deployment
 
 ## Technology Stack
