@@ -23,6 +23,7 @@ class User(Base):
     age = Column(Integer)
     email_verified = Column(Boolean, default=False)
     account_active = Column(Boolean, default=True)
+    role = Column(String, default="user", nullable=False, index=True)  # user | admin
     tier = Column(String, default="free")
     tier_updated_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

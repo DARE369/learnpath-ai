@@ -39,6 +39,8 @@ function Shell({ Component, pageProps }: AppProps) {
 
   const showChrome = !hidesChrome(router.pathname);
   const needsAuth = isProtectedPath(router.pathname);
+  const isAdminRoute = router.pathname === "/admin" || router.pathname.startsWith("/admin/");
+  const blockedFromAdmin = isAdminRoute && !!user && user.role !== "admin";
 
   useEffect(() => {
     if (loading) return;
@@ -55,10 +57,16 @@ function Shell({ Component, pageProps }: AppProps) {
     // Skip if they're already on the onboarding page.
     if (user && !user.onboardingCompleted && router.pathname !== "/onboarding") {
       router.replace("/onboarding");
+      return;
     }
-  }, [loading, needsAuth, user, router]);
 
-  if (needsAuth && !user) {
+    // Admin-only routes: non-admin users are bounced to their dashboard.
+    if (blockedFromAdmin) {
+      router.replace("/dashboard");
+    }
+  }, [loading, needsAuth, user, router, blockedFromAdmin]);
+
+  if ((needsAuth && !user) || blockedFromAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
@@ -74,6 +82,7 @@ function Shell({ Component, pageProps }: AppProps) {
       {showChrome && (
         <Navbar
           user={user ? { name: user.fullName || "", email: user.email } : undefined}
+          isAdmin={user?.role === "admin"}
           onLogout={() => {
             logout();
             router.push("/auth/login");

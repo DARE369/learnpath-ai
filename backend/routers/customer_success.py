@@ -1,10 +1,9 @@
 """
 Customer success / org-health admin endpoints (Packet 6.5, rebuilt).
 
-Auth follows this repo's convention for admin endpoints: "login required, no
-role gate" (there is no admin role on User). Notification endpoints take an
-org_id and derive the recipient (org.admin_email) server-side, so the frontend
-never has to know the email.
+All endpoints require an admin role (require_admin -> 403 for non-admins).
+Notification endpoints take an org_id and derive the recipient
+(org.admin_email) server-side, so the frontend never has to know the email.
 """
 
 from datetime import datetime
@@ -14,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from routers.auth import get_current_user
+from routers.auth import require_admin
 from database import get_db
 from models import User, Organization, OrganizationPayment
 from services.customer_success_service import CustomerSuccessService
@@ -40,7 +39,7 @@ def _require_org(org_id: str, db: Session) -> Organization:
 
 @router.get("/orgs/health")
 def get_all_orgs_health(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Health summary for all organizations, sorted by churn risk then score."""
@@ -59,7 +58,7 @@ def get_all_orgs_health(
 @router.get("/orgs/{org_id}/health")
 def get_org_health(
     org_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Health summary for a single organization."""
@@ -71,7 +70,7 @@ def get_org_health(
 def send_cs_outreach(
     org_id: str,
     body: OutreachBody,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Email the org admin a health alert and flag for CS follow-up."""
@@ -84,21 +83,21 @@ def send_cs_outreach(
 
 
 @router.post("/notify/trial-welcome")
-def notify_trial_welcome(body: OrgRef, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def notify_trial_welcome(body: OrgRef, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     org = _require_org(body.org_id, db)
     ok = NotificationService.send_trial_welcome(org.admin_email, org.name)
     return {"status": "sent" if ok else "failed"}
 
 
 @router.post("/notify/trial-7-days")
-def notify_trial_7_days(body: OrgRef, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def notify_trial_7_days(body: OrgRef, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     org = _require_org(body.org_id, db)
     ok = NotificationService.send_trial_7_days_left(org.admin_email, org.name)
     return {"status": "sent" if ok else "failed"}
 
 
 @router.post("/notify/invoice-overdue")
-def notify_invoice_overdue(body: OrgRef, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def notify_invoice_overdue(body: OrgRef, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     org = _require_org(body.org_id, db)
     # Derive amount / days-overdue from the latest overdue invoice when available.
     payment = (
@@ -118,7 +117,7 @@ def notify_invoice_overdue(body: OrgRef, current_user: User = Depends(get_curren
 @router.get("/analytics/overview")
 def get_analytics_overview(
     org_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Latest SchoolAnalytics snapshot for an org, or a platform-wide roll-up."""

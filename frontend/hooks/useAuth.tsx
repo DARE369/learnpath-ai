@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   fullName: string | null;
   tier?: string;
+  role?: string;
   onboardingCompleted?: boolean;
 }
 
@@ -54,6 +55,7 @@ function mapUser(raw: Record<string, unknown>): AuthUser {
     email: String(raw.email),
     fullName: (raw.full_name as string | null) ?? null,
     tier: raw.tier as string | undefined,
+    role: (raw.role as string | undefined) ?? "user",
     onboardingCompleted: (raw.onboarding_completed as boolean | undefined) ?? false,
   };
 }

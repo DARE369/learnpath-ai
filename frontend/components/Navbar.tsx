@@ -10,6 +10,7 @@ interface NavbarUser {
 
 interface NavbarProps {
   user?: NavbarUser;
+  isAdmin?: boolean;
   onLogout?: () => void;
 }
 
@@ -21,6 +22,8 @@ const NAV_LINKS = [
   { href: "/settings", label: "Settings" },
 ];
 
+const ADMIN_LINK = { href: "/admin", label: "Admin" };
+
 function initials(name?: string, email?: string): string {
   const source = (name || email || "?").trim();
   const parts = source.split(/\s+/);
@@ -28,7 +31,8 @@ function initials(name?: string, email?: string): string {
   return source.slice(0, 2).toUpperCase();
 }
 
-export default function Navbar({ user, onLogout }: NavbarProps) {
+export default function Navbar({ user, isAdmin, onLogout }: NavbarProps) {
+  const navLinks = isAdmin ? [...NAV_LINKS, ADMIN_LINK] : NAV_LINKS;
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -73,7 +77,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
           {/* Desktop nav links */}
           {user && (
             <div className="hidden md:flex items-center gap-1">
-              {NAV_LINKS.map((link) => (
+              {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -198,7 +202,7 @@ export default function Navbar({ user, onLogout }: NavbarProps) {
         {user && mobileOpen && (
           <div className="md:hidden pb-3 animate-fade-in">
             <div className="flex flex-col gap-1">
-              {NAV_LINKS.map((link) => (
+              {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

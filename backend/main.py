@@ -35,6 +35,8 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_answered INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_correct INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS notes TEXT",
+    # Role-based access control: every user gets a role (default 'user').
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'user'",
     # NEW-PACKET-B: video chunking tables
     "CREATE INDEX IF NOT EXISTS ix_video_chunks_video_id ON video_chunks(video_id)",
     "CREATE INDEX IF NOT EXISTS ix_video_chunks_chunk_number ON video_chunks(chunk_number)",

@@ -27,6 +27,7 @@ class GoogleSignIn(BaseModel):
 class UserResponse(UserBase):
     id: UUID
     tier: str
+    role: str = "user"
     email_verified: bool
     created_at: datetime
     updated_at: datetime
