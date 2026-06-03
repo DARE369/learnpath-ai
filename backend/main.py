@@ -35,6 +35,12 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_answered INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_correct INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS notes TEXT",
+    # NEW-PACKET-B: video chunking tables
+    "CREATE INDEX IF NOT EXISTS ix_video_chunks_video_id ON video_chunks(video_id)",
+    "CREATE INDEX IF NOT EXISTS ix_video_chunks_chunk_number ON video_chunks(chunk_number)",
+    "CREATE INDEX IF NOT EXISTS ix_chapter_quizzes_chunk_id ON chapter_quizzes(chunk_id)",
+    "CREATE INDEX IF NOT EXISTS ix_chapter_quiz_questions_quiz_id ON chapter_quiz_questions(chapter_quiz_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ix_chapter_progress_user_chunk ON chapter_progress(user_id, chunk_id)",
     # NEW-PACKET-A: learner profile & placement test tables (idempotent)
     "CREATE INDEX IF NOT EXISTS ix_user_profiles_user_id ON user_profiles(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_placement_tests_user_id ON placement_tests(user_id)",
@@ -381,6 +387,10 @@ app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
 # NEW-PACKET-A: Learner Profile System & Onboarding
 from routers import learner
 app.include_router(learner.router)
+
+# NEW-PACKET-B: Video Chunking Service
+from routers import video_chunks
+app.include_router(video_chunks.router)
 
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes

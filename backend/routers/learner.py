@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from dependencies import get_current_user
+from routers.auth import get_current_user
 from models import User
 from services.learner_profile_service import learner_profile_service
 

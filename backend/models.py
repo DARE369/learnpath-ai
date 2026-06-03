@@ -966,3 +966,86 @@ class ProfilingHistory(Base):
 
     profiling_type = Column(String, default="quarterly")   # quarterly|manual|on_request
     completed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-B: Video Chunking Service — Micro-Learning & Section-Based Learning
+
+class VideoChunk(Base):
+    """AI-generated chapter segment of a video (NEW-PACKET-B)"""
+    __tablename__ = "video_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    video_id = Column(UUID(as_uuid=True), ForeignKey("videos.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    chunk_number = Column(Integer, nullable=False)          # 1, 2, 3 …
+    title = Column(String(255))
+    description = Column(Text)
+
+    start_timestamp = Column(String(12))                    # "0:00"
+    end_timestamp = Column(String(12))                      # "2:45"
+    start_seconds = Column(Integer, default=0)
+    end_seconds = Column(Integer, default=0)
+    duration_seconds = Column(Integer, default=0)
+
+    learning_objective = Column(String(512))
+    key_concepts = Column(ARRAY(String), default=list)
+    summary = Column(Text)
+
+    # AI generation provenance
+    ai_generated = Column(Boolean, default=True)
+    ai_model = Column(String(50))
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ChapterQuiz(Base):
+    """Quiz auto-generated for a single video chapter (NEW-PACKET-B)"""
+    __tablename__ = "chapter_quizzes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chunk_id = Column(UUID(as_uuid=True), ForeignKey("video_chunks.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    question_count = Column(Integer, default=2)
+    estimated_time_seconds = Column(Integer, default=120)
+    ai_generated_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ChapterQuizQuestion(Base):
+    """Individual question inside a chapter quiz (NEW-PACKET-B)"""
+    __tablename__ = "chapter_quiz_questions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chapter_quiz_id = Column(UUID(as_uuid=True), ForeignKey("chapter_quizzes.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    question_number = Column(Integer, nullable=False)
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String(50), default="multiple_choice")
+    # [{"text": "...", "correct": True/False}, ...]
+    options = Column(JSON, default=list)
+    explanation = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ChapterProgress(Base):
+    """Per-user viewing and quiz progress on a single chapter (NEW-PACKET-B)"""
+    __tablename__ = "chapter_progress"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    chunk_id = Column(UUID(as_uuid=True), ForeignKey("video_chunks.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    started_at = Column(DateTime, nullable=True)
+    watched_seconds = Column(Integer, default=0)
+    completion_percent = Column(Integer, default=0)
+    completed_at = Column(DateTime, nullable=True)
+
+    quiz_score = Column(Integer, nullable=True)          # 0-100
+    quiz_attempts = Column(Integer, default=0)
+    best_quiz_score = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

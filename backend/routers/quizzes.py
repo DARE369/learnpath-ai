@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User, QuizSession, QuizQuestion
-from dependencies import get_current_user
+from routers.auth import get_current_user
 from services.quiz_engine_service import QuizEngineService
 
 router = APIRouter(prefix="/api/quiz", tags=["quizzes"])

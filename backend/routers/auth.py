@@ -125,10 +125,13 @@ async def get_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from models import UserProfile
-    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
-    # Attach onboarding_completed to the user object so Pydantic can serialise it.
-    current_user.onboarding_completed = profile.onboarding_completed if profile else False
+    try:
+        from models import UserProfile
+        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+        current_user.onboarding_completed = bool(profile.onboarding_completed) if profile else False
+    except Exception:
+        # user_profiles table may not exist on this deploy yet — default to False
+        current_user.onboarding_completed = False
     return current_user
 
 
