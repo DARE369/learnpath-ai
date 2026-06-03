@@ -1,6 +1,16 @@
-import React from "react";
+'use client';
+
+import React, { useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+
+function authHeaders(): Record<string, string> {
+  const t =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
+      : null;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
 
 interface AdminTool {
   href: string;
@@ -42,6 +52,53 @@ const ADMIN_TOOLS: AdminTool[] = [
   },
 ];
 
+function SeedKnowledgeGraph() {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const seed = async () => {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/knowledge/seed", { method: "POST", headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      setMsg(
+        `Added ${data.concepts_added} concept${data.concepts_added === 1 ? "" : "s"} and ` +
+        `${data.relationships_added} relationship${data.relationships_added === 1 ? "" : "s"}.`
+      );
+    } catch (e) {
+      setMsg(e instanceof Error ? `Failed: ${e.message}` : "Failed to seed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-surface-elevated border border-border rounded-2xl p-6">
+      <div className="text-3xl mb-3">🕸️</div>
+      <h2 className="text-lg font-semibold text-white">Concept Graph</h2>
+      <p className="text-sm text-white/50 mt-1.5 leading-relaxed">
+        Bootstrap the knowledge graph from existing content (quiz concepts,
+        mastery, progress) and infer prerequisite/related links.
+      </p>
+      <div className="flex items-center gap-3 mt-4 flex-wrap">
+        <button
+          onClick={seed}
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+        >
+          {loading ? "Seeding…" : "Seed graph"}
+        </button>
+        <Link href="/concepts" className="text-accent text-sm hover:underline">
+          View concepts →
+        </Link>
+      </div>
+      {msg && <p className="text-white/60 text-xs mt-3">{msg}</p>}
+    </div>
+  );
+}
+
 export default function AdminHome() {
   return (
     <>
@@ -74,6 +131,9 @@ export default function AdminHome() {
                 </p>
               </Link>
             ))}
+
+            {/* Action card (not a link) — seeds the concept knowledge graph */}
+            <SeedKnowledgeGraph />
           </div>
         </div>
       </div>
