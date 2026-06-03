@@ -17,10 +17,12 @@ function authHeaders(): Record<string, string> {
 interface Option { id: string; text: string; }
 interface ReviewCard {
   card_id: string;
+  card_type?: 'quiz' | 'flashcard';
   state: string;
   reps: number;
   lapses: number;
-  question: { id: string; text: string; type: string; options: Option[]; concept: string };
+  question?: { id: string; text: string; type: string; options: Option[]; concept: string };
+  flashcard?: { front: string; back: string; concept: string };
 }
 interface ReviewFeedback {
   is_correct: boolean;
@@ -28,12 +30,14 @@ interface ReviewFeedback {
   state: string;
   explanation?: string;
   correct_answer_id?: string;
+  back?: string;
 }
 
 export default function ReviewPage() {
   const [cards, setCards] = useState<ReviewCard[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const [feedback, setFeedback] = useState<ReviewFeedback | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -58,15 +62,16 @@ export default function ReviewPage() {
   useEffect(() => { fetchDue(); }, [fetchDue]);
 
   const card = cards[index];
+  const isFlashcard = card?.card_type === 'flashcard';
 
-  const handleSubmit = async () => {
-    if (!selected || !card) return;
+  const submitAnswer = async (answer: string) => {
+    if (!card) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/quiz/review/${card.card_id}/answer`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ answer: selected }),
+        body: JSON.stringify({ answer }),
       });
       const data = await res.json();
       setFeedback(data);
@@ -80,6 +85,7 @@ export default function ReviewPage() {
 
   const handleNext = () => {
     setSelected(null);
+    setRevealed(false);
     setFeedback(null);
     setIndex((i) => i + 1);
   };
@@ -133,61 +139,110 @@ export default function ReviewPage() {
                 <span className="capitalize">{card.state} · {card.lapses} lapse{card.lapses === 1 ? '' : 's'}</span>
               </div>
 
-              <p className="text-lg text-white font-medium mb-5">{card.question.text}</p>
+              {isFlashcard ? (
+                /* ── Flashcard: flip + self-grade ── */
+                <>
+                  <p className="text-lg text-white font-medium mb-4">{card.flashcard?.front}</p>
+                  {(revealed || feedback) && (
+                    <div className="rounded-xl border border-border bg-surface p-4 mb-2">
+                      <p className="text-white/80 text-sm">{card.flashcard?.back}</p>
+                    </div>
+                  )}
+                  {feedback && (
+                    <p className="text-white/40 text-xs mt-2">
+                      {feedback.is_correct ? 'Nice recall.' : 'Keep at it.'} Next review in{' '}
+                      {feedback.next_due_days} day{feedback.next_due_days === 1 ? '' : 's'}.
+                    </p>
+                  )}
+                  <div className="mt-6">
+                    {feedback ? (
+                      <button onClick={handleNext} className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition">
+                        {index + 1 < cards.length ? 'Next card' : 'Finish'}
+                      </button>
+                    ) : !revealed ? (
+                      <button onClick={() => setRevealed(true)} className="w-full px-4 py-3 bg-surface border border-border text-white rounded-xl font-medium hover:border-white/20 transition">
+                        Reveal answer
+                      </button>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => submitAnswer('missed')}
+                          disabled={submitting}
+                          className="flex-1 px-4 py-3 bg-red-500/15 text-red-300 border border-red-500/40 rounded-xl font-medium hover:bg-red-500/25 transition disabled:opacity-50"
+                        >
+                          ✗ Missed it
+                        </button>
+                        <button
+                          onClick={() => submitAnswer('got_it')}
+                          disabled={submitting}
+                          className="flex-1 px-4 py-3 bg-green-500/15 text-green-300 border border-green-500/40 rounded-xl font-medium hover:bg-green-500/25 transition disabled:opacity-50"
+                        >
+                          ✓ Got it
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* ── Quiz question: multiple choice ── */
+                <>
+                  <p className="text-lg text-white font-medium mb-5">{card.question?.text}</p>
 
-              <div className="space-y-2.5">
-                {card.question.options.map((opt) => {
-                  const isPicked = selected === opt.id;
-                  const isAnswerCorrect = feedback && feedback.correct_answer_id === opt.id;
-                  const isPickedWrong = feedback && isPicked && !feedback.is_correct;
-                  return (
-                    <button
-                      key={opt.id}
-                      disabled={!!feedback || submitting}
-                      onClick={() => setSelected(opt.id)}
-                      className={`w-full text-left px-4 py-3 rounded-xl border transition ${
-                        isAnswerCorrect
-                          ? 'border-green-500/60 bg-green-500/10 text-green-300'
-                          : isPickedWrong
-                          ? 'border-red-500/60 bg-red-500/10 text-red-300'
-                          : isPicked
-                          ? 'border-accent bg-accent/10 text-white'
-                          : 'border-border bg-surface text-white/70 hover:text-white hover:border-white/20'
-                      }`}
-                    >
-                      {opt.text}
-                    </button>
-                  );
-                })}
-              </div>
+                  <div className="space-y-2.5">
+                    {(card.question?.options || []).map((opt) => {
+                      const isPicked = selected === opt.id;
+                      const isAnswerCorrect = feedback && feedback.correct_answer_id === opt.id;
+                      const isPickedWrong = feedback && isPicked && !feedback.is_correct;
+                      return (
+                        <button
+                          key={opt.id}
+                          disabled={!!feedback || submitting}
+                          onClick={() => setSelected(opt.id)}
+                          className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                            isAnswerCorrect
+                              ? 'border-green-500/60 bg-green-500/10 text-green-300'
+                              : isPickedWrong
+                              ? 'border-red-500/60 bg-red-500/10 text-red-300'
+                              : isPicked
+                              ? 'border-accent bg-accent/10 text-white'
+                              : 'border-border bg-surface text-white/70 hover:text-white hover:border-white/20'
+                          }`}
+                        >
+                          {opt.text}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              {feedback && (
-                <div className={`mt-5 rounded-xl p-4 ${feedback.is_correct ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
-                  <p className={`font-semibold ${feedback.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                    {feedback.is_correct ? '✓ Correct' : '✗ Not quite'}
-                  </p>
-                  {feedback.explanation && <p className="text-white/70 text-sm mt-1.5">{feedback.explanation}</p>}
-                  <p className="text-white/40 text-xs mt-2">
-                    Next review in {feedback.next_due_days} day{feedback.next_due_days === 1 ? '' : 's'}.
-                  </p>
-                </div>
+                  {feedback && (
+                    <div className={`mt-5 rounded-xl p-4 ${feedback.is_correct ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                      <p className={`font-semibold ${feedback.is_correct ? 'text-green-400' : 'text-red-400'}`}>
+                        {feedback.is_correct ? '✓ Correct' : '✗ Not quite'}
+                      </p>
+                      {feedback.explanation && <p className="text-white/70 text-sm mt-1.5">{feedback.explanation}</p>}
+                      <p className="text-white/40 text-xs mt-2">
+                        Next review in {feedback.next_due_days} day{feedback.next_due_days === 1 ? '' : 's'}.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-6">
+                    {feedback ? (
+                      <button onClick={handleNext} className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition">
+                        {index + 1 < cards.length ? 'Next card' : 'Finish'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => selected && submitAnswer(selected)}
+                        disabled={!selected || submitting}
+                        className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {submitting ? 'Checking…' : 'Submit'}
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
-
-              <div className="mt-6">
-                {feedback ? (
-                  <button onClick={handleNext} className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition">
-                    {index + 1 < cards.length ? 'Next card' : 'Finish'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!selected || submitting}
-                    className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {submitting ? 'Checking…' : 'Submit'}
-                  </button>
-                )}
-              </div>
             </div>
           )}
         </div>

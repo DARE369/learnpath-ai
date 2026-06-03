@@ -58,3 +58,21 @@ async def get_note_flashcards(
         return {"youtube_id": youtube_id, "flashcard_count": len(cards), "flashcards": cards}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/{youtube_id}/flashcards/add-to-review")
+async def add_flashcards_to_review(
+    youtube_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Add this note's flashcards to the spaced-repetition review deck (Packet C)."""
+    note = db.query(StudyNote).filter(StudyNote.youtube_id == youtube_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Generate notes first")
+    try:
+        cards = await study_notes_service.get_or_generate_flashcards(db, note)
+        added = study_notes_service.add_flashcards_to_review(db, current_user.id, note)
+        return {"added": added, "total": len(cards)}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

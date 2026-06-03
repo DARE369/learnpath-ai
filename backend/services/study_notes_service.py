@@ -236,5 +236,44 @@ class StudyNotesService:
             "concept": c.source_concept,
         }
 
+    def add_flashcards_to_review(self, db: Session, user_id, note: StudyNote) -> int:
+        """
+        Create FSRS review cards (source_type='flashcard') from this note's
+        flashcards so they resurface in the Packet-C spaced-repetition review.
+        Idempotent: skips flashcards the user already has a card for.
+        """
+        from models import FSRSCard
+
+        flashcards = (
+            db.query(NoteFlashcard).filter(NoteFlashcard.study_note_id == note.id).all()
+        )
+        if not flashcards:
+            return 0
+
+        existing = {
+            str(r.source_id)
+            for r in db.query(FSRSCard).filter(
+                FSRSCard.user_id == user_id, FSRSCard.source_type == "flashcard"
+            ).all()
+        }
+
+        now = datetime.utcnow()
+        added = 0
+        for fc in flashcards:
+            if str(fc.id) in existing:
+                continue
+            db.add(FSRSCard(
+                user_id=user_id,
+                source_type="flashcard",
+                source_id=fc.id,
+                state="new",
+                due_date=now,
+                difficulty=5.0,
+                stability=1.0,
+            ))
+            added += 1
+        db.commit()
+        return added
+
 
 study_notes_service = StudyNotesService()

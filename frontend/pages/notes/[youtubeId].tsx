@@ -44,6 +44,8 @@ export default function NotesViewer() {
   const [cards, setCards] = useState<Flashcard[] | null>(null);
   const [cardsLoading, setCardsLoading] = useState(false);
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const [reviewMsg, setReviewMsg] = useState<string | null>(null);
+  const [addingReview, setAddingReview] = useState(false);
 
   const fetchNote = useCallback(async (s: string) => {
     if (!youtubeId) return;
@@ -88,6 +90,27 @@ export default function NotesViewer() {
       setCards([]);
     } finally {
       setCardsLoading(false);
+    }
+  };
+
+  const addToReview = async () => {
+    setAddingReview(true);
+    setReviewMsg(null);
+    try {
+      const res = await fetch(`/api/notes/${youtubeId}/flashcards/add-to-review`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      setReviewMsg(
+        data.added > 0
+          ? `Added ${data.added} card${data.added === 1 ? '' : 's'} to your review deck.`
+          : 'These cards are already in your review deck.'
+      );
+    } catch {
+      setReviewMsg('Could not add to review deck.');
+    } finally {
+      setAddingReview(false);
     }
   };
 
@@ -157,7 +180,21 @@ export default function NotesViewer() {
           {/* Flashcards */}
           {cards && (
             <div className="mt-6">
-              <h2 className="text-lg font-semibold text-white mb-3">Flashcards ({cards.length})</h2>
+              <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                <h2 className="text-lg font-semibold text-white">Flashcards ({cards.length})</h2>
+                {cards.length > 0 && (
+                  <div className="flex items-center gap-3">
+                    {reviewMsg && <span className="text-white/50 text-xs">{reviewMsg}</span>}
+                    <button
+                      onClick={addToReview}
+                      disabled={addingReview}
+                      className="px-3 py-1.5 rounded-lg bg-accent/20 text-accent text-sm font-medium hover:bg-accent/30 transition disabled:opacity-50"
+                    >
+                      {addingReview ? 'Adding…' : '➕ Add to review deck'}
+                    </button>
+                  </div>
+                )}
+              </div>
               {cards.length === 0 ? (
                 <p className="text-white/40 text-sm">No flashcards could be generated.</p>
               ) : (

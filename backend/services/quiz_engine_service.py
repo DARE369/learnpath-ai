@@ -505,24 +505,41 @@ class QuizEngineService:
             .all()
         )
 
+        from models import NoteFlashcard
+
         out: List[dict] = []
         for c in cards:
-            q = db.query(QuizQuestion).filter(QuizQuestion.id == c.source_id).first()
-            if not q:
-                continue
-            out.append({
+            base = {
                 "card_id": str(c.id),
                 "state": c.state,
                 "reps": c.reps,
                 "lapses": c.lapses,
-                "question": {
+            }
+            if c.source_type == "flashcard":
+                # Note flashcard: self-graded front/back (no options).
+                fc = db.query(NoteFlashcard).filter(NoteFlashcard.id == c.source_id).first()
+                if not fc:
+                    continue
+                base["card_type"] = "flashcard"
+                base["flashcard"] = {
+                    "front": fc.front_text,
+                    "back": fc.back_text,
+                    "concept": fc.source_concept,
+                }
+            else:
+                # Quiz question: multiple-choice, auto-graded.
+                q = db.query(QuizQuestion).filter(QuizQuestion.id == c.source_id).first()
+                if not q:
+                    continue
+                base["card_type"] = "quiz"
+                base["question"] = {
                     "id": str(q.id),
                     "text": q.question_text,
                     "type": q.question_type,
                     "options": q.options or [],
                     "concept": q.concept_id,
-                },
-            })
+                }
+            out.append(base)
         return out
 
     async def review_card(self, db: Session, user_id: str, card_id: str, answer: str) -> dict:
@@ -531,6 +548,8 @@ class QuizEngineService:
         update: correct recall grows stability (pushes the next due date out);
         a lapse resets stability and resurfaces the card tomorrow.
         """
+        from models import NoteFlashcard
+
         card = (
             db.query(FSRSCard)
             .filter(FSRSCard.id == card_id, FSRSCard.user_id == user_id)
@@ -539,8 +558,15 @@ class QuizEngineService:
         if not card:
             raise ValueError("Review card not found")
 
-        question = db.query(QuizQuestion).filter(QuizQuestion.id == card.source_id).first()
-        is_correct = bool(question and answer == question.correct_answer_id)
+        question = None
+        flashcard = None
+        if card.source_type == "flashcard":
+            # Self-graded: the client sends "got_it" (recalled) or anything else (missed).
+            flashcard = db.query(NoteFlashcard).filter(NoteFlashcard.id == card.source_id).first()
+            is_correct = answer == "got_it"
+        else:
+            question = db.query(QuizQuestion).filter(QuizQuestion.id == card.source_id).first()
+            is_correct = bool(question and answer == question.correct_answer_id)
 
         now = datetime.utcnow()
         card.reps = (card.reps or 0) + 1
@@ -572,4 +598,6 @@ class QuizEngineService:
         if question:
             feedback["explanation"] = question.explanation
             feedback["correct_answer_id"] = question.correct_answer_id
+        if flashcard:
+            feedback["back"] = flashcard.back_text
         return feedback
