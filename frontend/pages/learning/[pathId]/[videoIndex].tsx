@@ -3,7 +3,8 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import axios from "axios";
-import VideoPlayer from "../../../components/Learning/VideoPlayer";
+import VideoPlayer, { VideoPlayerHandle } from "../../../components/Learning/VideoPlayer";
+import ChaptersList from "../../../components/Learning/ChaptersList";
 import ProgressTracker from "../../../components/Learning/ProgressTracker";
 import ConceptSidebar from "../../../components/Learning/ConceptSidebar";
 import QuestionCard from "../../../components/Learning/QuestionCard";
@@ -117,6 +118,8 @@ export default function LearningSessionPage() {
   const [notes, setNotes] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const progressDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerRef = useRef<VideoPlayerHandle>(null);
+  const [currentSeconds, setCurrentSeconds] = useState(0);
 
   const accessToken = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -197,6 +200,7 @@ export default function LearningSessionPage() {
     (pct: number, positionSeconds: number, watchTimeSeconds: number) => {
       setVideoProgress((prev) => ({ ...prev, [videoIndex]: Math.max(prev[videoIndex] ?? 0, pct) }));
       setTotalWatchSeconds((prev) => Math.max(prev, watchTimeSeconds));
+      setCurrentSeconds(positionSeconds);
       if (!sessionId) return;
       if (progressDebounce.current) clearTimeout(progressDebounce.current);
       progressDebounce.current = setTimeout(async () => {
@@ -385,6 +389,7 @@ export default function LearningSessionPage() {
             {/* Left column: player + question */}
             <div className="flex flex-col gap-5 min-w-0">
               <VideoPlayer
+                ref={playerRef}
                 youtubeId={currentVideo.youtubeId}
                 onProgress={handleProgress}
                 onComplete={handleVideoComplete}
@@ -430,6 +435,14 @@ export default function LearningSessionPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Chapters (NEW-PACKET-B video chunking) */}
+              <ChaptersList
+                youtubeId={currentVideo.youtubeId}
+                accessToken={accessToken}
+                currentSeconds={currentSeconds}
+                onSeekTo={(s) => playerRef.current?.seekTo(s)}
+              />
 
               {/* Question panel */}
               {showQuestion && (

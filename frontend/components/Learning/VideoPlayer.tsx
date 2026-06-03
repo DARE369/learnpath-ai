@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 
 declare global {
   interface Window {
@@ -15,6 +15,11 @@ interface VideoPlayerProps {
   onReady?: (duration: number) => void;
 }
 
+// Imperative handle so a parent (e.g. the chapters list) can seek the player.
+export interface VideoPlayerHandle {
+  seekTo: (seconds: number) => void;
+}
+
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const SKIP_SECONDS = 10;
 
@@ -26,13 +31,13 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function VideoPlayer({
+const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({
   youtubeId,
   initialPosition = 0,
   onProgress,
   onComplete,
   onReady,
-}: VideoPlayerProps) {
+}: VideoPlayerProps, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -190,6 +195,8 @@ export default function VideoPlayer({
     playerRef.current?.seekTo(Math.max(0, Math.min(seconds, duration)), true);
     setCurrentTime(seconds);
   };
+
+  useImperativeHandle(ref, () => ({ seekTo }), [duration]);
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -455,4 +462,6 @@ export default function VideoPlayer({
       )}
     </div>
   );
-}
+});
+
+export default VideoPlayer;
