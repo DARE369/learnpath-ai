@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -8,6 +9,13 @@ from services.quiz_engine_service import QuizEngineService
 
 router = APIRouter(prefix="/api/quiz", tags=["quizzes"])
 quiz_service = QuizEngineService()
+
+
+class AnswerBody(BaseModel):
+    question_id: str
+    answer: str
+    confidence: int = 5
+    time_spent: int = 0
 
 
 @router.post("/start")
@@ -36,10 +44,7 @@ async def start_quiz(
 @router.post("/{session_id}/answer")
 async def submit_quiz_answer(
     session_id: str,
-    question_id: str,
-    answer: str,
-    confidence: int,
-    time_spent: int,
+    body: AnswerBody,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -60,10 +65,10 @@ async def submit_quiz_answer(
         feedback = await quiz_service.submit_answer(
             db=db,
             session_id=session_id,
-            question_id=question_id,
-            user_answer=answer,
-            confidence_rating=confidence,
-            time_spent_seconds=time_spent,
+            question_id=body.question_id,
+            user_answer=body.answer,
+            confidence_rating=body.confidence,
+            time_spent_seconds=body.time_spent,
             user_id=current_user.id
         )
 

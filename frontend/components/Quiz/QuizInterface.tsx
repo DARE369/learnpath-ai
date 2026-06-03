@@ -3,6 +3,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import QuizResults from './QuizResults';
 
+function authHeaders(): Record<string, string> {
+  const token =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
+      : null;
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
 interface Question {
   id: string;
   text: string;
@@ -52,6 +62,7 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
 
       const response = await fetch(`/api/quiz/start?${params.toString()}`, {
         method: 'POST',
+        headers: authHeaders(),
       });
 
       if (!response.ok) throw new Error('Failed to start quiz');
@@ -88,7 +99,7 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
 
       const response = await fetch(`/api/quiz/${currentSessionId}/answer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           question_id: question.id,
           answer: selectedAnswer,
