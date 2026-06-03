@@ -398,6 +398,10 @@ app.include_router(learner.router)
 from routers import video_chunks
 app.include_router(video_chunks.router)
 
+# NEW-PACKET-D: Study Notes AI Generation
+from routers import notes as notes_router
+app.include_router(notes_router.router)
+
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)

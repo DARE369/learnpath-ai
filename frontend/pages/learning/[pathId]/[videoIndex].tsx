@@ -462,6 +462,22 @@ export default function LearningSessionPage() {
                 </button>
               </div>
 
+              {/* Study notes prompt (NEW-PACKET-D) */}
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+                <div className="min-w-0">
+                  <p className="text-white font-medium">Study notes</p>
+                  <p className="text-white/50 text-sm">
+                    Turn this video into AI study notes — 5 styles, flashcards, downloadable.
+                  </p>
+                </div>
+                <Link
+                  href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                >
+                  📚 Generate notes
+                </Link>
+              </div>
+
               {/* Question panel */}
               {showQuestion && (
                 <div className="animate-slide-up">

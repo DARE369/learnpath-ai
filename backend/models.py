@@ -1050,3 +1050,54 @@ class ChapterProgress(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# NEW-PACKET-D: Study Notes AI Generation
+# Notes are keyed by youtube_id (shared, cached) like video_chunks; each style
+# is generated lazily on first request and cached on its own row.
+
+class StudyNote(Base):
+    """A study-notes record for one video (NEW-PACKET-D)."""
+    __tablename__ = "study_notes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    youtube_id = Column(String, nullable=False, unique=True, index=True)
+
+    source_title = Column(String)
+    transcript_preview = Column(Text)          # first ~500 chars
+    word_count = Column(Integer, default=0)
+    estimated_read_time_minutes = Column(Integer, default=0)
+
+    generated_by_user_id = Column(UUID(as_uuid=True), nullable=True)  # first generator
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class NoteStyle(Base):
+    """One generated style (standard|simple|technical|bullet_points|mindmap)."""
+    __tablename__ = "note_styles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    study_note_id = Column(UUID(as_uuid=True), ForeignKey("study_notes.id"), nullable=False, index=True)
+
+    style_name = Column(String, nullable=False, index=True)
+    content = Column(Text)                     # Markdown
+    word_count = Column(Integer, default=0)
+    generated_by = Column(String, default="claude")
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class NoteFlashcard(Base):
+    """Auto-extracted flashcard from a study note (NEW-PACKET-D)."""
+    __tablename__ = "note_flashcards"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    study_note_id = Column(UUID(as_uuid=True), ForeignKey("study_notes.id"), nullable=False, index=True)
+
+    front_text = Column(Text, nullable=False)
+    back_text = Column(Text, nullable=False)
+    source_concept = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

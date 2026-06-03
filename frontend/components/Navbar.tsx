@@ -17,6 +17,7 @@ interface NavbarProps {
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/explore", label: "Explore" },
+  { href: "/notes", label: "Notes" },
   { href: "/review", label: "Review" },
   { href: "/referral", label: "Referral" },
   { href: "/loyalty", label: "Loyalty" },
