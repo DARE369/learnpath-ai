@@ -384,6 +384,10 @@ app.include_router(organizations.router, prefix="/api/organizations", tags=["org
 app.include_router(teachers.router, prefix="/api/teachers", tags=["teachers"])
 app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
 
+# Packet 6.5: Customer Success admin dashboard (org health, churn, CS emails)
+from routers import customer_success
+app.include_router(customer_success.router)
+
 # NEW-PACKET-A: Learner Profile System & Onboarding
 from routers import learner
 app.include_router(learner.router)

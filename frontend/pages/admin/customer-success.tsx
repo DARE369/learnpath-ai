@@ -30,13 +30,25 @@ export default function CustomerSuccessDashboard() {
     type: "trial" | "invoice" | "alert";
   }>({ org: null, type: "trial" });
 
+  const authHeaders = (): Record<string, string> => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
+        : null;
+    return token
+      ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+      : { "Content-Type": "application/json" };
+  };
+
   useEffect(() => {
     fetchOrgsHealth();
   }, []);
 
   const fetchOrgsHealth = async () => {
     try {
-      const response = await fetch("/api/admin/customer-success/orgs/health");
+      const response = await fetch("/api/admin/customer-success/orgs/health", {
+        headers: authHeaders(),
+      });
       const data = await response.json();
       setOrgs(data.organizations || []);
     } catch (error) {
@@ -55,25 +67,29 @@ export default function CustomerSuccessDashboard() {
 
   const handleSendNotification = async (orgId: string, type: string) => {
     try {
-      const endpoint =
-        type === "trial"
-          ? "/api/admin/customer-success/notify/trial-7-days"
-          : type === "invoice"
-          ? "/api/admin/customer-success/notify/invoice-overdue"
-          : "/api/admin/customer-success/orgs/" + orgId + "/send-outreach";
+      // Notify endpoints take { org_id } and derive the recipient (org admin
+      // email) server-side; the outreach endpoint takes { reason }.
+      const isOutreach = type === "alert";
+      const endpoint = isOutreach
+        ? "/api/admin/customer-success/orgs/" + orgId + "/send-outreach"
+        : type === "trial"
+        ? "/api/admin/customer-success/notify/trial-7-days"
+        : "/api/admin/customer-success/notify/invoice-overdue";
+
+      const body = isOutreach ? { reason: "low_engagement" } : { org_id: orgId };
 
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: selectedOrg?.organization_id,
-          org_name: selectedOrg?.organization_name,
-        }),
+        headers: authHeaders(),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        alert(`${type} notification sent!`);
+        const data = await response.json().catch(() => ({}));
+        alert(data.status === "sent" ? `${type} notification sent!` : `Could not send (${data.status || "error"})`);
         setNotificationModal({ org: null, type: "trial" });
+      } else {
+        alert(`Failed to send (HTTP ${response.status})`);
       }
     } catch (error) {
       console.error("Failed to send notification:", error);
