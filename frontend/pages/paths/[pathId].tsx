@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import QuizModal from '../../components/Quiz/QuizModal';
 
 function authHeaders(json = false): Record<string, string> {
   const t =
@@ -29,6 +30,7 @@ export default function PathDetail() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [adaptMsg, setAdaptMsg] = useState<string | null>(null);
+  const [quizModule, setQuizModule] = useState<Module | null>(null);
 
   const load = useCallback(async () => {
     if (!pathId) return;
@@ -39,17 +41,23 @@ export default function PathDetail() {
 
   useEffect(() => { load(); }, [load]);
 
-  const complete = async (m: Module) => {
-    setBusy(m.id);
+  const complete = async (moduleId: string, score?: number) => {
+    setBusy(moduleId);
     try {
-      const body = m.type === 'quiz' ? { score: 70 } : {};
-      const res = await fetch(`/api/adaptive-paths/${pathId}/modules/${m.id}/complete`, {
+      const body = score != null ? { score } : {};
+      const res = await fetch(`/api/adaptive-paths/${pathId}/modules/${moduleId}/complete`, {
         method: 'POST', headers: authHeaders(true), body: JSON.stringify(body),
       });
       if (res.ok) setP(await res.json());
     } finally {
       setBusy(null);
     }
+  };
+
+  const onQuizComplete = (score: number) => {
+    const m = quizModule;
+    setQuizModule(null);
+    if (m) complete(m.id, score);
   };
 
   const adapt = async () => {
@@ -123,16 +131,36 @@ export default function PathDetail() {
                   </p>
                 </div>
                 {m.status !== 'completed' && (
-                  <button onClick={() => complete(m)} disabled={busy === m.id}
-                          className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50">
-                    {busy === m.id ? '…' : 'Mark done'}
-                  </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {m.type === 'quiz' ? (
+                      <button onClick={() => setQuizModule(m)} disabled={busy === m.id}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm disabled:opacity-50">
+                        Start quiz
+                      </button>
+                    ) : (
+                      <Link href="/learning/demo/0"
+                            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm">
+                        Learn
+                      </Link>
+                    )}
+                    <button onClick={() => complete(m.id)} disabled={busy === m.id}
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/60 hover:text-white text-sm disabled:opacity-50">
+                      {busy === m.id ? '…' : 'Mark done'}
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      <QuizModal
+        isOpen={!!quizModule}
+        onClose={() => setQuizModule(null)}
+        topicName={quizModule?.title}
+        onComplete={onQuizComplete}
+      />
     </>
   );
 }

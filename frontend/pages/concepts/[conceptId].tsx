@@ -34,6 +34,27 @@ export default function ConceptDetail() {
   const conceptId = typeof router.query.conceptId === 'string' ? router.query.conceptId : '';
   const [d, setD] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [buildingPath, setBuildingPath] = useState(false);
+
+  const buildPath = async () => {
+    if (!d) return;
+    setBuildingPath(true);
+    try {
+      const res = await fetch('/api/adaptive-paths/', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal_concept_id: d.concept.id, target_weeks: 8 }),
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        router.push(`/paths/${data.id}`);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setBuildingPath(false);
+  };
 
   useEffect(() => {
     if (!conceptId) return;
@@ -75,14 +96,23 @@ export default function ConceptDetail() {
 
           {/* Readiness banner */}
           <div className={`mt-5 rounded-2xl p-4 border ${d.gaps.ready_to_learn ? 'border-green-500/30 bg-green-500/10' : 'border-amber-500/30 bg-amber-500/10'}`}>
-            {d.gaps.ready_to_learn ? (
-              <p className="text-green-400 font-medium">✓ You&apos;re ready to learn this.</p>
-            ) : (
-              <p className="text-amber-300 font-medium">
-                ⚠ Fill {d.gaps.gaps.length} prerequisite gap{d.gaps.gaps.length === 1 ? '' : 's'} first
-                {d.gaps.total_learning_hours > 0 && ` (~${d.gaps.total_learning_hours}h)`}.
-              </p>
-            )}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {d.gaps.ready_to_learn ? (
+                <p className="text-green-400 font-medium">✓ You&apos;re ready to learn this.</p>
+              ) : (
+                <p className="text-amber-300 font-medium">
+                  ⚠ Fill {d.gaps.gaps.length} prerequisite gap{d.gaps.gaps.length === 1 ? '' : 's'} first
+                  {d.gaps.total_learning_hours > 0 && ` (~${d.gaps.total_learning_hours}h)`}.
+                </p>
+              )}
+              <button
+                onClick={buildPath}
+                disabled={buildingPath}
+                className="flex-shrink-0 px-4 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              >
+                {buildingPath ? 'Building…' : '🧭 Build a learning path'}
+              </button>
+            </div>
           </div>
 
           {/* Prerequisites */}

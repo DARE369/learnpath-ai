@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
+import QuizModal from '../components/Quiz/QuizModal';
 
 function authHeaders(json = false): Record<string, string> {
   const t =
@@ -29,6 +30,7 @@ export default function ExamsPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [practiceTrack, setPracticeTrack] = useState<Track | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -123,13 +125,21 @@ export default function ExamsPage() {
                             )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => logMock(e)}
-                          disabled={busy === e.enrollment_id}
-                          className="mt-4 px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50"
-                        >
-                          + Log mock score
-                        </button>
+                        <div className="mt-4 flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => setPracticeTrack(e.track)}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
+                          >
+                            🎯 Practice quiz
+                          </button>
+                          <button
+                            onClick={() => logMock(e)}
+                            disabled={busy === e.enrollment_id}
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50"
+                          >
+                            + Log mock score
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -170,6 +180,12 @@ export default function ExamsPage() {
           )}
         </div>
       </div>
+
+      <QuizModal
+        isOpen={!!practiceTrack}
+        onClose={() => setPracticeTrack(null)}
+        topicName={practiceTrack ? `${practiceTrack.name} practice` : undefined}
+      />
     </>
   );
 }

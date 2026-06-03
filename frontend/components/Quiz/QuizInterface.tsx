@@ -34,10 +34,11 @@ interface Feedback {
   question_number?: number;
 }
 
-export default function QuizInterface({ sessionId, topicId, onClose }: {
+export default function QuizInterface({ sessionId, topicId, onClose, onComplete }: {
   sessionId?: string;
   topicId?: string;
   onClose: () => void;
+  onComplete?: (scorePercent: number) => void;
 }) {
   const [currentSessionId, setCurrentSessionId] = useState(sessionId || null);
   const [question, setQuestion] = useState<Question | null>(null);
@@ -117,6 +118,9 @@ export default function QuizInterface({ sessionId, topicId, onClose }: {
       if (result.quiz_complete) {
         // Quiz finished
         setQuizResults(result.results);
+        if (onComplete && result.results) {
+          onComplete(result.results.score_percent ?? 0);
+        }
       } else if (result.next_question) {
         // Move to next question after delay
         setTimeout(() => {
