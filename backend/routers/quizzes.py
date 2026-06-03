@@ -18,6 +18,10 @@ class AnswerBody(BaseModel):
     time_spent: int = 0
 
 
+class ReviewAnswerBody(BaseModel):
+    answer: str
+
+
 @router.post("/start")
 async def start_quiz(
     quiz_type: str = "section",
@@ -128,6 +132,30 @@ async def get_quiz_results(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.get("/review/due")
+async def get_due_reviews(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List FSRS spaced-repetition cards due for review now."""
+    cards = await quiz_service.get_due_cards(db, current_user.id)
+    return {"due_count": len(cards), "cards": cards}
+
+
+@router.post("/review/{card_id}/answer")
+async def submit_review_answer(
+    card_id: str,
+    body: ReviewAnswerBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Grade a review card and reschedule it (FSRS)."""
+    try:
+        return await quiz_service.review_card(db, current_user.id, card_id, body.answer)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get("/questions/random")

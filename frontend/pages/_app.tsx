@@ -22,6 +22,7 @@ const PROTECTED_PREFIXES = [
   "/payment",
   "/referral",
   "/loyalty",
+  "/review",
   "/admin",
 ];
 

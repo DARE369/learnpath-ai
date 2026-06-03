@@ -1,5 +1,6 @@
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 
@@ -488,3 +489,87 @@ class QuizEngineService:
             "total_time_seconds": session.total_time_seconds,
             "completed_at": session.session_completed_at.isoformat() if session.session_completed_at else None
         }
+
+    # ------------------------------------------------------------------
+    # FSRS spaced-repetition review
+    # ------------------------------------------------------------------
+
+    async def get_due_cards(self, db: Session, user_id: str, limit: int = 20) -> List[dict]:
+        """Return FSRS cards due now (due_date <= now), with question content."""
+        now = datetime.utcnow()
+        cards = (
+            db.query(FSRSCard)
+            .filter(FSRSCard.user_id == user_id, FSRSCard.due_date <= now)
+            .order_by(FSRSCard.due_date.asc())
+            .limit(limit)
+            .all()
+        )
+
+        out: List[dict] = []
+        for c in cards:
+            q = db.query(QuizQuestion).filter(QuizQuestion.id == c.source_id).first()
+            if not q:
+                continue
+            out.append({
+                "card_id": str(c.id),
+                "state": c.state,
+                "reps": c.reps,
+                "lapses": c.lapses,
+                "question": {
+                    "id": str(q.id),
+                    "text": q.question_text,
+                    "type": q.question_type,
+                    "options": q.options or [],
+                    "concept": q.concept_id,
+                },
+            })
+        return out
+
+    async def review_card(self, db: Session, user_id: str, card_id: str, answer: str) -> dict:
+        """
+        Grade a review and reschedule the card with a lightweight FSRS-style
+        update: correct recall grows stability (pushes the next due date out);
+        a lapse resets stability and resurfaces the card tomorrow.
+        """
+        card = (
+            db.query(FSRSCard)
+            .filter(FSRSCard.id == card_id, FSRSCard.user_id == user_id)
+            .first()
+        )
+        if not card:
+            raise ValueError("Review card not found")
+
+        question = db.query(QuizQuestion).filter(QuizQuestion.id == card.source_id).first()
+        is_correct = bool(question and answer == question.correct_answer_id)
+
+        now = datetime.utcnow()
+        card.reps = (card.reps or 0) + 1
+        card.last_reviewed = now
+
+        if is_correct:
+            if card.state in ("new", "learning", "relearning"):
+                card.state = "reviewing"
+            card.difficulty = max(1.0, (card.difficulty or 5.0) - 0.5)
+            growth = 1.8 + (10.0 - card.difficulty) * 0.05
+            card.stability = max(1.0, (card.stability or 1.0) * growth)
+            card.scheduled_days = max(1, int(round(card.stability)))
+        else:
+            card.state = "relearning"
+            card.lapses = (card.lapses or 0) + 1
+            card.difficulty = min(10.0, (card.difficulty or 5.0) + 1.0)
+            card.stability = 1.0
+            card.scheduled_days = 1
+
+        card.elapsed_days = 0
+        card.due_date = now + timedelta(days=card.scheduled_days)
+        db.commit()
+
+        feedback = {
+            "is_correct": is_correct,
+            "next_due_days": card.scheduled_days,
+            "state": card.state,
+        }
+        if question:
+            feedback["explanation"] = question.explanation
+            feedback["correct_answer_id"] = question.correct_answer_id
+        return feedback

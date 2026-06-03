@@ -5,6 +5,7 @@ import Link from "next/link";
 import axios from "axios";
 import VideoPlayer, { VideoPlayerHandle } from "../../../components/Learning/VideoPlayer";
 import ChaptersList from "../../../components/Learning/ChaptersList";
+import QuizModal from "../../../components/Quiz/QuizModal";
 import ProgressTracker from "../../../components/Learning/ProgressTracker";
 import ConceptSidebar from "../../../components/Learning/ConceptSidebar";
 import QuestionCard from "../../../components/Learning/QuestionCard";
@@ -120,6 +121,7 @@ export default function LearningSessionPage() {
   const progressDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<VideoPlayerHandle>(null);
   const [currentSeconds, setCurrentSeconds] = useState(0);
+  const [quizOpen, setQuizOpen] = useState(false);
 
   const accessToken = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -444,6 +446,22 @@ export default function LearningSessionPage() {
                 onSeekTo={(s) => playerRef.current?.seekTo(s)}
               />
 
+              {/* Adaptive quiz prompt (NEW-PACKET-C) */}
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-4">
+                <div className="min-w-0">
+                  <p className="text-white font-medium">Test your knowledge</p>
+                  <p className="text-white/50 text-sm">
+                    Take a short adaptive quiz on this topic — difficulty adjusts to you.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setQuizOpen(true)}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                >
+                  🎯 Start quiz
+                </button>
+              </div>
+
               {/* Question panel */}
               {showQuestion && (
                 <div className="animate-slide-up">
@@ -528,6 +546,12 @@ export default function LearningSessionPage() {
           </div>
         </main>
       </div>
+
+      <QuizModal
+        isOpen={quizOpen}
+        onClose={() => setQuizOpen(false)}
+        topicName={currentVideo.title}
+      />
     </>
   );
 }
