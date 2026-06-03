@@ -96,15 +96,15 @@ export default function UploadPage() {
                 <div className="border-2 border-dashed border-border rounded-2xl p-12 text-center bg-surface-elevated hover:border-accent transition">
                   <div className="text-4xl mb-3">📄</div>
                   <p className="text-white font-medium">Click to choose a file</p>
-                  <p className="text-white/40 text-sm mt-1">PDF, Word, or Text · up to 50MB</p>
+                  <p className="text-white/40 text-sm mt-1">PDF, Word, Text, or Image · up to 50MB</p>
                   <p className="text-white/30 text-xs mt-2">
-                    (Scanned PDFs &amp; images need OCR, which isn&apos;t enabled on the server yet.)
+                    Scanned PDFs &amp; photos of notes are read with OCR.
                   </p>
                 </div>
                 <input
                   type="file"
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.txt,.md"
+                  accept=".pdf,.doc,.docx,.txt,.md,.jpg,.jpeg,.png,.webp"
                   onChange={handleFile}
                 />
               </label>

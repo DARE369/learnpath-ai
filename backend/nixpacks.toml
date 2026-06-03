@@ -1,0 +1,6 @@
+# Railway / Nixpacks build config.
+# Installs the system binaries needed for OCR (NEW-PACKET-E):
+#   tesseract-ocr  -> the OCR engine used by pytesseract (image + scanned PDF)
+#   poppler-utils  -> provides pdftoppm, used by pdf2image to rasterise PDF pages
+[phases.setup]
+aptPkgs = ["tesseract-ocr", "poppler-utils"]

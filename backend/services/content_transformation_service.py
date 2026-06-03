@@ -22,7 +22,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from config import settings
-from models import UserUpload, ContentTransformation
+from models import UserUpload, ContentTransformation, UploadFlashcard
 
 logger = logging.getLogger(__name__)
 
@@ -86,13 +86,16 @@ class ContentTransformationService:
                 text = "\n".join(p for p in parts if p.strip())
             except Exception as e:
                 raise ValueError(f"Could not read PDF: {e}")
-            if len(text.strip()) < 30:
-                raise ValueError(
-                    "No selectable text found (this looks like a scanned PDF). "
-                    "OCR is not available on this server — upload a text-based PDF, "
-                    "Word doc, or paste the text."
-                )
-            return text
+            if len(text.strip()) >= 30:
+                return text
+            # Looks like a scanned PDF — fall back to OCR if available.
+            ocr = self._ocr_pdf(data)
+            if ocr and len(ocr.strip()) >= 30:
+                return ocr
+            raise ValueError(
+                "No selectable text found and OCR could not read this PDF. "
+                "Try a text-based PDF, a Word doc, or paste the text."
+            )
 
         if file_type == "docx":
             try:
@@ -117,6 +120,20 @@ class ContentTransformationService:
                 raise ValueError(f"OCR failed: {e}")
 
         raise ValueError(f"Unsupported file type: {file_type}")
+
+    def _ocr_pdf(self, data: bytes) -> Optional[str]:
+        """OCR a scanned PDF via pdf2image + pytesseract. None if unavailable."""
+        try:
+            import pytesseract
+            from pdf2image import convert_from_bytes
+        except Exception:
+            return None
+        try:
+            pages = convert_from_bytes(data, dpi=200)
+            return "\n".join(pytesseract.image_to_string(p) for p in pages)
+        except Exception as e:
+            logger.warning(f"PDF OCR failed: {e}")
+            return None
 
     def _extract_from_url(self, url: str) -> tuple:
         """Return (title, text) for a web URL."""
@@ -252,9 +269,62 @@ class ContentTransformationService:
             item_count=count,
         )
         db.add(row)
+
+        # Persist individual flashcard rows so they can be enrolled in FSRS review.
+        if ttype == "flashcards":
+            try:
+                cards = (json.loads(content) or {}).get("flashcards", [])
+            except (json.JSONDecodeError, TypeError):
+                cards = []
+            for c in cards:
+                db.add(UploadFlashcard(
+                    upload_id=upload.id,
+                    front_text=c.get("front", ""),
+                    back_text=c.get("back", ""),
+                    source_concept=c.get("concept", ""),
+                ))
+
         db.commit()
         db.refresh(row)
         return self._transform_dict(row)
+
+    def add_flashcards_to_review(self, db: Session, user_id, upload: UserUpload) -> int:
+        """
+        Enroll this upload's flashcards in the Packet-C FSRS review deck.
+        Idempotent: skips flashcards the user already has a card for.
+        """
+        from models import FSRSCard
+
+        flashcards = (
+            db.query(UploadFlashcard).filter(UploadFlashcard.upload_id == upload.id).all()
+        )
+        if not flashcards:
+            return 0
+
+        existing = {
+            str(r.source_id)
+            for r in db.query(FSRSCard).filter(
+                FSRSCard.user_id == user_id, FSRSCard.source_type == "upload_flashcard"
+            ).all()
+        }
+
+        now = datetime.utcnow()
+        added = 0
+        for fc in flashcards:
+            if str(fc.id) in existing:
+                continue
+            db.add(FSRSCard(
+                user_id=user_id,
+                source_type="upload_flashcard",
+                source_id=fc.id,
+                state="new",
+                due_date=now,
+                difficulty=5.0,
+                stability=1.0,
+            ))
+            added += 1
+        db.commit()
+        return added
 
     def _transform_dict(self, row: ContentTransformation) -> dict:
         out = {

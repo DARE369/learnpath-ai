@@ -1142,3 +1142,17 @@ class ContentTransformation(Base):
     item_count = Column(Integer, default=0)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class UploadFlashcard(Base):
+    """Individual flashcard extracted from an upload — enrollable in FSRS review."""
+    __tablename__ = "uploaded_flashcards"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(UUID(as_uuid=True), ForeignKey("user_uploads.id"), nullable=False, index=True)
+
+    front_text = Column(Text, nullable=False)
+    back_text = Column(Text, nullable=False)
+    source_concept = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -111,3 +111,20 @@ async def get_transformation(
         return await svc.get_or_generate(db, upload, ttype)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/{content_id}/flashcards/add-to-review")
+async def add_flashcards_to_review(
+    content_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Enroll this upload's flashcards in the spaced-repetition review deck (Packet C)."""
+    upload = _require_owned_upload(content_id, current_user, db)
+    try:
+        # Ensure the flashcards transform (and its rows) exist first.
+        await svc.get_or_generate(db, upload, "flashcards")
+        added = svc.add_flashcards_to_review(db, current_user.id, upload)
+        return {"added": added}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

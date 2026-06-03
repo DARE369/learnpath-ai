@@ -33,6 +33,29 @@ export default function ContentDetail() {
   const [error, setError] = useState<string | null>(null);
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [reviewMsg, setReviewMsg] = useState<string | null>(null);
+  const [addingReview, setAddingReview] = useState(false);
+
+  const addFlashcardsToReview = async () => {
+    setAddingReview(true);
+    setReviewMsg(null);
+    try {
+      const res = await fetch(`/api/content/${contentId}/flashcards/add-to-review`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const body = await res.json();
+      setReviewMsg(
+        body.added > 0
+          ? `Added ${body.added} card${body.added === 1 ? '' : 's'} to your review deck.`
+          : 'These cards are already in your review deck.'
+      );
+    } catch {
+      setReviewMsg('Could not add to review deck.');
+    } finally {
+      setAddingReview(false);
+    }
+  };
 
   useEffect(() => {
     if (!contentId) return;
@@ -100,7 +123,21 @@ export default function ContentDetail() {
             ) : !current ? null : tab === 'ai_explanation' ? (
               <pre className="whitespace-pre-wrap break-words font-sans text-white/85 text-sm leading-relaxed">{current.content}</pre>
             ) : tab === 'flashcards' ? (
-              <FlashcardsView cards={current.data?.flashcards || []} flipped={flipped} setFlipped={setFlipped} />
+              <>
+                {(current.data?.flashcards || []).length > 0 && (
+                  <div className="flex items-center justify-end gap-3 mb-4">
+                    {reviewMsg && <span className="text-white/50 text-xs">{reviewMsg}</span>}
+                    <button
+                      onClick={addFlashcardsToReview}
+                      disabled={addingReview}
+                      className="px-3 py-1.5 rounded-lg bg-accent/20 text-accent text-sm font-medium hover:bg-accent/30 transition disabled:opacity-50"
+                    >
+                      {addingReview ? 'Adding…' : '➕ Add to review deck'}
+                    </button>
+                  </div>
+                )}
+                <FlashcardsView cards={current.data?.flashcards || []} flipped={flipped} setFlipped={setFlipped} />
+              </>
             ) : tab === 'youtube_match' ? (
               <VideosView videos={current.data?.videos || []} />
             ) : (

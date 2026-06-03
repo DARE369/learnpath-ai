@@ -505,7 +505,7 @@ class QuizEngineService:
             .all()
         )
 
-        from models import NoteFlashcard
+        from models import NoteFlashcard, UploadFlashcard
 
         out: List[dict] = []
         for c in cards:
@@ -515,9 +515,10 @@ class QuizEngineService:
                 "reps": c.reps,
                 "lapses": c.lapses,
             }
-            if c.source_type == "flashcard":
-                # Note flashcard: self-graded front/back (no options).
-                fc = db.query(NoteFlashcard).filter(NoteFlashcard.id == c.source_id).first()
+            if c.source_type in ("flashcard", "upload_flashcard"):
+                # Self-graded front/back (note flashcard or uploaded-content flashcard).
+                model = NoteFlashcard if c.source_type == "flashcard" else UploadFlashcard
+                fc = db.query(model).filter(model.id == c.source_id).first()
                 if not fc:
                     continue
                 base["card_type"] = "flashcard"
@@ -548,7 +549,7 @@ class QuizEngineService:
         update: correct recall grows stability (pushes the next due date out);
         a lapse resets stability and resurfaces the card tomorrow.
         """
-        from models import NoteFlashcard
+        from models import NoteFlashcard, UploadFlashcard
 
         card = (
             db.query(FSRSCard)
@@ -560,9 +561,10 @@ class QuizEngineService:
 
         question = None
         flashcard = None
-        if card.source_type == "flashcard":
+        if card.source_type in ("flashcard", "upload_flashcard"):
             # Self-graded: the client sends "got_it" (recalled) or anything else (missed).
-            flashcard = db.query(NoteFlashcard).filter(NoteFlashcard.id == card.source_id).first()
+            model = NoteFlashcard if card.source_type == "flashcard" else UploadFlashcard
+            flashcard = db.query(model).filter(model.id == card.source_id).first()
             is_correct = answer == "got_it"
         else:
             question = db.query(QuizQuestion).filter(QuizQuestion.id == card.source_id).first()
