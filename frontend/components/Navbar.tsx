@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { href: "/explore", label: "Explore" },
   { href: "/upload", label: "Upload" },
   { href: "/notes", label: "Notes" },
+  { href: "/concepts", label: "Concepts" },
   { href: "/review", label: "Review" },
   { href: "/referral", label: "Referral" },
   { href: "/loyalty", label: "Loyalty" },

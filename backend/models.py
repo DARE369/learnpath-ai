@@ -1188,3 +1188,41 @@ class UserAchievement(Base):
     achievement_description = Column(Text)
 
     unlocked_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-G: Concept knowledge graph.
+# Nodes (Concept) + edges (ConceptRelationship). User mastery is read from the
+# existing ConceptMastery table, joined by concept_name == ConceptMastery.concept_id.
+
+class Concept(Base):
+    """A node in the knowledge graph."""
+    __tablename__ = "concepts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    concept_name = Column(String, unique=True, nullable=False, index=True)  # join key
+    display_name = Column(String)
+    description = Column(Text)
+
+    subject = Column(String, index=True)
+    topic = Column(String, index=True)
+    difficulty_level = Column(Integer, default=5)  # 1-10
+
+    created_by = Column(String, default="system")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ConceptRelationship(Base):
+    """A directed edge between two concepts."""
+    __tablename__ = "concept_relationships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_concept_id = Column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=False, index=True)
+    target_concept_id = Column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=False, index=True)
+
+    # prerequisite: target must be learned before source
+    # related | extends | leads_to
+    relationship_type = Column(String, nullable=False, default="related", index=True)
+    strength = Column(Float, default=0.7)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

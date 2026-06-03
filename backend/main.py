@@ -410,6 +410,10 @@ app.include_router(content_router.router)
 from routers import dashboard as dashboard_router
 app.include_router(dashboard_router.router)
 
+# NEW-PACKET-G: Concept knowledge graph
+from routers import knowledge as knowledge_router
+app.include_router(knowledge_router.router)
+
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)
