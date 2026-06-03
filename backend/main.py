@@ -402,6 +402,10 @@ app.include_router(video_chunks.router)
 from routers import notes as notes_router
 app.include_router(notes_router.router)
 
+# NEW-PACKET-E: User Note Upload + Transformation
+from routers import content as content_router
+app.include_router(content_router.router)
+
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)

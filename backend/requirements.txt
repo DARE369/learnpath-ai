@@ -25,6 +25,13 @@ PyJWT==2.8.0
 requests==2.31.0
 youtube-transcript-api==0.6.1
 
+# NEW-PACKET-E: document extraction (text-based PDF, Word, URL).
+# OCR (Tesseract/poppler) is intentionally NOT a hard dependency — image and
+# scanned-PDF OCR degrade gracefully when the system binaries are absent.
+pypdf==4.2.0
+python-docx==1.1.2
+beautifulsoup4==4.12.3
+
 # Anthropic & Google APIs
 anthropic==0.28.0
 google-generativeai==0.3.0

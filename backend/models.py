@@ -1101,3 +1101,44 @@ class NoteFlashcard(Base):
     source_concept = Column(String)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-E: User Note Upload + Transformation
+# An uploaded document/URL plus its lazily-generated transformations
+# (ai_explanation, flashcards, youtube_match, quiz), each cached on its own row.
+
+class UserUpload(Base):
+    """A user-uploaded document or URL awaiting/holding transformations."""
+    __tablename__ = "user_uploads"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    original_filename = Column(String)
+    file_type = Column(String)                 # pdf | image | docx | txt | url
+    file_size_bytes = Column(Integer, default=0)
+    source_url = Column(String)
+    source_title = Column(String)
+
+    extraction_status = Column(String, default="pending")  # pending|processing|complete|failed
+    extraction_error = Column(Text)
+    extracted_text = Column(Text)
+    detected_subject = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ContentTransformation(Base):
+    """One generated transformation for an upload (cached per type)."""
+    __tablename__ = "content_transformations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(UUID(as_uuid=True), ForeignKey("user_uploads.id"), nullable=False, index=True)
+
+    transform_type = Column(String, nullable=False, index=True)  # ai_explanation|flashcards|youtube_match|quiz
+    result_content = Column(Text)              # markdown or JSON string
+    result_format = Column(String, default="markdown")  # markdown | json
+    item_count = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

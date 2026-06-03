@@ -24,6 +24,8 @@ const PROTECTED_PREFIXES = [
   "/loyalty",
   "/review",
   "/notes",
+  "/upload",
+  "/content",
   "/admin",
 ];
 
