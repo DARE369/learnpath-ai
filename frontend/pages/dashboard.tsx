@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import axios from "axios";
+import SchoolDashboard from "../components/Dashboard/SchoolDashboard";
 import StatsCard from "../components/Dashboard/StatsCard";
 import AchievementBadges from "../components/Dashboard/AchievementBadges";
 import ProgressChart from "../components/Dashboard/ProgressChart";
@@ -251,6 +252,9 @@ export default function DashboardPage() {
 
           {/* Upgrade banner — only shown to free users, dismissable */}
           <AdBanner placement="banner" userPlan={userPlan} />
+
+          {/* School-like dashboard: streak, goal, performance, milestones, achievements (NEW-PACKET-F) */}
+          <SchoolDashboard />
 
           {/* Stats grid — real data from /api/progress/stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

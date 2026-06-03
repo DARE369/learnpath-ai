@@ -406,6 +406,10 @@ app.include_router(notes_router.router)
 from routers import content as content_router
 app.include_router(content_router.router)
 
+# NEW-PACKET-F: School-like dashboard
+from routers import dashboard as dashboard_router
+app.include_router(dashboard_router.router)
+
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)

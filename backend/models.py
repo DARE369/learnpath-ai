@@ -1156,3 +1156,35 @@ class UploadFlashcard(Base):
     source_concept = Column(String)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-F: School-like dashboard — streaks + achievements.
+
+class UserStreak(Base):
+    """Per-user learning streak (recomputed from activity)."""
+    __tablename__ = "user_streaks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True)
+
+    current_streak_days = Column(Integer, default=0)
+    longest_streak_days = Column(Integer, default=0)
+    last_activity_date = Column(Date, nullable=True)
+    streak_started_date = Column(Date, nullable=True)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class UserAchievement(Base):
+    """An unlocked badge for a user (NEW-PACKET-F)."""
+    __tablename__ = "user_achievements"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    achievement_id = Column(String, nullable=False, index=True)  # consistent_learner, etc.
+    achievement_name = Column(String)
+    achievement_icon = Column(String)
+    achievement_description = Column(Text)
+
+    unlocked_at = Column(DateTime, default=datetime.utcnow, nullable=False)
