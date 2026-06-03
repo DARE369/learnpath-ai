@@ -10,7 +10,7 @@ import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
 import { OfflineIndicator } from "../components/PWA/OfflineIndicator";
 import "../styles/globals.css";
 
-const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password"];
+const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password", "/onboarding"];
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -41,14 +41,20 @@ function Shell({ Component, pageProps }: AppProps) {
   const needsAuth = isProtectedPath(router.pathname);
 
   useEffect(() => {
-    if (!loading && needsAuth && !user) {
-      // Use window.location instead of router.asPath: on first render before
-      // hydration, router.asPath still has unresolved dynamic params like
-      // "/courses/[courseId]". window.location.pathname is always the real URL.
+    if (loading) return;
+
+    if (needsAuth && !user) {
       const next = typeof window !== "undefined"
         ? window.location.pathname + window.location.search
         : router.asPath;
       router.replace(`/auth/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
+
+    // Redirect newly-logged-in users who haven't completed onboarding.
+    // Skip if they're already on the onboarding page.
+    if (user && !user.onboardingCompleted && router.pathname !== "/onboarding") {
+      router.replace("/onboarding");
     }
   }, [loading, needsAuth, user, router]);
 

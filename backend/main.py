@@ -35,6 +35,10 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_answered INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS questions_correct INTEGER DEFAULT 0",
     "ALTER TABLE path_sessions ADD COLUMN IF NOT EXISTS notes TEXT",
+    # NEW-PACKET-A: learner profile & placement test tables (idempotent)
+    "CREATE INDEX IF NOT EXISTS ix_user_profiles_user_id ON user_profiles(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_placement_tests_user_id ON placement_tests(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_profiling_history_user_id ON profiling_history(user_id)",
     # path_sessions — core watch/progress columns. The ORM SELECTs every mapped
     # column, so a single missing one 500s all reads (e.g. /api/progress/*).
     # Session writes were made fault-tolerant earlier (return a stub on failure),
@@ -373,6 +377,10 @@ from routers import organizations, teachers, schools
 app.include_router(organizations.router, prefix="/api/organizations", tags=["organizations"])
 app.include_router(teachers.router, prefix="/api/teachers", tags=["teachers"])
 app.include_router(schools.router, prefix="/api/schools", tags=["schools"])
+
+# NEW-PACKET-A: Learner Profile System & Onboarding
+from routers import learner
+app.include_router(learner.router)
 
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes

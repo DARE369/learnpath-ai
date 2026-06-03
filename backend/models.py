@@ -874,3 +874,95 @@ class FSRSCard(Base):
     last_reviewed = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-A: Learner Profile System & Onboarding
+
+class UserProfile(Base):
+    """Extended learner profile captured during onboarding (NEW-PACKET-A)"""
+    __tablename__ = "user_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True)
+
+    # Onboarding state
+    onboarding_completed = Column(Boolean, default=False)
+    onboarding_completed_at = Column(DateTime, nullable=True)
+
+    # Step 1 — study goals
+    # [{goal, target_score, deadline_date, days_to_deadline}]
+    study_goals = Column(JSON, default=list)
+
+    # Step 2 — current level
+    current_level = Column(String, nullable=True)          # beginner|intermediate|advanced
+    placement_test_completed = Column(Boolean, default=False)
+    placement_test_score = Column(Integer, nullable=True)  # 0-100
+    self_assessed = Column(Boolean, default=False)
+
+    # Step 3 — derived pace
+    required_hours_per_week = Column(Float, nullable=True)
+    required_hours_per_day = Column(Float, nullable=True)
+
+    # Step 4 — time commitment
+    weekly_commitment_hours = Column(Integer, nullable=True)
+    preferred_study_times = Column(ARRAY(String), default=list)
+
+    # Step 5 — learning styles
+    learning_styles = Column(ARRAY(String), default=list)
+
+    # Re-profiling (quarterly)
+    last_profiling_date = Column(DateTime, nullable=True)
+    next_profiling_date = Column(DateTime, nullable=True)
+    profiling_frequency_days = Column(Integer, default=90)
+
+    # Preferences
+    difficulty_preference = Column(String, default="auto")
+    notification_frequency = Column(String, default="daily_digest")
+    language = Column(String, default="en")
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PlacementTest(Base):
+    """Records for adaptive placement tests (NEW-PACKET-A)"""
+    __tablename__ = "placement_tests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    test_started_at = Column(DateTime, default=datetime.utcnow)
+    test_completed_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+
+    questions_answered = Column(Integer, default=0)
+    questions_correct = Column(Integer, default=0)
+    score_percent = Column(Integer, nullable=True)          # 0-100
+
+    # Adaptive tracking
+    difficulty_sequence = Column(ARRAY(String), default=list)
+    estimated_level = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ProfilingHistory(Base):
+    """Snapshot diffs written on each quarterly re-profile (NEW-PACKET-A)"""
+    __tablename__ = "profiling_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    study_goals_before = Column(JSON, nullable=True)
+    study_goals_after = Column(JSON, nullable=True)
+    current_level_before = Column(String, nullable=True)
+    current_level_after = Column(String, nullable=True)
+    weekly_hours_before = Column(Integer, nullable=True)
+    weekly_hours_after = Column(Integer, nullable=True)
+
+    goals_changed = Column(Boolean, default=False)
+    level_changed = Column(Boolean, default=False)
+    pace_changed = Column(Boolean, default=False)
+
+    profiling_type = Column(String, default="quarterly")   # quarterly|manual|on_request
+    completed_at = Column(DateTime, default=datetime.utcnow, nullable=False)

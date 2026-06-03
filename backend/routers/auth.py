@@ -121,7 +121,14 @@ async def logout(response: Response):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from models import UserProfile
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    # Attach onboarding_completed to the user object so Pydantic can serialise it.
+    current_user.onboarding_completed = profile.onboarding_completed if profile else False
     return current_user
 
 

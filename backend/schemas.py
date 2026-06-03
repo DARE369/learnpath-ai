@@ -30,6 +30,7 @@ class UserResponse(UserBase):
     email_verified: bool
     created_at: datetime
     updated_at: datetime
+    onboarding_completed: Optional[bool] = False
 
     model_config = {"from_attributes": True}
 
