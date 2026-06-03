@@ -27,6 +27,7 @@ const PROTECTED_PREFIXES = [
   "/upload",
   "/content",
   "/concepts",
+  "/paths",
   "/admin",
 ];
 

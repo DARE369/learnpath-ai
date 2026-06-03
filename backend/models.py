@@ -1226,3 +1226,85 @@ class ConceptRelationship(Base):
     strength = Column(Float, default=0.7)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-H: Adaptive learning paths.
+
+class AdaptivePath(Base):
+    """A personalized, adapting learning sequence toward a goal concept."""
+    __tablename__ = "adaptive_paths"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    path_name = Column(String)
+    goal_concept_id = Column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=True)
+
+    target_completion_weeks = Column(Integer, default=12)
+    target_success_rate = Column(Float, default=0.7)
+
+    started_at = Column(DateTime, default=datetime.utcnow)
+    original_end_date = Column(Date, nullable=True)
+
+    current_module_number = Column(Integer, default=1)
+    completed_modules = Column(Integer, default=0)
+    total_modules = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True, index=True)
+
+    last_adapted_at = Column(DateTime, nullable=True)
+    times_adapted = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PathModule(Base):
+    """One ordered step in an adaptive path."""
+    __tablename__ = "path_modules"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    adaptive_path_id = Column(UUID(as_uuid=True), ForeignKey("adaptive_paths.id"), nullable=False, index=True)
+
+    module_number = Column(Integer)
+    module_title = Column(String)
+    module_type = Column(String, default="lesson")  # lesson | quiz | review
+    content_concept_id = Column(UUID(as_uuid=True), nullable=True)
+
+    estimated_duration_minutes = Column(Integer, default=45)
+    recommended_difficulty = Column(String, default="medium")  # easy | medium | hard
+    difficulty_multiplier = Column(Float, default=1.0)
+
+    module_status = Column(String, default="pending", index=True)  # pending|in_progress|completed|skipped
+    user_start_date = Column(DateTime, nullable=True)
+    user_end_date = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ModulePerformance(Base):
+    """A user's performance on a path module."""
+    __tablename__ = "module_performance"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    path_module_id = Column(UUID(as_uuid=True), ForeignKey("path_modules.id"), nullable=False, index=True)
+
+    time_spent_minutes = Column(Integer, default=0)
+    quiz_score_percent = Column(Integer, nullable=True)
+    attempts = Column(Integer, default=1)
+    completion_percent = Column(Integer, default=100)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class PathAdaptation(Base):
+    """Audit log of an adaptation applied to a path."""
+    __tablename__ = "path_adaptations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    adaptive_path_id = Column(UUID(as_uuid=True), ForeignKey("adaptive_paths.id"), nullable=False, index=True)
+
+    adaptation_type = Column(String)  # difficulty_up|difficulty_down|pacing_increase|pacing_decrease|gap_inserted
+    reason = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
