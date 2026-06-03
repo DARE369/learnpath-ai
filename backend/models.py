@@ -1308,3 +1308,49 @@ class PathAdaptation(Base):
     reason = Column(Text)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# NEW-PACKET-I: Exam-specific tracks (IELTS / SAT / WAEC ...).
+
+class ExamTrack(Base):
+    """A structured exam-prep track (catalogue entry)."""
+    __tablename__ = "exam_tracks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exam_type = Column(String, unique=True, nullable=False, index=True)  # ielts | sat | waec
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    score_scale = Column(String)            # e.g. "Band 0-9"
+    sections = Column(JSON, default=list)   # [{"name": "Listening"}, ...]
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ExamEnrollment(Base):
+    """A user's enrollment in an exam track."""
+    __tablename__ = "exam_enrollments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    exam_track_id = Column(UUID(as_uuid=True), ForeignKey("exam_tracks.id"), nullable=False, index=True)
+
+    target_score = Column(String)           # e.g. "7.0"
+    exam_date = Column(Date, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class MockExamAttempt(Base):
+    """A logged mock-exam result, used to track progress + refine predictions."""
+    __tablename__ = "mock_exam_attempts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    exam_track_id = Column(UUID(as_uuid=True), ForeignKey("exam_tracks.id"), nullable=False, index=True)
+
+    overall_percent = Column(Integer, default=0)
+    section_scores = Column(JSON, default=dict)   # {"Listening": 72, ...}
+    predicted_score = Column(String)
+
+    taken_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

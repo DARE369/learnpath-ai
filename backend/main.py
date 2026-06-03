@@ -418,6 +418,10 @@ app.include_router(knowledge_router.router)
 from routers import adaptive_paths as adaptive_paths_router
 app.include_router(adaptive_paths_router.router)
 
+# NEW-PACKET-I: Exam-specific tracks
+from routers import exams as exams_router
+app.include_router(exams_router.router)
+
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)
