@@ -3,7 +3,7 @@
  * Network-first strategy for API calls, cache-first for static assets
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `learnpath-static-${CACHE_VERSION}`;
 const API_CACHE = `learnpath-api-${CACHE_VERSION}`;
 const IMAGE_CACHE = `learnpath-images-${CACHE_VERSION}`;
@@ -25,7 +25,15 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       console.log("[SW] Caching static assets");
-      return cache.addAll(STATIC_ASSETS);
+      // Cache each asset independently so a single missing/404 asset doesn't
+      // abort the entire install (cache.addAll is all-or-nothing).
+      return Promise.allSettled(
+        STATIC_ASSETS.map((url) =>
+          cache
+            .add(new Request(url, { cache: "reload" }))
+            .catch((err) => console.warn("[SW] Skipped caching", url, err))
+        )
+      );
     })
   );
   self.skipWaiting(); // Activate immediately
@@ -318,7 +326,7 @@ self.addEventListener("push", (event) => {
 
   const data = event.data.json();
   const options = {
-    badge: "/icons/badge-192x192.png",
+    badge: "/icons/icon-192x192.png",
     icon: "/icons/icon-192x192.png",
     title: data.title || "LearnPath",
     body: data.message || "",

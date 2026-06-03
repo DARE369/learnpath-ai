@@ -18,7 +18,10 @@ interface PWAState {
 
 export function usePWA() {
   const [state, setState] = useState<PWAState>({
-    isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+    // Start optimistically online; a real reachability probe on mount corrects
+    // this. Defaulting to navigator.onLine caused a false "Offline" banner
+    // because that flag is an unreliable false-negative.
+    isOnline: true,
     isInstallable: false,
     isInstalled: false,
     isSyncing: false,
@@ -54,20 +57,49 @@ export function usePWA() {
         });
     }
 
-    // Listen for online/offline events
-    const handleOnline = () => {
-      console.log("Online!");
-      setState((prev) => ({ ...prev, isOnline: true }));
-      syncOfflineChanges();
+    // Robust connectivity detection. navigator.onLine is unreliable (it commonly
+    // reports false negatives), so we confirm with a real request to the backend
+    // health endpoint before declaring the app offline. The service worker never
+    // caches /health, so this probe reflects true reachability.
+    let cancelled = false;
+
+    const setOnline = (online: boolean) =>
+      setState((prev) => (prev.isOnline === online ? prev : { ...prev, isOnline: online }));
+
+    const verifyConnectivity = async (): Promise<boolean> => {
+      const base = process.env.NEXT_PUBLIC_API_URL;
+      if (!base) return navigator.onLine; // no probe target — trust the browser
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch(`${base}/health`, { cache: "no-store", signal: ctrl.signal });
+        clearTimeout(timer);
+        return res.ok;
+      } catch {
+        return false;
+      }
     };
 
+    const refreshOnline = async (): Promise<boolean> => {
+      const online = await verifyConnectivity();
+      if (!cancelled) setOnline(online);
+      return online;
+    };
+
+    const handleOnline = async () => {
+      if (await refreshOnline()) syncOfflineChanges();
+    };
+
+    // Don't trust the offline event blindly — verify before alarming the user.
     const handleOffline = () => {
-      console.log("Offline!");
-      setState((prev) => ({ ...prev, isOnline: false }));
+      refreshOnline();
     };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+
+    // Correct the initial optimistic state once on mount.
+    refreshOnline();
 
     // Listen for install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -105,6 +137,7 @@ export function usePWA() {
     }
 
     return () => {
+      cancelled = true;
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);

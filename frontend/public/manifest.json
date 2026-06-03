@@ -11,20 +11,6 @@
   "dir": "ltr",
   "lang": "en-US",
   "categories": ["education", "learning"],
-  "screenshots": [
-    {
-      "src": "/screenshots/dashboard-540x720.png",
-      "sizes": "540x720",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/dashboard-1280x720.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
-  ],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
