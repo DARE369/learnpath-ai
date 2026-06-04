@@ -8,10 +8,11 @@ interface QuizModalProps {
   onClose: () => void;
   topicId?: string;
   topicName?: string;
+  concept?: string;
   onComplete?: (scorePercent: number) => void;
 }
 
-export default function QuizModal({ isOpen, onClose, topicId, topicName, onComplete }: QuizModalProps) {
+export default function QuizModal({ isOpen, onClose, topicId, topicName, concept, onComplete }: QuizModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -39,7 +40,7 @@ export default function QuizModal({ isOpen, onClose, topicId, topicName, onCompl
           </button>
         </div>
         <div className="p-6">
-          <QuizInterface topicId={topicId} onClose={onClose} onComplete={onComplete} />
+          <QuizInterface topicId={topicId} concept={concept} onClose={onClose} onComplete={onComplete} />
         </div>
       </div>
     </div>

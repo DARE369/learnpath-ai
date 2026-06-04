@@ -73,3 +73,16 @@ def list_mocks(
     db: Session = Depends(get_db),
 ):
     return {"attempts": svc.list_mocks(db, current_user.id, track_id)}
+
+
+@router.post("/tracks/{track_id}/build-path")
+def build_study_path(
+    track_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create an adaptive study path toward this exam (I -> H)."""
+    try:
+        return svc.build_study_path(db, current_user.id, track_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

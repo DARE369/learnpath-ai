@@ -744,6 +744,7 @@ class QuizSession(Base):
 
     # Quiz metadata
     quiz_type = Column(String, default="section")  # section | module | full_path | mock_exam
+    concept = Column(String, nullable=True)  # optional concept_id to scope the question pool
     total_questions = Column(Integer, default=5)
     questions_answered = Column(Integer, default=0)
     correct_answers = Column(Integer, default=0)

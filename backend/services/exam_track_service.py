@@ -231,5 +231,31 @@ class ExamTrackService:
             "taken_at": a.taken_at.isoformat() if a.taken_at else None,
         }
 
+    # ── build a study path toward this exam (I -> H) ─────────────────────────--
+
+    def build_study_path(self, db: Session, user_id, track_id: str) -> dict:
+        """
+        Create an adaptive learning path toward this exam. The exam is mapped to
+        a goal Concept (created on demand, named after the exam) so the adaptive
+        path engine can build/sequence toward it.
+        """
+        from models import Concept
+        from services.adaptive_path_service import adaptive_path_service
+
+        track = self._require_track(db, track_id)
+        concept = db.query(Concept).filter(Concept.concept_name == track.exam_type).first()
+        if not concept:
+            concept = Concept(
+                concept_name=track.exam_type,
+                display_name=track.name,
+                subject=track.exam_type,
+                difficulty_level=7,
+                created_by="exam_track",
+            )
+            db.add(concept)
+            db.commit()
+            db.refresh(concept)
+        return adaptive_path_service.create_path(db, user_id, str(concept.id), target_weeks=8)
+
 
 exam_track_service = ExamTrackService()

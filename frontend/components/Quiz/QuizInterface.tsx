@@ -34,9 +34,10 @@ interface Feedback {
   question_number?: number;
 }
 
-export default function QuizInterface({ sessionId, topicId, onClose, onComplete }: {
+export default function QuizInterface({ sessionId, topicId, concept, onClose, onComplete }: {
   sessionId?: string;
   topicId?: string;
+  concept?: string;
   onClose: () => void;
   onComplete?: (scorePercent: number) => void;
 }) {
@@ -60,6 +61,7 @@ export default function QuizInterface({ sessionId, topicId, onClose, onComplete 
       const params = new URLSearchParams();
       params.append('quiz_type', 'section');
       if (topicId) params.append('topic_id', topicId);
+      if (concept) params.append('concept', concept);
 
       const response = await fetch(`/api/quiz/start?${params.toString()}`, {
         method: 'POST',
@@ -83,7 +85,7 @@ export default function QuizInterface({ sessionId, topicId, onClose, onComplete 
     } finally {
       setLoading(false);
     }
-  }, [topicId]);
+  }, [topicId, concept]);
 
   // Start quiz on mount
   useEffect(() => {

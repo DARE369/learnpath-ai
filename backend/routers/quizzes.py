@@ -26,6 +26,7 @@ class ReviewAnswerBody(BaseModel):
 async def start_quiz(
     quiz_type: str = "section",
     topic_id: str = None,
+    concept: str = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -35,7 +36,8 @@ async def start_quiz(
             db=db,
             user_id=current_user.id,
             quiz_type=quiz_type,
-            topic_id=topic_id
+            topic_id=topic_id,
+            concept=concept,
         )
         return result
     except ValueError as e:
@@ -88,7 +90,8 @@ async def submit_quiz_answer(
                 user_id=current_user.id,
                 current_ability=updated_session.estimated_ability,
                 quiz_type=updated_session.quiz_type,
-                topic_id=updated_session.topic_id
+                topic_id=updated_session.topic_id,
+                concept=updated_session.concept,
             )
 
             if next_q:

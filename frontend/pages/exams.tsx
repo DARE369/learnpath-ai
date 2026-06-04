@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import QuizModal from '../components/Quiz/QuizModal';
 
 function authHeaders(json = false): Record<string, string> {
@@ -26,6 +27,7 @@ interface Enrollment {
 }
 
 export default function ExamsPage() {
+  const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +64,23 @@ export default function ExamsPage() {
         body: JSON.stringify({ track_id: track.id, target_score: target, exam_date: date || null }),
       });
       await load();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const buildPath = async (e: Enrollment) => {
+    setBusy(e.enrollment_id);
+    try {
+      const res = await fetch(`/api/exams/tracks/${e.track.id}/build-path`, {
+        method: 'POST',
+        headers: authHeaders(true),
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        router.push(`/paths/${data.id}`);
+        return;
+      }
     } finally {
       setBusy(null);
     }
@@ -131,6 +150,13 @@ export default function ExamsPage() {
                             className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
                           >
                             🎯 Practice quiz
+                          </button>
+                          <button
+                            onClick={() => buildPath(e)}
+                            disabled={busy === e.enrollment_id}
+                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50"
+                          >
+                            🧭 Build study path
                           </button>
                           <button
                             onClick={() => logMock(e)}

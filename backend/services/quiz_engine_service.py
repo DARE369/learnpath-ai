@@ -20,7 +20,8 @@ class QuizEngineService:
         db: Session,
         user_id: str,
         quiz_type: str = "section",
-        topic_id: str = None
+        topic_id: str = None,
+        concept: str = None
     ) -> dict:
         """Start new quiz session"""
 
@@ -28,6 +29,7 @@ class QuizEngineService:
             user_id=user_id,
             topic_id=topic_id,
             quiz_type=quiz_type,
+            concept=concept,
             total_questions=5,
             estimated_ability=await self._get_user_ability(db, user_id)
         )
@@ -42,7 +44,8 @@ class QuizEngineService:
             user_id,
             session.estimated_ability,
             quiz_type,
-            topic_id
+            topic_id,
+            concept,
         )
 
         if not first_question:
@@ -79,19 +82,21 @@ class QuizEngineService:
         user_id: str,
         current_ability: float,
         quiz_type: str,
-        topic_id: str
+        topic_id: str,
+        concept: str = None,
     ) -> dict:
         """
         Select question using IRT:
-        1. Get question pool
+        1. Get question pool (scoped to a concept or topic when provided)
         2. Score each by relevance + difficulty match
         3. Select best match (goal: P(correct) ≈ 0.65)
         """
 
-        # Get question pool
+        # Get question pool — prefer a concept scope, then topic, else whole pool.
         query = db.query(QuizQuestion)
-
-        if quiz_type == "section" and topic_id:
+        if concept:
+            query = query.filter(QuizQuestion.concept_id == concept)
+        elif quiz_type == "section" and topic_id:
             query = query.filter(QuizQuestion.topic_id == topic_id)
 
         questions = query.all()

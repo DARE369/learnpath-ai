@@ -147,6 +147,13 @@ class AdaptivePathService:
             .order_by(PathModule.module_number)
             .all()
         )
+        # Resolve concept_name per module so the UI can deep-link lessons to the
+        # learning page (/learning/<concept>) and scope quizzes to the concept.
+        concept_ids = {str(m.content_concept_id) for m in mods if m.content_concept_id}
+        names = {}
+        if concept_ids:
+            for c in db.query(Concept).filter(Concept.id.in_(concept_ids)).all():
+                names[str(c.id)] = c.concept_name
         return {
             "id": str(p.id),
             "path_name": p.path_name,
@@ -163,6 +170,7 @@ class AdaptivePathService:
                 "difficulty": m.recommended_difficulty,
                 "duration_minutes": m.estimated_duration_minutes,
                 "status": m.module_status,
+                "concept_name": names.get(str(m.content_concept_id)) if m.content_concept_id else None,
             } for m in mods],
             "forecast": self._forecast(db, p),
         }

@@ -16,7 +16,7 @@ function authHeaders(json = false): Record<string, string> {
   return h;
 }
 
-interface Module { id: string; module_number: number; title: string; type: string; difficulty: string; duration_minutes: number; status: string; }
+interface Module { id: string; module_number: number; title: string; type: string; difficulty: string; duration_minutes: number; status: string; concept_name?: string | null; }
 interface Forecast { modules_remaining: number; estimated_completion_date: string; days_ahead: number | null; pace_modules_per_week: number; }
 interface PathDetail {
   id: string; path_name: string; completed_modules: number; total_modules: number;
@@ -138,7 +138,7 @@ export default function PathDetail() {
                         Start quiz
                       </button>
                     ) : (
-                      <Link href="/learning/demo/0"
+                      <Link href={`/learning/${encodeURIComponent(m.concept_name || 'demo')}/0`}
                             className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm">
                         Learn
                       </Link>
@@ -159,6 +159,7 @@ export default function PathDetail() {
         isOpen={!!quizModule}
         onClose={() => setQuizModule(null)}
         topicName={quizModule?.title}
+        concept={quizModule?.concept_name || undefined}
         onComplete={onQuizComplete}
       />
     </>
