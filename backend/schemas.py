@@ -13,6 +13,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+    # Self-selected at signup: student | teacher | school_admin (admin is never
+    # self-assigned). Anything else falls back to "student" server-side.
+    role: Optional[str] = None
 
 
 class UserLogin(BaseModel):

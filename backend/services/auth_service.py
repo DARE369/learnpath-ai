@@ -70,12 +70,17 @@ class AuthService:
     def get_user_by_id(self, db: Session, user_id: str) -> Optional[User]:
         return db.query(User).filter(User.id == user_id).first()
 
+    # Roles a user may self-select at signup. "admin" is intentionally excluded —
+    # platform admins are promoted server-side (ADMIN_EMAILS / SQL), never via signup.
+    SELF_SIGNUP_ROLES = {"student", "teacher", "school_admin"}
+
     def create_user(
         self,
         db: Session,
         email: str,
         password: str,
         full_name: Optional[str] = None,
+        role: Optional[str] = None,
     ) -> User:
         errors = _validate_password(password)
         if errors:
@@ -83,10 +88,12 @@ class AuthService:
         if self.get_user_by_email(db, email):
             raise ValueError("Email already registered")
 
+        chosen_role = role if role in self.SELF_SIGNUP_ROLES else "student"
         user = User(
             email=email.lower().strip(),
             password_hash=hash_password(password),
             full_name=full_name,
+            role=chosen_role,
         )
         db.add(user)
         db.commit()

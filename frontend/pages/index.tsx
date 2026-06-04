@@ -2,36 +2,28 @@ import React, { useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { Target, Brain, TrendingUp, Network, GraduationCap, Users, School, ArrowRight } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { homeForRole } from "../components/layout/nav";
 
 const FEATURES = [
-  {
-    icon: "🎯",
-    title: "Curated Learning Paths",
-    description: "AI-assembled video sequences scored for quality, pacing, and pedagogical value.",
-  },
-  {
-    icon: "🧠",
-    title: "Active Recall",
-    description: "Post-video reflection questions reinforce understanding and surface knowledge gaps.",
-  },
-  {
-    icon: "📈",
-    title: "Progress Intelligence",
-    description: "Real-time dashboards track streaks, mastery, and time spent — not just clicks.",
-  },
-  {
-    icon: "⚡",
-    title: "Concept Mastery Graph",
-    description: "See how concepts connect and evolve as you progress through a subject.",
-  },
+  { icon: Target, title: "Curated Learning Paths", description: "AI-assembled video sequences scored for quality, pacing, and pedagogical value." },
+  { icon: Brain, title: "Active Recall", description: "Post-video reflection questions reinforce understanding and surface knowledge gaps." },
+  { icon: TrendingUp, title: "Progress Intelligence", description: "Real-time dashboards track streaks, mastery, and time spent — not just clicks." },
+  { icon: Network, title: "Concept Mastery Graph", description: "See how concepts connect and evolve as you progress through a subject." },
 ];
 
 const SOCIAL_PROOF = [
   { stat: "10,000+", label: "Learning paths" },
   { stat: "98%", label: "Quality score" },
-  { stat: "4.9★", label: "User rating" },
+  { stat: "4.9", label: "User rating" },
   { stat: "50K+", label: "Learners" },
+];
+
+const ROLES = [
+  { value: "student", label: "Student", description: "Build a personalised path and learn at your own pace.", icon: GraduationCap },
+  { value: "teacher", label: "Teacher", description: "Track classes, spot at-risk students, assign content.", icon: Users },
+  { value: "school_admin", label: "School", description: "Oversee teachers, students and performance org-wide.", icon: School },
 ];
 
 export default function HomePage() {
@@ -40,7 +32,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace("/dashboard");
+      router.replace(homeForRole(user.role));
     }
   }, [loading, user, router]);
 
@@ -51,138 +43,157 @@ export default function HomePage() {
         <meta name="description" content="AI-powered learning paths from the best educational videos on YouTube." />
       </Head>
 
-      <div className="min-h-screen bg-[#0f0f0f] text-white">
+      <div className="min-h-screen bg-background text-white">
         {/* Nav */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-[#0f0f0f]/80 backdrop-blur-xl border-b border-white/[0.06]">
-          <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2.5 font-bold text-white mr-auto">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+        <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
+            <Link href="/" className="mr-auto flex items-center gap-2.5 font-bold text-white">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-accent">
                 <span className="text-xs font-black text-white">L</span>
               </div>
               LearnPath AI
             </Link>
-            <Link href="/dashboard" className="text-sm text-white/50 hover:text-white/80 transition-colors hidden sm:block">
-              Dashboard
-            </Link>
-            <Link href="/auth/login" className="text-sm text-white/50 hover:text-white/80 transition-colors">
+            <Link href="/auth/login" className="text-sm text-white/50 transition-colors hover:text-white/80">
               Sign in
             </Link>
-            <Link href="/auth/signup">
-              <button className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-indigo-500/20">
-                Get started free
-              </button>
+            <Link
+              href="/auth/signup"
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-glow-sm transition-colors hover:bg-accent-hover"
+            >
+              Get started free
             </Link>
           </div>
         </header>
 
         {/* Hero */}
-        <section className="relative pt-32 pb-24 px-6 overflow-hidden">
-          {/* Background glows */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] pointer-events-none">
-            <div className="absolute top-0 left-1/4 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl" />
-            <div className="absolute top-20 right-1/4 w-48 h-48 bg-purple-600/15 rounded-full blur-3xl" />
+        <section className="relative overflow-hidden px-6 pb-24 pt-32">
+          <div className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[800px] -translate-x-1/2">
+            <div className="absolute left-1/4 top-0 h-64 w-64 rounded-full bg-accent/20 blur-3xl" />
+            <div className="absolute right-1/4 top-20 h-48 w-48 rounded-full bg-purple-600/15 blur-3xl" />
           </div>
 
-          {/* Subtle grid */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03]"
-            style={{
-              backgroundImage: "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
-            }}
-          />
-
-          <div className="relative max-w-4xl mx-auto text-center">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-4 py-1.5 mb-8">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="text-xs text-indigo-300 font-medium">AI-powered · Free to start</span>
+          <div className="relative mx-auto max-w-4xl text-center">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-muted px-4 py-1.5">
+              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-light" />
+              <span className="text-xs font-medium text-accent-light">AI-powered · Free to start</span>
             </div>
 
-            <h1 className="text-5xl sm:text-6xl font-bold leading-tight tracking-tight mb-6">
+            <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
               Learn anything.
               <br />
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Faster.
-              </span>
+              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Faster.</span>
             </h1>
-            <p className="text-lg text-white/50 max-w-xl mx-auto mb-10 leading-relaxed">
+            <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed text-white/50">
               LearnPath AI builds personalised video curricula from the best educational content on YouTube — then tracks your progress with intelligence.
             </p>
 
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              <Link href="/auth/signup">
-                <button className="px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-all shadow-xl shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:scale-[1.02]">
-                  Start learning free
-                </button>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/auth/signup"
+                className="rounded-xl bg-accent px-8 py-3.5 font-semibold text-white shadow-glow-accent transition-all hover:scale-[1.02] hover:bg-accent-hover"
+              >
+                Start learning free
               </Link>
-              <Link href="/dashboard">
-                <button className="px-8 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-white/70 hover:text-white font-semibold transition-all hover:bg-white/[0.03]">
-                  View dashboard →
-                </button>
+              <Link
+                href="/auth/login"
+                className="rounded-xl border border-border px-8 py-3.5 font-semibold text-white/70 transition-all hover:border-white/20 hover:bg-white/[0.03] hover:text-white"
+              >
+                Sign in
               </Link>
             </div>
 
-            {/* Social proof */}
-            <div className="flex items-center justify-center gap-8 mt-16 flex-wrap">
+            <div className="mt-16 flex flex-wrap items-center justify-center gap-8">
               {SOCIAL_PROOF.map(({ stat, label }) => (
                 <div key={label} className="text-center">
                   <p className="text-2xl font-bold text-white">{stat}</p>
-                  <p className="text-xs text-white/30 mt-0.5">{label}</p>
+                  <p className="mt-0.5 text-xs text-white/30">{label}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Choose your path (role entry) */}
+        <section className="border-t border-border px-6 py-20">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-12 text-center">
+              <h2 className="text-3xl font-bold text-white">Choose your path</h2>
+              <p className="mt-3 text-base text-white/40">LearnPath works for learners, teachers, and whole institutions.</p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-3">
+              {ROLES.map((r) => {
+                const Icon = r.icon;
+                return (
+                  <Link
+                    key={r.value}
+                    href={`/auth/signup?role=${r.value}`}
+                    className="group rounded-2xl border border-border bg-surface p-6 transition-colors hover:border-accent/40 hover:bg-surface-elevated"
+                  >
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-muted text-accent-light">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mb-1 flex items-center gap-1.5 text-base font-semibold text-white">
+                      {r.label}
+                      <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                    </h3>
+                    <p className="text-sm leading-relaxed text-white/40">{r.description}</p>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
 
         {/* Features */}
-        <section className="py-20 px-6 border-t border-white/[0.04]">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-14">
+        <section className="border-t border-border px-6 py-20">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-14 text-center">
               <h2 className="text-3xl font-bold text-white">Built for serious learners</h2>
-              <p className="text-white/40 mt-3 text-base">Every feature is designed to maximise retention, not engagement metrics.</p>
+              <p className="mt-3 text-base text-white/40">Every feature is designed to maximise retention, not engagement metrics.</p>
             </div>
-            <div className="grid sm:grid-cols-2 gap-5">
-              {FEATURES.map((f) => (
-                <div
-                  key={f.title}
-                  className="bg-[#141414] rounded-2xl border border-white/[0.06] p-6 hover:border-indigo-500/20 transition-colors group"
-                >
-                  <div className="text-2xl mb-4">{f.icon}</div>
-                  <h3 className="text-base font-semibold text-white mb-2">{f.title}</h3>
-                  <p className="text-sm text-white/40 leading-relaxed">{f.description}</p>
-                </div>
-              ))}
+            <div className="grid gap-5 sm:grid-cols-2">
+              {FEATURES.map((f) => {
+                const Icon = f.icon;
+                return (
+                  <div key={f.title} className="group rounded-2xl border border-border bg-surface p-6 transition-colors hover:border-accent/20">
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-muted text-accent-light">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mb-2 text-base font-semibold text-white">{f.title}</h3>
+                    <p className="text-sm leading-relaxed text-white/40">{f.description}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
 
         {/* CTA */}
-        <section className="py-20 px-6 border-t border-white/[0.04]">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">Ready to start?</h2>
-            <p className="text-white/40 mb-8">Free forever on the essentials. No credit card required.</p>
-            <Link href="/auth/signup">
-              <button className="px-10 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-base transition-all shadow-2xl shadow-indigo-500/20 hover:scale-[1.02]">
-                Create free account →
-              </button>
+        <section className="border-t border-border px-6 py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="mb-4 text-3xl font-bold text-white">Ready to start?</h2>
+            <p className="mb-8 text-white/40">Free forever on the essentials. No credit card required.</p>
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-accent px-10 py-4 text-base font-bold text-white shadow-glow-accent transition-all hover:scale-[1.02]"
+            >
+              Create free account <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-white/[0.04] py-8 px-6">
-          <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-2 text-white/30 text-sm">
-              <div className="w-5 h-5 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+        <footer className="border-t border-border px-6 py-8">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-sm text-white/30">
+              <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-accent">
                 <span className="text-[10px] font-black text-white">L</span>
               </div>
               LearnPath AI · {new Date().getFullYear()}
             </div>
             <div className="flex items-center gap-5 text-sm text-white/30">
-              <Link href="/auth/login" className="hover:text-white/60 transition-colors">Sign in</Link>
-              <Link href="/auth/signup" className="hover:text-white/60 transition-colors">Sign up</Link>
-              <Link href="/dashboard" className="hover:text-white/60 transition-colors">Dashboard</Link>
+              <Link href="/auth/login" className="transition-colors hover:text-white/60">Sign in</Link>
+              <Link href="/auth/signup" className="transition-colors hover:text-white/60">Sign up</Link>
             </div>
           </div>
         </footer>

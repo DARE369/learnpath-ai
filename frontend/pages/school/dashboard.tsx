@@ -23,24 +23,25 @@ interface SchoolDashboard {
   };
 }
 
+function authHeaders(): Record<string, string> {
+  const t =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
+      : null;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 export default function SchoolDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const [dashboard, setDashboard] = useState<SchoolDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [orgId, setOrgId] = useState<string | null>(null);
 
+  // Auth + school-admin-role access are enforced by the app shell (_app.tsx).
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/auth/login");
-      return;
-    }
-    const parsed = JSON.parse(userData);
-    setUser(parsed);
-    const org = localStorage.getItem("organization_id");
+    const org = typeof window !== "undefined" ? localStorage.getItem("organization_id") : null;
     if (!org) {
-      router.push("/school/select");
+      // No organisation linked yet — render the no-org state rather than bouncing.
+      setLoading(false);
       return;
     }
     setOrgId(org);
@@ -49,7 +50,7 @@ export default function SchoolDashboard() {
 
   async function fetchDashboard(id: string) {
     try {
-      const response = await fetch(`/api/schools/${id}/dashboard`);
+      const response = await fetch(`/api/schools/${id}/dashboard`, { headers: authHeaders() });
       if (!response.ok) throw new Error("Failed to load dashboard");
       const data = await response.json();
       setDashboard(data);
@@ -58,13 +59,6 @@ export default function SchoolDashboard() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("organization_id");
-    router.push("/");
   }
 
   if (loading) {

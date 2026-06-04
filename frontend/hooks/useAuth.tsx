@@ -16,7 +16,7 @@ interface AuthContextValue {
   isLoggedIn: boolean;
   loading: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
-  signup: (email: string, password: string, fullName?: string) => Promise<void>;
+  signup: (email: string, password: string, fullName?: string, role?: string) => Promise<void>;
   loginWithGoogleToken: (googleAccessToken: string, remember?: boolean) => Promise<void>;
   setSessionFromToken: (token: string, remember?: boolean) => Promise<void>;
   logout: () => void;
@@ -158,11 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signup = useCallback(
-    async (email: string, password: string, fullName?: string) => {
+    async (email: string, password: string, fullName?: string, role?: string) => {
       const res = await axios.post("/api/auth/signup", {
         email: email.trim().toLowerCase(),
         password,
         full_name: fullName?.trim() || undefined,
+        role: role || undefined,
       });
       const token: string = res.data.access_token;
       // New users stay signed in across restarts (persist to localStorage).

@@ -71,6 +71,7 @@ async def signup(payload: UserCreate, db: Session = Depends(get_db)):
             email=payload.email,
             password=payload.password,
             full_name=payload.full_name,
+            role=payload.role,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

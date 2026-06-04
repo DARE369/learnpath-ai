@@ -13,25 +13,26 @@ interface AtRiskData {
   at_risk_students: AtRiskStudent[];
 }
 
+function authHeaders(): Record<string, string> {
+  const t =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
+      : null;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 export default function AtRiskStudents() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const [atRiskData, setAtRiskData] = useState<AtRiskData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Auth + teacher-role access are enforced by the app shell (_app.tsx).
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/auth/login");
-      return;
-    }
-    setUser(JSON.parse(userData));
     fetchAtRiskStudents();
   }, []);
 
   async function fetchAtRiskStudents() {
     try {
-      const response = await fetch("/api/teachers/at-risk");
+      const response = await fetch("/api/teachers/at-risk", { headers: authHeaders() });
       if (!response.ok) throw new Error("Failed to load at-risk students");
       const data = await response.json();
       setAtRiskData(data);
@@ -40,12 +41,6 @@ export default function AtRiskStudents() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    router.push("/");
   }
 
   if (loading) {

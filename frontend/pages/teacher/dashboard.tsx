@@ -23,25 +23,26 @@ interface TeacherDashboard {
   }>;
 }
 
+function authHeaders(): Record<string, string> {
+  const t =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
+      : null;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 export default function TeacherDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const [dashboard, setDashboard] = useState<TeacherDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Auth + teacher-role access are enforced by the app shell (_app.tsx).
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/auth/login");
-      return;
-    }
-    setUser(JSON.parse(userData));
     fetchDashboard();
   }, []);
 
   async function fetchDashboard() {
     try {
-      const response = await fetch("/api/teachers/dashboard");
+      const response = await fetch("/api/teachers/dashboard", { headers: authHeaders() });
       if (!response.ok) throw new Error("Failed to load dashboard");
       const data = await response.json();
       setDashboard(data);
@@ -50,12 +51,6 @@ export default function TeacherDashboard() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    router.push("/");
   }
 
   if (loading) {

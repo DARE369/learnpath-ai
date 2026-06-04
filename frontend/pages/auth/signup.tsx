@@ -3,12 +3,15 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
 import SignupForm from "../../components/Auth/SignupForm";
+import { homeForRole } from "../../components/layout/nav";
 
 export default function SignupPage() {
   const router = useRouter();
 
-  function handleSuccess() {
-    router.push("/dashboard");
+  function handleSuccess(_token: string, role?: string) {
+    // Students land on the dashboard (the _app onboarding gate sends new students
+    // to /onboarding); teachers/school admins go straight to their workspace.
+    router.push(homeForRole(role));
   }
 
   return (

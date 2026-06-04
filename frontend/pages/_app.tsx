@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import AppShell from "../components/layout/AppShell";
+import { homeForRole } from "../components/layout/nav";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { ProgressProvider } from "../hooks/useProgress";
 import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
@@ -31,6 +32,8 @@ const PROTECTED_PREFIXES = [
   "/exams",
   "/buddies",
   "/admin",
+  "/teacher",
+  "/school",
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -41,14 +44,35 @@ function hidesChrome(pathname: string): boolean {
   return NO_CHROME_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+function isStudentRole(role?: string): boolean {
+  return !role || role === "student" || role === "user";
+}
+
+// Which audience-area a path belongs to. Used to keep each role in its workspace.
+function startsWith(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix + "/");
+}
+
+// The redirect (if any) a logged-in user needs based on role vs. the area they're
+// visiting. Returns null when the user is allowed where they are.
+function roleAreaRedirect(pathname: string, role?: string): string | null {
+  const home = homeForRole(role);
+  if (startsWith(pathname, "/admin") && role !== "admin") return home;
+  if (startsWith(pathname, "/teacher") && !(role === "teacher" || role === "admin")) return home;
+  if (startsWith(pathname, "/school") && !(role === "school_admin" || role === "admin")) return home;
+  return null;
+}
+
 function Shell({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const { user, loading } = useAuth();
 
   const showChrome = !hidesChrome(router.pathname);
   const needsAuth = isProtectedPath(router.pathname);
-  const isAdminRoute = router.pathname === "/admin" || router.pathname.startsWith("/admin/");
-  const blockedFromAdmin = isAdminRoute && !!user && user.role !== "admin";
+  // A logged-in user visiting an area that doesn't match their role gets bounced
+  // to their own home (e.g. a student hitting /admin, a teacher hitting /school).
+  const areaRedirect = user ? roleAreaRedirect(router.pathname, user.role) : null;
+  const blockedFromArea = !!areaRedirect && router.pathname !== areaRedirect;
 
   useEffect(() => {
     if (loading) return;
@@ -61,20 +85,20 @@ function Shell({ Component, pageProps }: AppProps) {
       return;
     }
 
-    // Redirect newly-logged-in users who haven't completed onboarding.
-    // Skip if they're already on the onboarding page.
-    if (user && !user.onboardingCompleted && router.pathname !== "/onboarding") {
-      router.replace("/onboarding");
+    // Wrong-area access → send the user to their role's home.
+    if (blockedFromArea && areaRedirect) {
+      router.replace(areaRedirect);
       return;
     }
 
-    // Admin-only routes: non-admin users are bounced to their dashboard.
-    if (blockedFromAdmin) {
-      router.replace("/dashboard");
+    // Onboarding gate applies to students only (teachers/school admins have their
+    // own workspace and skip the learner questionnaire).
+    if (user && isStudentRole(user.role) && !user.onboardingCompleted && router.pathname !== "/onboarding") {
+      router.replace("/onboarding");
     }
-  }, [loading, needsAuth, user, router, blockedFromAdmin]);
+  }, [loading, needsAuth, user, router, blockedFromArea, areaRedirect]);
 
-  if ((needsAuth && !user) || blockedFromAdmin) {
+  if ((needsAuth && !user) || blockedFromArea) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">

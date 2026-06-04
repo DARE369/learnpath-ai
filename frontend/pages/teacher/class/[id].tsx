@@ -26,27 +26,29 @@ interface ClassDetails {
   };
 }
 
+function authHeaders(): Record<string, string> {
+  const t =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
+      : null;
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 export default function ClassPage() {
   const router = useRouter();
   const { id } = router.query;
-  const [user, setUser] = useState<any>(null);
   const [classData, setClassData] = useState<ClassDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "at-risk">("all");
 
+  // Auth + teacher-role access are enforced by the app shell (_app.tsx).
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/auth/login");
-      return;
-    }
-    setUser(JSON.parse(userData));
     if (id) fetchClassDetails();
   }, [id]);
 
   async function fetchClassDetails() {
     try {
-      const response = await fetch(`/api/teachers/classes/${id}`);
+      const response = await fetch(`/api/teachers/classes/${id}`, { headers: authHeaders() });
       if (!response.ok) throw new Error("Failed to load class");
       const data = await response.json();
       setClassData(data);
@@ -55,12 +57,6 @@ export default function ClassPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    router.push("/");
   }
 
   if (loading) {

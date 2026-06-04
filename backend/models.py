@@ -23,7 +23,7 @@ class User(Base):
     age = Column(Integer)
     email_verified = Column(Boolean, default=False)
     account_active = Column(Boolean, default=True)
-    role = Column(String, default="user", nullable=False, index=True)  # user | admin
+    role = Column(String, default="user", nullable=False, index=True)  # student | teacher | school_admin | admin (legacy "user" == student)
     last_seen_at = Column(DateTime, nullable=True)  # presence (throttled in get_current_user)
     tier = Column(String, default="free")
     tier_updated_at = Column(DateTime, default=datetime.utcnow)

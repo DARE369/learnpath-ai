@@ -1,8 +1,22 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import axios from "axios";
 import dynamic from "next/dynamic";
+import { GraduationCap, Users, School } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+
+type SignupRole = "student" | "teacher" | "school_admin";
+
+const ROLE_OPTIONS: { value: SignupRole; label: string; description: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: "student", label: "Student", description: "Learn at your own pace", icon: GraduationCap },
+  { value: "teacher", label: "Teacher", description: "Manage classes & students", icon: Users },
+  { value: "school_admin", label: "School", description: "Oversee your institution", icon: School },
+];
+
+function normalizeRole(raw: unknown): SignupRole {
+  return raw === "teacher" || raw === "school_admin" ? raw : "student";
+}
 
 const GoogleButton = dynamic(() => import("./GoogleButton"), {
   ssr: false,
@@ -27,7 +41,7 @@ interface FormErrors {
 }
 
 interface SignupFormProps {
-  onSuccess?: (accessToken: string) => void;
+  onSuccess?: (accessToken: string, role?: SignupRole) => void;
 }
 
 function EyeIcon({ visible }: { visible: boolean }) {
@@ -125,6 +139,8 @@ function CheckItem({ met, label }: CheckItemProps) {
 
 export default function SignupForm({ onSuccess }: SignupFormProps) {
   const { signup } = useAuth();
+  const router = useRouter();
+  const [role, setRole] = useState<SignupRole>(() => normalizeRole(router.query.role));
   const [form, setForm] = useState<FormState>({
     email: "",
     fullName: "",
@@ -173,8 +189,8 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     setErrors({});
 
     try {
-      await signup(form.email, form.password, form.fullName);
-      onSuccess?.("");
+      await signup(form.email, form.password, form.fullName, role);
+      onSuccess?.("", role);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const detail = err.response?.data?.detail;
@@ -214,6 +230,35 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
           <span className="text-error text-sm">{errors.general}</span>
         </div>
       )}
+
+      {/* Role selector */}
+      <div className="mb-5">
+        <label className="label">I&apos;m signing up as</label>
+        <div className="grid grid-cols-3 gap-2">
+          {ROLE_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const active = role === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setRole(opt.value)}
+                aria-pressed={active}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-colors ${
+                  active
+                    ? "border-accent bg-accent-muted text-white"
+                    : "border-border bg-surface-elevated text-white/55 hover:border-white/20 hover:text-white"
+                }`}
+                disabled={loading}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-xs font-medium leading-tight">{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1.5 text-xs text-white/35">{ROLE_OPTIONS.find((o) => o.value === role)?.description}</p>
+      </div>
 
       {/* Full name */}
       <div className="mb-4">
