@@ -29,6 +29,7 @@ const PROTECTED_PREFIXES = [
   "/concepts",
   "/paths",
   "/exams",
+  "/buddies",
   "/admin",
 ];
 

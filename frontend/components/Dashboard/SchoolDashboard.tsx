@@ -26,9 +26,12 @@ interface DashboardData {
   };
 }
 
+interface BuddyCard { user_id: string; name: string; online: boolean; streak_days: number; avg_score: number | null; }
+
 export default function SchoolDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [buddies, setBuddies] = useState<BuddyCard[] | null>(null);
 
   useEffect(() => {
     fetch("/api/dashboard/", { headers: authHeaders() })
@@ -36,6 +39,10 @@ export default function SchoolDashboard() {
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
+    fetch("/api/buddies/", { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setBuddies(d?.buddies ?? []))
+      .catch(() => setBuddies([]));
   }, []);
 
   if (loading) {
@@ -156,13 +163,31 @@ export default function SchoolDashboard() {
         </div>
       </div>
 
-      {/* Study buddy (coming soon) */}
-      <div className="bg-surface-elevated border border-dashed border-border rounded-2xl p-5 flex items-center justify-between gap-4">
-        <div>
-          <h3 className="text-white font-semibold">Study buddy</h3>
-          <p className="text-white/40 text-sm mt-0.5">Pair up with a learner to study together — coming soon.</p>
+      {/* Study buddies */}
+      <div className="bg-surface-elevated border border-border rounded-2xl p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-white font-semibold">Study buddies</h3>
+          <Link href="/buddies" className="text-accent text-sm hover:underline">Manage →</Link>
         </div>
-        <Link href="/explore" className="text-accent text-sm flex-shrink-0 hover:underline">Explore →</Link>
+        {buddies === null ? (
+          <p className="text-white/30 text-sm mt-2">Loading…</p>
+        ) : buddies.length === 0 ? (
+          <p className="text-white/40 text-sm mt-2">
+            No buddies yet — <Link href="/buddies" className="text-accent hover:underline">find one</Link> to stay accountable.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {buddies.slice(0, 3).map((b) => (
+              <div key={b.user_id} className="flex items-center gap-3">
+                <span className={`w-2.5 h-2.5 rounded-full ${b.online ? 'bg-green-400' : 'bg-white/20'}`} />
+                <span className="text-white/80 text-sm">{b.name}</span>
+                <span className="text-white/30 text-xs ml-auto">
+                  {b.online ? 'online' : 'offline'} · 🔥 {b.streak_days}d
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -39,6 +39,8 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'user'",
     # Concept-scoped quizzes (path modules launch a quiz filtered to a concept).
     "ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS concept VARCHAR",
+    # Study-buddy presence.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
     # NEW-PACKET-B: video chunking tables
     "CREATE INDEX IF NOT EXISTS ix_video_chunks_video_id ON video_chunks(video_id)",
     "CREATE INDEX IF NOT EXISTS ix_video_chunks_chunk_number ON video_chunks(chunk_number)",
@@ -423,6 +425,10 @@ app.include_router(adaptive_paths_router.router)
 # NEW-PACKET-I: Exam-specific tracks
 from routers import exams as exams_router
 app.include_router(exams_router.router)
+
+# PHASE 2: Study-buddy social system
+from routers import buddies as buddies_router
+app.include_router(buddies_router.router)
 
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes

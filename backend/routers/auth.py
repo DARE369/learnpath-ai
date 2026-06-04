@@ -30,6 +30,18 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
     if not user.account_active:
         raise HTTPException(status_code=403, detail="Account deactivated")
+
+    # Presence heartbeat for the study-buddy system — throttled so we write at
+    # most once every ~2 min per user, not on every request.
+    try:
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        if user.last_seen_at is None or (now - user.last_seen_at) > timedelta(minutes=2):
+            user.last_seen_at = now
+            db.commit()
+    except Exception:
+        db.rollback()
+
     return user
 
 

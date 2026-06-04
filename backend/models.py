@@ -24,6 +24,7 @@ class User(Base):
     email_verified = Column(Boolean, default=False)
     account_active = Column(Boolean, default=True)
     role = Column(String, default="user", nullable=False, index=True)  # user | admin
+    last_seen_at = Column(DateTime, nullable=True)  # presence (throttled in get_current_user)
     tier = Column(String, default="free")
     tier_updated_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -1355,3 +1356,18 @@ class MockExamAttempt(Base):
     predicted_score = Column(String)
 
     taken_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+# PHASE 2: Study-buddy social graph.
+
+class BuddyConnection(Base):
+    """A study-buddy link between two users (pending until accepted)."""
+    __tablename__ = "buddy_connections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requester_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    status = Column(String, default="pending", index=True)  # pending | accepted
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    accepted_at = Column(DateTime, nullable=True)

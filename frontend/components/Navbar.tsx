@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { href: "/concepts", label: "Concepts" },
   { href: "/paths", label: "Paths" },
   { href: "/exams", label: "Exams" },
+  { href: "/buddies", label: "Buddies" },
   { href: "/review", label: "Review" },
   { href: "/referral", label: "Referral" },
   { href: "/loyalty", label: "Loyalty" },
