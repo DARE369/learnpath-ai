@@ -152,6 +152,12 @@ export default function ExamsPage() {
                             🎯 Practice quiz
                           </button>
                           <button
+                            onClick={() => router.push(`/exams/mock/${e.track.id}`)}
+                            className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm"
+                          >
+                            📝 Mock exam
+                          </button>
+                          <button
                             onClick={() => buildPath(e)}
                             disabled={busy === e.enrollment_id}
                             className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50"

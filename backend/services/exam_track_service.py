@@ -275,6 +275,106 @@ class ExamTrackService:
         db.refresh(goal)
         return goal
 
+    # ── timed mock exam ──────────────────────────────────────────────────────
+
+    async def start_mock(self, db: Session, user_id, track_id: str, num_questions: int = 10) -> dict:
+        """Assemble a timed, multi-section mock exam (answers omitted)."""
+        from models import Concept, ConceptRelationship, QuizQuestion
+        from services.quiz_engine_service import QuizEngineService
+
+        track = self._require_track(db, track_id)
+        goal = self.ensure_exam_curriculum(db, track)
+        edges = (
+            db.query(ConceptRelationship)
+            .filter(
+                ConceptRelationship.source_concept_id == goal.id,
+                ConceptRelationship.relationship_type == "prerequisite",
+            )
+            .all()
+        )
+        sections = [db.query(Concept).filter(Concept.id == e.target_concept_id).first() for e in edges]
+        sections = [c for c in sections if c] or [goal]
+
+        qe = QuizEngineService()
+        per = max(1, round(num_questions / len(sections)))
+        questions = []
+        for sc in sections:
+            await qe.ensure_questions_for_concept(db, sc.concept_name, per + 1)
+            qs = (
+                db.query(QuizQuestion)
+                .filter(QuizQuestion.concept_id == sc.concept_name)
+                .limit(per)
+                .all()
+            )
+            label = (sc.display_name or sc.concept_name).split(": ")[-1]
+            for q in qs:
+                questions.append({
+                    "id": str(q.id),
+                    "section": label,
+                    "text": q.question_text,
+                    "options": [{"id": o.get("id"), "text": o.get("text")} for o in (q.options or [])],
+                })
+        questions = questions[:num_questions]
+        return {
+            "track": self._track(track),
+            "duration_minutes": max(5, len(questions) * 2),
+            "question_count": len(questions),
+            "questions": questions,
+        }
+
+    def submit_mock(self, db: Session, user_id, track_id: str, answers: dict) -> dict:
+        """Auto-score a mock exam, record the attempt, return section breakdown."""
+        from models import Concept, QuizQuestion
+
+        track = self._require_track(db, track_id)
+        qids = list((answers or {}).keys())
+        qs = db.query(QuizQuestion).filter(QuizQuestion.id.in_(qids)).all() if qids else []
+
+        cnames = {q.concept_id for q in qs if q.concept_id}
+        concepts = (
+            {c.concept_name: c for c in db.query(Concept).filter(Concept.concept_name.in_(cnames)).all()}
+            if cnames else {}
+        )
+
+        section_totals: Dict[str, list] = {}
+        correct = 0
+        review = []
+        for q in qs:
+            c = concepts.get(q.concept_id)
+            section = (c.display_name.split(": ")[-1] if c and c.display_name else (q.concept_id or "general"))
+            is_correct = answers.get(str(q.id)) == q.correct_answer_id
+            if is_correct:
+                correct += 1
+            st = section_totals.setdefault(section, [0, 0])
+            st[1] += 1
+            if is_correct:
+                st[0] += 1
+            review.append({
+                "id": str(q.id),
+                "is_correct": is_correct,
+                "your_answer": answers.get(str(q.id)),
+                "correct_answer_id": q.correct_answer_id,
+                "explanation": q.explanation,
+            })
+
+        total = len(qs)
+        overall = int(correct / total * 100) if total else 0
+        section_scores = {s: int(v[0] / v[1] * 100) for s, v in section_totals.items()}
+        predicted = _map_score(track.exam_type, overall)
+        db.add(MockExamAttempt(
+            user_id=user_id, exam_track_id=track.id,
+            overall_percent=overall, section_scores=section_scores, predicted_score=predicted,
+        ))
+        db.commit()
+        return {
+            "overall_percent": overall,
+            "correct": correct,
+            "total": total,
+            "section_scores": section_scores,
+            "predicted_score": predicted,
+            "review": review,
+        }
+
     def build_study_path(self, db: Session, user_id, track_id: str) -> dict:
         """
         Create an adaptive learning path toward this exam. Builds a real

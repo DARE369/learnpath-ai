@@ -2,6 +2,8 @@
 
 from typing import Dict, Optional
 
+
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -24,6 +26,11 @@ class MockBody(BaseModel):
     track_id: str
     overall_percent: int
     section_scores: Dict[str, int] = {}
+
+
+class MockSubmitBody(BaseModel):
+    track_id: str
+    answers: Dict[str, str] = {}
 
 
 @router.get("/tracks")
@@ -73,6 +80,32 @@ def list_mocks(
     db: Session = Depends(get_db),
 ):
     return {"attempts": svc.list_mocks(db, current_user.id, track_id)}
+
+
+@router.post("/tracks/{track_id}/mock/start")
+async def start_mock(
+    track_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Start a timed, multi-section mock exam (questions without answers)."""
+    try:
+        return await svc.start_mock(db, current_user.id, track_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/mock/submit")
+def submit_mock(
+    body: MockSubmitBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Auto-score a submitted mock exam + record the attempt."""
+    try:
+        return svc.submit_mock(db, current_user.id, body.track_id, body.answers)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/tracks/{track_id}/build-path")
