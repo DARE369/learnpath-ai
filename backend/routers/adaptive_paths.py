@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from routers.auth import get_current_user
+from routers.auth import get_current_user, require_admin
 from services.adaptive_path_service import adaptive_path_service as svc
 
 router = APIRouter(prefix="/api/adaptive-paths", tags=["adaptive-paths"])
@@ -79,3 +79,12 @@ def adapt_path(
         return svc.adapt_path(db, path_id, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/run-adaptation")
+def run_adaptation(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin: run the daily auto-adaptation pass now (also runs on a daily cron)."""
+    return {"adapted_paths": svc.adapt_due_paths(db)}

@@ -52,6 +52,9 @@ class Settings(BaseSettings):
 
     # Self-Building Mechanism (Packet 3.5) — Nightly expansion job
     EXPANSION_SCHEDULER_ENABLED: bool = False
+
+    # Daily auto-adaptation of adaptive paths (NEW-PACKET-H).
+    PATH_ADAPTATION_ENABLED: bool = True
     EXPANSION_SCHEDULER_HOUR_UTC: int = 2  # 2 AM UTC = midnight WAT
 
     # Payments (Packet 4.1) — Flutterwave gateway

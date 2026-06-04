@@ -237,6 +237,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Scheduler setup failed: {e}", exc_info=True)
 
+    # 3.5 Daily auto-adaptation of adaptive paths (NEW-PACKET-H).
+    try:
+        from jobs.path_adaptation import setup_path_adaptation_scheduler
+        setup_path_adaptation_scheduler(app)
+    except Exception as e:
+        logger.error(f"Path-adaptation scheduler setup failed: {e}", exc_info=True)
+
     yield
     logger.info(f"Shutting down {settings.APP_NAME}")
     try:
@@ -244,6 +251,11 @@ async def lifespan(app: FastAPI):
         shutdown_scheduler(app)
     except Exception as e:
         logger.warning(f"Scheduler shutdown error: {e}")
+    try:
+        from jobs.path_adaptation import shutdown_path_adaptation_scheduler
+        shutdown_path_adaptation_scheduler(app)
+    except Exception as e:
+        logger.warning(f"Path-adaptation scheduler shutdown error: {e}")
 
 
 app = FastAPI(

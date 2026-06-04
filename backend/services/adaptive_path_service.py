@@ -263,6 +263,33 @@ class AdaptivePathService:
         db.commit()
         return {"adaptations": adaptations, "count": len(adaptations)}
 
+    # ── scheduled batch adaptation ───────────────────────────────────────────
+
+    def adapt_due_paths(self, db: Session, stale_days: int = 3) -> int:
+        """
+        Adapt all active paths that have progress and haven't been adapted in
+        `stale_days`. Returns how many paths were adapted. Used by the daily job.
+        """
+        cutoff = datetime.utcnow() - timedelta(days=stale_days)
+        paths = (
+            db.query(AdaptivePath)
+            .filter(
+                AdaptivePath.is_active.is_(True),
+                AdaptivePath.completed_modules > 0,
+            )
+            .all()
+        )
+        adapted = 0
+        for p in paths:
+            if p.last_adapted_at and p.last_adapted_at > cutoff:
+                continue
+            try:
+                self.adapt_path(db, str(p.id), p.user_id)
+                adapted += 1
+            except Exception as e:
+                logger.warning(f"Auto-adapt failed for path {p.id}: {e}")
+        return adapted
+
     # ── forecast ─────────────────────────────────────────────────────────────
 
     def _forecast(self, db: Session, p: AdaptivePath) -> Dict:
