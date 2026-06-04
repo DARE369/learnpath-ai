@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { printPdf } from '@/lib/printPdf';
 
 function authHeaders(): Record<string, string> {
   const token =
@@ -171,6 +172,7 @@ export default function NotesViewer() {
             <div className="mt-5 flex flex-wrap gap-3">
               <button onClick={() => download('md', 'text/markdown')} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm">📝 Markdown</button>
               <button onClick={() => download('txt', 'text/plain')} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm">📋 Text</button>
+              <button onClick={() => note && printPdf(note.title || 'Study Notes', note.content)} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm">📄 PDF</button>
               <button onClick={loadFlashcards} disabled={cardsLoading} className="px-4 py-2 bg-accent/20 text-accent rounded-lg hover:bg-accent/30 text-sm font-medium disabled:opacity-50">
                 {cardsLoading ? 'Generating…' : '🎯 Flashcards'}
               </button>

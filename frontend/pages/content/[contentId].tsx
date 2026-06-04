@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { printPdf } from '@/lib/printPdf';
 
 function authHeaders(): Record<string, string> {
   const t =
@@ -121,7 +122,17 @@ export default function ContentDetail() {
                 <button onClick={() => loadTab(tab)} className="mt-3 px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white">Retry</button>
               </div>
             ) : !current ? null : tab === 'ai_explanation' ? (
-              <pre className="whitespace-pre-wrap break-words font-sans text-white/85 text-sm leading-relaxed">{current.content}</pre>
+              <>
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={() => printPdf(summary?.title || 'Explanation', current.content || '')}
+                    className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm"
+                  >
+                    📄 PDF
+                  </button>
+                </div>
+                <pre className="whitespace-pre-wrap break-words font-sans text-white/85 text-sm leading-relaxed">{current.content}</pre>
+              </>
             ) : tab === 'flashcards' ? (
               <>
                 {(current.data?.flashcards || []).length > 0 && (
