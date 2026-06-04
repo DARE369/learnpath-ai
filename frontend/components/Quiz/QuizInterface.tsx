@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Check, X } from 'lucide-react';
 import QuizResults from './QuizResults';
 
 function authHeaders(): Record<string, string> {
@@ -230,7 +231,7 @@ export default function QuizInterface({ sessionId, topicId, concept, onClose, on
                       {selectedAnswer === option.id ? '◉' : '○'}
                     </span>
                     <span className="text-gray-900">{option.text}</span>
-                    {submitted && option.correct && <span className="ml-auto text-green-600">✓</span>}
+                    {submitted && option.correct && <Check className="ml-auto h-4 w-4 text-green-600" />}
                   </div>
                 </button>
               ))}
@@ -267,10 +268,10 @@ export default function QuizInterface({ sessionId, topicId, concept, onClose, on
             <div className={`feedback-section border-t pt-6 ${
               feedback.is_correct ? 'bg-green-50' : 'bg-red-50'
             } p-4 rounded-lg`}>
-              <h3 className={`text-lg font-semibold mb-2 ${
+              <h3 className={`text-lg font-semibold mb-2 flex items-center gap-1.5 ${
                 feedback.is_correct ? 'text-green-700' : 'text-red-700'
               }`}>
-                {feedback.is_correct ? '✓ Correct!' : '✗ Not quite'}
+                {feedback.is_correct ? <><Check className="h-5 w-5" /> Correct!</> : <><X className="h-5 w-5" /> Not quite</>}
               </h3>
               <p className="text-gray-700 mb-3">{feedback.explanation}</p>
 

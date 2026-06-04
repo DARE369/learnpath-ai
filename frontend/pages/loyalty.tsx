@@ -103,7 +103,7 @@ export default function LoyaltyPage() {
                   <h3 className="font-semibold text-gray-900 capitalize">{key}</h3>
                   {key === status.current_tier && <span className="text-xs font-bold text-purple-600">You</span>}
                 </div>
-                <p className="text-sm text-gray-600">{tier.multiplier}x multiplier {tier.achieved && '✓'}</p>
+                <p className="flex items-center gap-1 text-sm text-gray-600">{tier.multiplier}x multiplier {tier.achieved && <Check className="h-3.5 w-3.5 text-green-600" />}</p>
               </div>
             ))}
           </div>

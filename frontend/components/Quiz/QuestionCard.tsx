@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Check, X } from 'lucide-react';
 
 interface QuestionCardProps {
   question: {
@@ -80,12 +81,12 @@ export default function QuestionCard({ question, onAnswer, disabled = false }: Q
             <p className="text-sm text-gray-700">
               {isCorrect ? (
                 <span className="flex items-center gap-2 text-green-700">
-                  <span>✓</span>
+                  <Check className="h-4 w-4" />
                   Great job!
                 </span>
               ) : (
                 <span className="flex items-center gap-2 text-red-700">
-                  <span>✗</span>
+                  <X className="h-4 w-4" />
                   Not quite, try again!
                 </span>
               )}

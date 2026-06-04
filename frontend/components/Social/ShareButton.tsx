@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link2 } from "lucide-react";
 
 function authHeaders(json = false): Record<string, string> {
   const t =
@@ -53,9 +54,9 @@ export default function ShareButton({ itemType, itemRef, title }: {
     <div className="relative inline-block">
       <button
         onClick={toggle}
-        className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm"
+        className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm"
       >
-        🔗 Share
+        <Link2 className="h-4 w-4" /> Share
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-56 bg-[#1c1c1c] border border-white/10 rounded-xl shadow-2xl z-50 p-2">

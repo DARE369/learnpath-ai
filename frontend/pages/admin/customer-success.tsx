@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { RefreshCw, AlertTriangle, Mail, Flag } from "lucide-react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -125,9 +126,9 @@ export default function CustomerSuccessDashboard() {
               </div>
               <button
                 onClick={fetchOrgsHealth}
-                className="px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 transition"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 transition"
               >
-                🔄 Refresh
+                <RefreshCw className="h-4 w-4" /> Refresh
               </button>
             </div>
 
@@ -265,7 +266,7 @@ export default function CustomerSuccessDashboard() {
                   <div className="flex flex-col gap-2">
                     {org.is_churning && (
                       <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 mb-2">
-                        <p className="text-red-400 text-sm font-medium mb-2">⚠️ Churn Risks:</p>
+                        <p className="flex items-center gap-1.5 text-red-400 text-sm font-medium mb-2"><AlertTriangle className="h-4 w-4" /> Churn Risks:</p>
                         <ul className="text-xs text-red-300/80 space-y-1">
                           {org.churn_triggers.map((trigger) => (
                             <li key={trigger}>• {trigger.replace(/_/g, " ")}</li>
@@ -279,9 +280,9 @@ export default function CustomerSuccessDashboard() {
                         e.stopPropagation();
                         setNotificationModal({ org, type: "trial" });
                       }}
-                      className="w-full px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition text-sm font-medium"
+                      className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition text-sm font-medium"
                     >
-                      📧 Send Message
+                      <Mail className="h-4 w-4" /> Send Message
                     </button>
 
                     {org.is_churning && (
@@ -290,9 +291,9 @@ export default function CustomerSuccessDashboard() {
                           e.stopPropagation();
                           handleSendNotification(org.organization_id, "alert");
                         }}
-                        className="w-full px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition text-sm font-medium"
+                        className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition text-sm font-medium"
                       >
-                        🚨 Flag for Outreach
+                        <Flag className="h-4 w-4" /> Flag for Outreach
                       </button>
                     )}
                   </div>

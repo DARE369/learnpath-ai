@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { Target, BookOpen } from "lucide-react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -456,9 +457,9 @@ export default function LearningSessionPage() {
                 </div>
                 <button
                   onClick={() => setQuizOpen(true)}
-                  className="flex-shrink-0 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
                 >
-                  🎯 Start quiz
+                  <Target className="h-4 w-4" /> Start quiz
                 </button>
               </div>
 
@@ -472,9 +473,9 @@ export default function LearningSessionPage() {
                 </div>
                 <Link
                   href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`}
-                  className="flex-shrink-0 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
                 >
-                  📚 Generate notes
+                  <BookOpen className="h-4 w-4" /> Generate notes
                 </Link>
               </div>
 

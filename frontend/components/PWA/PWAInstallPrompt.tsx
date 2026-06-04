@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Smartphone } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 
 export function PWAInstallPrompt() {
@@ -12,7 +13,7 @@ export function PWAInstallPrompt() {
   return (
     <div className="pwa-install-prompt" role="dialog" aria-labelledby="install-title">
       <div className="prompt-content">
-        <div className="prompt-icon">📱</div>
+        <div className="prompt-icon"><Smartphone size={36} /></div>
         <div className="prompt-text">
           <h3 id="install-title">Install LearnPath</h3>
           <p>Add to your home screen for quick access and offline capabilities</p>

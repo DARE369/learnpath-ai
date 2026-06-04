@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { config } from "../../env.config";
 
 interface BlacklistRow {
@@ -182,7 +183,7 @@ export default function BlacklistDashboard() {
               label="Avg feedback"
               value={
                 stats.feedback_avg_rating !== null
-                  ? `${stats.feedback_avg_rating.toFixed(1)}★`
+                  ? `${stats.feedback_avg_rating.toFixed(1)} / 5`
                   : "—"
               }
               sub={`${stats.feedback_count} responses`}
@@ -300,7 +301,7 @@ export default function BlacklistDashboard() {
                   </td>
                   <td className="px-4 py-3 text-white/60">
                     {row.feedback_count > 0
-                      ? `${row.feedback_avg_rating?.toFixed(1) ?? "—"}★ (${row.feedback_count})`
+                      ? `${row.feedback_avg_rating?.toFixed(1) ?? "—"} / 5 (${row.feedback_count})`
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -397,7 +398,7 @@ function SortableTh({
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        {active && <span className="text-white/60">{dir === "asc" ? "↑" : "↓"}</span>}
+        {active && (dir === "asc" ? <ChevronUp className="h-3.5 w-3.5 text-white/60" /> : <ChevronDown className="h-3.5 w-3.5 text-white/60" />)}
       </span>
     </th>
   );

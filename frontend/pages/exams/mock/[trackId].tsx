@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { ArrowLeft } from 'lucide-react';
 
 function authHeaders(json = false): Record<string, string> {
   const t =
@@ -61,7 +62,7 @@ export default function MockExam() {
     })();
   }, [trackId]);
 
-  // Countdown → auto-submit at 0.
+  // Countdown to auto-submit at 0.
   useEffect(() => {
     if (!questions || results || timeLeft <= 0) return;
     const t = setInterval(() => setTimeLeft((s) => {
@@ -76,7 +77,7 @@ export default function MockExam() {
       <div className="min-h-screen bg-background flex items-center justify-center text-center px-6">
         <div>
           <p className="text-red-400">{error}</p>
-          <Link href="/exams" className="text-accent text-sm mt-3 inline-block hover:underline">← Back to exams</Link>
+          <Link href="/exams" className="inline-flex items-center gap-1 text-accent text-sm mt-3 hover:underline"><ArrowLeft className="h-3.5 w-3.5" /> Back to exams</Link>
         </div>
       </div>
     );

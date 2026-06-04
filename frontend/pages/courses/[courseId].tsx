@@ -1,4 +1,5 @@
 import React from "react";
+import { ArrowLeft } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -45,8 +46,8 @@ export default function CourseDetailPage() {
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-2xl font-semibold text-white mb-2">Course not found</h1>
         <p className="text-white/50 mb-6">We couldn&apos;t find a course with that ID.</p>
-        <Link href="/explore" className="text-accent-light hover:text-white">
-          ← Back to explore
+        <Link href="/explore" className="inline-flex items-center gap-1 text-accent-light hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Back to explore
         </Link>
       </div>
     );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 interface AtRiskStudent {
   student_id: string;
@@ -156,19 +157,19 @@ export default function AtRiskStudents() {
               </h3>
               <ul className="space-y-2 text-sm text-white/70">
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Assign focused review content for struggling topics</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Offer one-on-one tutoring sessions</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Create study groups with higher-performing peers</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Check in regularly to maintain engagement</span>
                 </li>
               </ul>
@@ -183,19 +184,19 @@ export default function AtRiskStudents() {
               </h3>
               <ul className="space-y-2 text-sm text-white/70">
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Monitor completion rates daily</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Check assessment scores regularly</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Review engagement metrics weekly</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-accent mt-1">→</span>
+                  <ArrowRight className="h-4 w-4 text-accent mt-1 flex-shrink-0" />
                   <span>Celebrate small wins and improvements</span>
                 </li>
               </ul>

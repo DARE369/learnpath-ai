@@ -4,8 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { BookOpen, Baby, FlaskConical, List, Map, FileCode, FileText, Download, Layers, Plus, ArrowLeft } from 'lucide-react';
 import { printPdf } from '@/lib/printPdf';
 import ShareButton from '@/components/Social/ShareButton';
+
+type IconType = React.ComponentType<{ className?: string }>;
 
 function authHeaders(): Record<string, string> {
   const token =
@@ -17,12 +20,12 @@ function authHeaders(): Record<string, string> {
     : { 'Content-Type': 'application/json' };
 }
 
-const STYLE_OPTIONS = [
-  { value: 'standard', label: 'Standard', icon: '📚' },
-  { value: 'simple', label: 'Simple', icon: '👧' },
-  { value: 'technical', label: 'Technical', icon: '🔬' },
-  { value: 'bullet_points', label: 'Bullets', icon: '✓' },
-  { value: 'mindmap', label: 'Mind Map', icon: '🗺️' },
+const STYLE_OPTIONS: { value: string; label: string; icon: IconType }[] = [
+  { value: 'standard', label: 'Standard', icon: BookOpen },
+  { value: 'simple', label: 'Simple', icon: Baby },
+  { value: 'technical', label: 'Technical', icon: FlaskConical },
+  { value: 'bullet_points', label: 'Bullets', icon: List },
+  { value: 'mindmap', label: 'Mind Map', icon: Map },
 ];
 
 interface NoteData {
@@ -121,7 +124,7 @@ export default function NotesViewer() {
       <Head><title>{note?.title || 'Study Notes'} — LearnPath AI</title></Head>
       <div className="min-h-screen bg-background">
         <div className="max-w-3xl mx-auto px-6 py-8">
-          <Link href="/notes" className="text-white/40 hover:text-white text-sm">← All notes</Link>
+          <Link href="/notes" className="inline-flex items-center gap-1 text-white/40 hover:text-white text-sm"><ArrowLeft className="h-3.5 w-3.5" /> All notes</Link>
 
           <h1 className="text-2xl font-bold text-white mt-3">{note?.title || 'Study Notes'}</h1>
           {note && (
@@ -143,7 +146,7 @@ export default function NotesViewer() {
                     : 'bg-surface border-border text-white/60 hover:text-white'
                 } disabled:opacity-50`}
               >
-                {o.icon} {o.label}
+                <span className="inline-flex items-center gap-1.5"><o.icon className="h-4 w-4" /> {o.label}</span>
               </button>
             ))}
           </div>
@@ -171,12 +174,12 @@ export default function NotesViewer() {
           {/* Actions */}
           {note && !loading && !error && (
             <div className="mt-5 flex flex-wrap gap-3">
-              <button onClick={() => download('md', 'text/markdown')} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm">📝 Markdown</button>
-              <button onClick={() => download('txt', 'text/plain')} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm">📋 Text</button>
-              <button onClick={() => note && printPdf(note.title || 'Study Notes', note.content)} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm">📄 PDF</button>
+              <button onClick={() => download('md', 'text/markdown')} className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm"><FileCode className="h-4 w-4" /> Markdown</button>
+              <button onClick={() => download('txt', 'text/plain')} className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm"><FileText className="h-4 w-4" /> Text</button>
+              <button onClick={() => note && printPdf(note.title || 'Study Notes', note.content)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white text-sm"><Download className="h-4 w-4" /> PDF</button>
               <ShareButton itemType="note" itemRef={youtubeId} title={note?.title || 'Study notes'} />
-              <button onClick={loadFlashcards} disabled={cardsLoading} className="px-4 py-2 bg-accent/20 text-accent rounded-lg hover:bg-accent/30 text-sm font-medium disabled:opacity-50">
-                {cardsLoading ? 'Generating…' : '🎯 Flashcards'}
+              <button onClick={loadFlashcards} disabled={cardsLoading} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent/20 text-accent rounded-lg hover:bg-accent/30 text-sm font-medium disabled:opacity-50">
+                <Layers className="h-4 w-4" /> {cardsLoading ? 'Generating…' : 'Flashcards'}
               </button>
             </div>
           )}
@@ -194,7 +197,7 @@ export default function NotesViewer() {
                       disabled={addingReview}
                       className="px-3 py-1.5 rounded-lg bg-accent/20 text-accent text-sm font-medium hover:bg-accent/30 transition disabled:opacity-50"
                     >
-                      {addingReview ? 'Adding…' : '➕ Add to review deck'}
+                      <span className="inline-flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> {addingReview ? 'Adding…' : 'Add to review deck'}</span>
                     </button>
                   </div>
                 )}

@@ -1,4 +1,5 @@
 'use client';
+import { Sparkles, Check, Pencil } from 'lucide-react';
 
 /**
  * ChaptersList — sidebar panel showing AI-generated video chapters.
@@ -202,7 +203,7 @@ export default function ChaptersList({
               <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
               Generating chapters…
             </span>
-          ) : '✦ Generate Chapters'}
+          ) : <span className="inline-flex items-center justify-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Generate Chapters</span>}
         </button>
       </div>
     );
@@ -237,7 +238,7 @@ export default function ChaptersList({
                 {/* State indicator */}
                 <div className={`mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold
                   ${isDone ? 'bg-emerald-500 text-white' : isActive ? 'bg-accent text-white' : 'bg-white/10 text-white/40'}`}>
-                  {isDone ? '✓' : chunk.chunk_number}
+                  {isDone ? <Check className="h-3 w-3" /> : chunk.chunk_number}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -259,8 +260,8 @@ export default function ChaptersList({
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className="text-xs text-white/25">{fmtDur(chunk.duration_seconds)}</span>
                     {chunk.quiz.question_count > 0 && (
-                      <span className="text-xs text-accent/60">
-                        ✎ {chunk.quiz.question_count}Q quiz
+                      <span className="inline-flex items-center gap-1 text-xs text-accent/60">
+                        <Pencil className="h-3 w-3" /> {chunk.quiz.question_count}Q quiz
                       </span>
                     )}
                     {progress[chunk.id]?.quiz_score != null && (

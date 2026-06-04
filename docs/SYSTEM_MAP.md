@@ -7,7 +7,15 @@
 > **loops** the experience cycles through, the **dead-ends/gaps** I found, and a
 > root-cause diagnosis of the **"I have to log in every time"** bug.
 >
-> Last mapped: 2026-06-04. Reflects the code on `main` as of commit `ecdbde8`.
+> Last mapped: 2026-06-04. Reflects the code on `main` after the UX overhaul
+> (left-sidebar app shell, role-based routing, lucide icon system, emoji purge).
+
+> **Navigation note (post-overhaul):** the app now renders inside a persistent
+> **left-sidebar shell** (`components/layout/AppShell` = `Sidebar` + `Topbar`),
+> role-aware per `User.role` (student / teacher / school_admin / admin). The old
+> top `Navbar` and the duplicate dashboard header are gone. Signup has a role
+> chooser; each role lands on its own home (`homeForRole`) and is confined to its
+> area. All UI icons are `lucide-react` — no emojis anywhere.
 
 ---
 

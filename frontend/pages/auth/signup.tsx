@@ -2,6 +2,7 @@ import React from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import Head from "next/head";
+import { Zap, Target, Brain, Lock } from "lucide-react";
 import SignupForm from "../../components/Auth/SignupForm";
 import { homeForRole } from "../../components/layout/nav";
 
@@ -76,13 +77,13 @@ export default function SignupPage() {
             {/* Benefits */}
             <div className="mt-10 space-y-3">
               {[
-                { icon: "⚡", text: "Learning paths in under 30 seconds" },
-                { icon: "🎯", text: "Quality-scored videos only (EQS ≥ 65)" },
-                { icon: "🧠", text: "Prerequisite-ordered curriculum" },
-                { icon: "🔒", text: "No credit card required" },
-              ].map(({ icon, text }) => (
+                { Icon: Zap, text: "Learning paths in under 30 seconds" },
+                { Icon: Target, text: "Quality-scored videos only (EQS ≥ 65)" },
+                { Icon: Brain, text: "Prerequisite-ordered curriculum" },
+                { Icon: Lock, text: "No credit card required" },
+              ].map(({ Icon, text }) => (
                 <div key={text} className="flex items-center gap-3">
-                  <span className="text-base leading-none">{icon}</span>
+                  <Icon className="h-4 w-4 flex-shrink-0 text-accent-light" />
                   <span className="text-white/60 text-sm">{text}</span>
                 </div>
               ))}

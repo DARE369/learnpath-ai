@@ -452,7 +452,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       {/* Keyboard hint */}
       {playerReady && !isPlaying && (
         <div className="absolute top-3 right-3 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          {[["Space", "Play"], ["←→", "Seek"], ["M", "Mute"], ["F", "Full"]].map(([key, label]) => (
+          {[["Space", "Play"], ["Arrows", "Seek"], ["M", "Mute"], ["F", "Full"]].map(([key, label]) => (
             <div key={key} className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded px-2 py-1">
               <span className="text-white/50 text-xs font-mono">{key}</span>
               <span className="text-white/30 text-xs">{label}</span>

@@ -1,4 +1,5 @@
 'use client';
+import { PartyPopper, Check, X } from 'lucide-react';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
@@ -114,7 +115,7 @@ export default function ReviewPage() {
 
           {allDone ? (
             <div className="bg-surface-elevated border border-border rounded-2xl p-10 text-center">
-              <div className="text-5xl mb-4">🎉</div>
+              <PartyPopper className="mx-auto mb-4 h-12 w-12 text-accent-light" />
               <h2 className="text-xl font-semibold text-white">
                 {reviewedCount > 0 ? 'Review complete!' : "You're all caught up"}
               </h2>
@@ -168,16 +169,16 @@ export default function ReviewPage() {
                         <button
                           onClick={() => submitAnswer('missed')}
                           disabled={submitting}
-                          className="flex-1 px-4 py-3 bg-red-500/15 text-red-300 border border-red-500/40 rounded-xl font-medium hover:bg-red-500/25 transition disabled:opacity-50"
+                          className="flex flex-1 items-center justify-center gap-1.5 px-4 py-3 bg-red-500/15 text-red-300 border border-red-500/40 rounded-xl font-medium hover:bg-red-500/25 transition disabled:opacity-50"
                         >
-                          ✗ Missed it
+                          <X className="h-4 w-4" /> Missed it
                         </button>
                         <button
                           onClick={() => submitAnswer('got_it')}
                           disabled={submitting}
-                          className="flex-1 px-4 py-3 bg-green-500/15 text-green-300 border border-green-500/40 rounded-xl font-medium hover:bg-green-500/25 transition disabled:opacity-50"
+                          className="flex flex-1 items-center justify-center gap-1.5 px-4 py-3 bg-green-500/15 text-green-300 border border-green-500/40 rounded-xl font-medium hover:bg-green-500/25 transition disabled:opacity-50"
                         >
-                          ✓ Got it
+                          <Check className="h-4 w-4" /> Got it
                         </button>
                       </div>
                     )}
@@ -216,8 +217,8 @@ export default function ReviewPage() {
 
                   {feedback && (
                     <div className={`mt-5 rounded-xl p-4 ${feedback.is_correct ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
-                      <p className={`font-semibold ${feedback.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                        {feedback.is_correct ? '✓ Correct' : '✗ Not quite'}
+                      <p className={`flex items-center gap-1.5 font-semibold ${feedback.is_correct ? 'text-green-400' : 'text-red-400'}`}>
+                        {feedback.is_correct ? <><Check className="h-4 w-4" /> Correct</> : <><X className="h-4 w-4" /> Not quite</>}
                       </p>
                       {feedback.explanation && <p className="text-white/70 text-sm mt-1.5">{feedback.explanation}</p>}
                       <p className="text-white/40 text-xs mt-2">

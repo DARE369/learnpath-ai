@@ -1,4 +1,5 @@
 'use client';
+import { BookOpen, ArrowRight } from 'lucide-react';
 
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
@@ -57,7 +58,7 @@ export default function NotesLibrary() {
             </div>
           ) : notes.length === 0 ? (
             <div className="bg-surface-elevated border border-border rounded-2xl p-10 text-center mt-8">
-              <div className="text-4xl mb-3">📚</div>
+              <BookOpen className="mx-auto mb-3 h-9 w-9 text-white/40" />
               <p className="text-white/60">No study notes yet.</p>
               <Link href="/explore" className="inline-block mt-4 px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 transition">
                 Find something to learn
@@ -79,7 +80,7 @@ export default function NotesLibrary() {
                         {n.available_styles.length} style{n.available_styles.length === 1 ? '' : 's'} generated
                       </p>
                     </div>
-                    <span className="text-white/30 text-sm flex-shrink-0">View →</span>
+                    <span className="inline-flex items-center gap-1 text-white/30 text-sm flex-shrink-0">View <ArrowRight className="h-3.5 w-3.5" /></span>
                   </div>
                 </Link>
               ))}

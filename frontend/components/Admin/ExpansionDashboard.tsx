@@ -185,7 +185,7 @@ export default function ExpansionDashboard() {
                 <thead className="text-xs uppercase tracking-wide text-white/40">
                   <tr>
                     <th className="text-left pb-2 pr-3">Alias</th>
-                    <th className="text-left pb-2 pr-3">→ Canonical</th>
+                    <th className="text-left pb-2 pr-3">Canonical</th>
                     <th className="text-right pb-2">Confidence</th>
                   </tr>
                 </thead>

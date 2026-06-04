@@ -1,4 +1,5 @@
 'use client';
+import { FileText, Link2, Upload } from 'lucide-react';
 
 import React, { useState } from 'react';
 import Head from 'next/head';
@@ -73,12 +74,12 @@ export default function UploadPage() {
           <div className="flex gap-2 mt-6">
             <button
               onClick={() => setMode('file')}
-              className={`px-4 py-2 rounded-lg text-sm border transition ${mode === 'file' ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-            >📄 Upload file</button>
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm border transition ${mode === 'file' ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
+            ><FileText className="h-4 w-4" /> Upload file</button>
             <button
               onClick={() => setMode('url')}
-              className={`px-4 py-2 rounded-lg text-sm border transition ${mode === 'url' ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-            >🔗 Paste URL</button>
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm border transition ${mode === 'url' ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
+            ><Link2 className="h-4 w-4" /> Paste URL</button>
           </div>
 
           {error && (
@@ -94,7 +95,7 @@ export default function UploadPage() {
             ) : mode === 'file' ? (
               <label className="block cursor-pointer">
                 <div className="border-2 border-dashed border-border rounded-2xl p-12 text-center bg-surface-elevated hover:border-accent transition">
-                  <div className="text-4xl mb-3">📄</div>
+                  <Upload className="mx-auto mb-3 h-9 w-9 text-white/40" />
                   <p className="text-white font-medium">Click to choose a file</p>
                   <p className="text-white/40 text-sm mt-1">PDF, Word, Text, or Image · up to 50MB</p>
                   <p className="text-white/30 text-xs mt-2">

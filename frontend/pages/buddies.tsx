@@ -1,4 +1,5 @@
 'use client';
+import { Check, BookOpen, FileText, Flame } from 'lucide-react';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Head from 'next/head';
@@ -126,7 +127,7 @@ export default function BuddiesPage() {
                               className="px-3 py-1 rounded-lg bg-accent text-white text-sm disabled:opacity-50">Add</button>
                     ) : (
                       <span className="text-white/40 text-xs">
-                        {r.relationship === 'buddies' ? '✓ buddies' : r.relationship === 'request_sent' ? 'requested' : 'wants to connect'}
+                        {r.relationship === 'buddies' ? <span className="inline-flex items-center gap-1"><Check className="h-3 w-3" /> buddies</span> : r.relationship === 'request_sent' ? 'requested' : 'wants to connect'}
                       </span>
                     )}
                   </div>
@@ -165,7 +166,7 @@ export default function BuddiesPage() {
                       <Link key={s.id}
                             href={s.item_type === 'note' ? `/notes/${s.item_ref}` : `/content/${s.item_ref}`}
                             className="flex items-center justify-between bg-surface-elevated border border-border rounded-xl px-4 py-3 hover:border-accent transition">
-                        <span className="text-white text-sm truncate">{s.item_type === 'note' ? '📚' : '📄'} {s.title}</span>
+                        <span className="inline-flex items-center gap-1.5 text-white text-sm truncate">{s.item_type === 'note' ? <BookOpen className="h-4 w-4 flex-shrink-0" /> : <FileText className="h-4 w-4 flex-shrink-0" />} {s.title}</span>
                         <span className="text-white/40 text-xs flex-shrink-0 ml-3">from {s.from}</span>
                       </Link>
                     ))}
@@ -186,7 +187,7 @@ export default function BuddiesPage() {
                           <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${b.online ? 'bg-green-400' : 'bg-white/20'}`} />
                           <div className="min-w-0">
                             <p className="text-white text-sm font-medium truncate">{b.name}</p>
-                            <p className="text-white/40 text-xs">{b.online ? 'online' : 'offline'} · 🔥 {b.streak_days}d{b.avg_score != null && ` · ${b.avg_score}% avg`}</p>
+                            <p className="flex items-center gap-1 text-white/40 text-xs">{b.online ? 'online' : 'offline'} · <Flame className="h-3 w-3 text-warning/70" /> {b.streak_days}d{b.avg_score != null && ` · ${b.avg_score}% avg`}</p>
                           </div>
                         </button>
                         <div className="flex items-center gap-3 flex-shrink-0">
@@ -216,7 +217,7 @@ export default function BuddiesPage() {
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
               {thread.length === 0 ? (
-                <p className="text-white/30 text-sm text-center mt-8">Say hi 👋</p>
+                <p className="text-white/30 text-sm text-center mt-8">Say hi</p>
               ) : thread.map((m, i) => (
                 <div key={m.id + i} className={`flex ${m.mine ? 'justify-end' : 'justify-start'}`}>
                   <span className={`px-3 py-2 rounded-2xl text-sm max-w-[75%] ${m.mine ? 'bg-accent text-white' : 'bg-surface text-white/85 border border-border'}`}>{m.body}</span>

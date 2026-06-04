@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { HeartPulse, BarChart3, Target, Ban, Sprout, Network, ArrowRight } from "lucide-react";
+
+type IconType = React.ComponentType<{ className?: string }>;
 
 function authHeaders(): Record<string, string> {
   const t =
@@ -16,7 +19,7 @@ interface AdminTool {
   href: string;
   title: string;
   description: string;
-  icon: string;
+  icon: IconType;
 }
 
 const ADMIN_TOOLS: AdminTool[] = [
@@ -24,31 +27,31 @@ const ADMIN_TOOLS: AdminTool[] = [
     href: "/admin/customer-success",
     title: "Customer Success",
     description: "Organization health scores, churn risk, and CS outreach emails.",
-    icon: "💚",
+    icon: HeartPulse,
   },
   {
     href: "/admin/analytics",
     title: "Platform Analytics",
     description: "Revenue, churn, cohorts, and platform-wide usage metrics.",
-    icon: "📊",
+    icon: BarChart3,
   },
   {
     href: "/admin/confidence",
     title: "EQS Confidence",
     description: "Expanded video quality scores and confidence dashboard.",
-    icon: "🎯",
+    icon: Target,
   },
   {
     href: "/admin/blacklist",
     title: "Video Blacklist",
     description: "Review and manage soft/hard-blacklisted videos.",
-    icon: "🚫",
+    icon: Ban,
   },
   {
     href: "/admin/expansion",
     title: "Topic Expansion",
     description: "Nightly expansion runs, popular topics, and aliases.",
-    icon: "🌱",
+    icon: Sprout,
   },
 ];
 
@@ -76,7 +79,7 @@ function SeedKnowledgeGraph() {
 
   return (
     <div className="bg-surface-elevated border border-border rounded-2xl p-6">
-      <div className="text-3xl mb-3">🕸️</div>
+      <Network className="h-7 w-7 mb-3 text-accent-light" />
       <h2 className="text-lg font-semibold text-white">Concept Graph</h2>
       <p className="text-sm text-white/50 mt-1.5 leading-relaxed">
         Bootstrap the knowledge graph from existing content (quiz concepts,
@@ -90,8 +93,8 @@ function SeedKnowledgeGraph() {
         >
           {loading ? "Seeding…" : "Seed graph"}
         </button>
-        <Link href="/concepts" className="text-accent text-sm hover:underline">
-          View concepts →
+        <Link href="/concepts" className="inline-flex items-center gap-1 text-accent text-sm hover:underline">
+          View concepts <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
       {msg && <p className="text-white/60 text-xs mt-3">{msg}</p>}
@@ -122,7 +125,7 @@ export default function AdminHome() {
                 href={tool.href}
                 className="group bg-surface-elevated border border-border rounded-2xl p-6 hover:border-accent transition-colors"
               >
-                <div className="text-3xl mb-3">{tool.icon}</div>
+                <tool.icon className="h-7 w-7 mb-3 text-accent-light" />
                 <h2 className="text-lg font-semibold text-white group-hover:text-accent transition-colors">
                   {tool.title}
                 </h2>

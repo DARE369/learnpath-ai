@@ -4,8 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { BookOpen, Brain, Tv, Target, ArrowLeft, Download, Plus } from 'lucide-react';
 import { printPdf } from '@/lib/printPdf';
 import ShareButton from '@/components/Social/ShareButton';
+
+type IconType = React.ComponentType<{ className?: string }>;
 
 function authHeaders(): Record<string, string> {
   const t =
@@ -15,11 +18,11 @@ function authHeaders(): Record<string, string> {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
-const TABS = [
-  { key: 'ai_explanation', label: '📚 AI Explanation' },
-  { key: 'flashcards', label: '🧠 Flashcards' },
-  { key: 'youtube_match', label: '📺 Videos' },
-  { key: 'quiz', label: '🎯 Quiz' },
+const TABS: { key: string; label: string; icon: IconType }[] = [
+  { key: 'ai_explanation', label: 'AI Explanation', icon: BookOpen },
+  { key: 'flashcards', label: 'Flashcards', icon: Brain },
+  { key: 'youtube_match', label: 'Videos', icon: Tv },
+  { key: 'quiz', label: 'Quiz', icon: Target },
 ];
 
 interface Summary { id: string; title: string; file_type: string; detected_subject: string; status: string; }
@@ -92,7 +95,7 @@ export default function ContentDetail() {
       <Head><title>{summary?.title || 'Your Notes'} — LearnPath AI</title></Head>
       <div className="min-h-screen bg-background">
         <div className="max-w-3xl mx-auto px-6 py-8">
-          <Link href="/upload" className="text-white/40 hover:text-white text-sm">← Upload another</Link>
+          <Link href="/upload" className="inline-flex items-center gap-1 text-white/40 hover:text-white text-sm"><ArrowLeft className="h-3.5 w-3.5" /> Upload another</Link>
           <h1 className="text-2xl font-bold text-white mt-3 break-words">{summary?.title || 'Your Notes'}</h1>
           {summary && (
             <p className="text-white/40 text-sm mt-1">
@@ -106,8 +109,8 @@ export default function ContentDetail() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${tab === t.key ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-                >{t.label}</button>
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition ${tab === t.key ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
+                ><t.icon className="h-4 w-4" /> {t.label}</button>
               ))}
             </div>
             <ShareButton itemType="upload" itemRef={contentId} title={summary?.title || 'Uploaded notes'} />
@@ -130,9 +133,9 @@ export default function ContentDetail() {
                 <div className="flex justify-end mb-3">
                   <button
                     onClick={() => printPdf(summary?.title || 'Explanation', current.content || '')}
-                    className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm"
                   >
-                    📄 PDF
+                    <Download className="h-4 w-4" /> PDF
                   </button>
                 </div>
                 <pre className="whitespace-pre-wrap break-words font-sans text-white/85 text-sm leading-relaxed">{current.content}</pre>
@@ -147,7 +150,7 @@ export default function ContentDetail() {
                       disabled={addingReview}
                       className="px-3 py-1.5 rounded-lg bg-accent/20 text-accent text-sm font-medium hover:bg-accent/30 transition disabled:opacity-50"
                     >
-                      {addingReview ? 'Adding…' : '➕ Add to review deck'}
+                      <span className="inline-flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> {addingReview ? 'Adding…' : 'Add to review deck'}</span>
                     </button>
                   </div>
                 )}

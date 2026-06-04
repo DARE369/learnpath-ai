@@ -1,4 +1,5 @@
 import React from "react";
+import { RefreshCw, WifiOff } from "lucide-react";
 import { usePWA } from "@/hooks/usePWA";
 
 export function OfflineIndicator() {
@@ -16,7 +17,7 @@ export function OfflineIndicator() {
       aria-label={isSyncing ? "Syncing offline changes" : "Offline mode"}
     >
       <span className="indicator-icon">
-        {isSyncing ? "⟳" : "⚠"}
+        {isSyncing ? <RefreshCw size={16} /> : <WifiOff size={16} />}
       </span>
       <span className="indicator-text">
         {isSyncing ? "Syncing changes..." : "Offline - Your changes will sync when connected"}

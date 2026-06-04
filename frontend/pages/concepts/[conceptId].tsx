@@ -1,4 +1,5 @@
 'use client';
+import { ArrowLeft, Check, AlertTriangle, Compass } from 'lucide-react';
 
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
@@ -87,7 +88,7 @@ export default function ConceptDetail() {
       <Head><title>{d.concept.display_name} — LearnPath AI</title></Head>
       <div className="min-h-screen bg-background">
         <div className="max-w-3xl mx-auto px-6 py-8">
-          <Link href="/concepts" className="text-white/40 hover:text-white text-sm">← All concepts</Link>
+          <Link href="/concepts" className="inline-flex items-center gap-1 text-white/40 hover:text-white text-sm"><ArrowLeft className="h-3.5 w-3.5" /> All concepts</Link>
           <h1 className="text-2xl font-bold text-white mt-3">{d.concept.display_name}</h1>
           <p className="text-white/40 text-sm mt-1">
             Difficulty {d.concept.difficulty}/10
@@ -98,10 +99,10 @@ export default function ConceptDetail() {
           <div className={`mt-5 rounded-2xl p-4 border ${d.gaps.ready_to_learn ? 'border-green-500/30 bg-green-500/10' : 'border-amber-500/30 bg-amber-500/10'}`}>
             <div className="flex items-center justify-between gap-4 flex-wrap">
               {d.gaps.ready_to_learn ? (
-                <p className="text-green-400 font-medium">✓ You&apos;re ready to learn this.</p>
+                <p className="flex items-center gap-1.5 text-green-400 font-medium"><Check className="h-4 w-4" /> You&apos;re ready to learn this.</p>
               ) : (
-                <p className="text-amber-300 font-medium">
-                  ⚠ Fill {d.gaps.gaps.length} prerequisite gap{d.gaps.gaps.length === 1 ? '' : 's'} first
+                <p className="flex items-center gap-1.5 text-amber-300 font-medium">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" /> Fill {d.gaps.gaps.length} prerequisite gap{d.gaps.gaps.length === 1 ? '' : 's'} first
                   {d.gaps.total_learning_hours > 0 && ` (~${d.gaps.total_learning_hours}h)`}.
                 </p>
               )}
@@ -110,7 +111,7 @@ export default function ConceptDetail() {
                 disabled={buildingPath}
                 className="flex-shrink-0 px-4 py-2 rounded-xl bg-accent text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
               >
-                {buildingPath ? 'Building…' : '🧭 Build a learning path'}
+                <span className="inline-flex items-center gap-1.5"><Compass className="h-4 w-4" /> {buildingPath ? 'Building…' : 'Build a learning path'}</span>
               </button>
             </div>
           </div>
@@ -129,7 +130,7 @@ export default function ConceptDetail() {
                     </Link>
                     <span className={`text-xs ${p.is_met ? 'text-green-400' : 'text-amber-300'}`}>
                       {p.is_met
-                        ? '✓ ready'
+                        ? <span className="inline-flex items-center gap-1"><Check className="h-3.5 w-3.5" /> ready</span>
                         : `${p.user_mastery ?? 0}% / ${p.required_mastery}%`}
                     </span>
                   </li>

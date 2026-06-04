@@ -85,7 +85,7 @@ function Shell({ Component, pageProps }: AppProps) {
       return;
     }
 
-    // Wrong-area access → send the user to their role's home.
+    // Wrong-area access -> send the user to their role's home.
     if (blockedFromArea && areaRedirect) {
       router.replace(areaRedirect);
       return;

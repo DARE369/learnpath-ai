@@ -1,4 +1,5 @@
 'use client';
+import { Target } from 'lucide-react';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
@@ -88,7 +89,7 @@ export default function PathsLibrary() {
             <h2 className="text-white font-semibold mb-3">New path</h2>
             {goal ? (
               <div className="flex items-center justify-between gap-3 bg-surface border border-border rounded-xl px-4 py-3">
-                <span className="text-white text-sm">🎯 {goal.display_name}</span>
+                <span className="inline-flex items-center gap-1.5 text-white text-sm"><Target className="h-4 w-4" /> {goal.display_name}</span>
                 <button onClick={() => setGoal(null)} className="text-white/40 hover:text-white text-sm">change</button>
               </div>
             ) : (

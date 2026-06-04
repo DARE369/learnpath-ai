@@ -1,4 +1,5 @@
 'use client';
+import { Target, FileText, Compass } from 'lucide-react';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
@@ -147,22 +148,22 @@ export default function ExamsPage() {
                         <div className="mt-4 flex items-center gap-2 flex-wrap">
                           <button
                             onClick={() => setPracticeTrack(e.track)}
-                            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
                           >
-                            🎯 Practice quiz
+                            <Target className="h-4 w-4" /> Practice quiz
                           </button>
                           <button
                             onClick={() => router.push(`/exams/mock/${e.track.id}`)}
-                            className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm"
                           >
-                            📝 Mock exam
+                            <FileText className="h-4 w-4" /> Mock exam
                           </button>
                           <button
                             onClick={() => buildPath(e)}
                             disabled={busy === e.enrollment_id}
-                            className="px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm disabled:opacity-50"
                           >
-                            🧭 Build study path
+                            <Compass className="h-4 w-4" /> Build study path
                           </button>
                           <button
                             onClick={() => logMock(e)}

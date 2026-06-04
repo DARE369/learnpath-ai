@@ -1,4 +1,5 @@
 'use client';
+import { ArrowRight, Network } from 'lucide-react';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
@@ -49,7 +50,7 @@ export default function ConceptsLibrary() {
         <div className="max-w-4xl mx-auto px-6 py-10">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-white">Concepts</h1>
-            <Link href="/concepts/graph" className="text-accent text-sm hover:underline">Map view →</Link>
+            <Link href="/concepts/graph" className="inline-flex items-center gap-1 text-accent text-sm hover:underline">Map view <ArrowRight className="h-3.5 w-3.5" /></Link>
           </div>
           <p className="text-white/50 mt-1 text-sm">
             Explore concepts, their prerequisites, and what to learn first.
@@ -68,7 +69,7 @@ export default function ConceptsLibrary() {
             </div>
           ) : concepts.length === 0 ? (
             <div className="bg-surface-elevated border border-border rounded-2xl p-10 text-center mt-6">
-              <div className="text-4xl mb-3">🕸️</div>
+              <Network className="mx-auto mb-3 h-9 w-9 text-white/40" />
               <p className="text-white/60">No concepts indexed yet.</p>
               <p className="text-white/40 text-sm mt-1">
                 An admin can seed the graph from existing content via the knowledge API.

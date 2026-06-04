@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 interface TeacherDashboard {
   teacher: {
@@ -166,8 +167,8 @@ export default function TeacherDashboard() {
             {dashboard.classes.length === 0 ? (
               <div className="bg-surface-elevated rounded-xl p-12 border border-border text-center">
                 <p className="text-white/60 mb-4">No classes yet</p>
-                <Link href="/teacher/class/create" className="text-accent hover:text-accent/80">
-                  Create your first class →
+                <Link href="/teacher/class/create" className="inline-flex items-center gap-1 text-accent hover:text-accent/80">
+                  Create your first class <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             ) : (

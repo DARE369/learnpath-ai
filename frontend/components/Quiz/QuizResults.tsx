@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Star, ThumbsUp, TrendingUp, BookOpen, Check, BarChart3, Clock, AlertTriangle, Rocket, ArrowRight } from 'lucide-react';
 
 interface QuizResultsProps {
   results: {
@@ -52,18 +53,19 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
     return `${mins}m ${secs}s`;
   };
 
-  const getPerformanceEmoji = (level: string) => {
+  const getPerformanceIcon = (level: string): React.ComponentType<{ className?: string }> => {
     switch (level) {
       case 'expert':
-        return '⭐';
+        return Star;
       case 'above_average':
-        return '👏';
+        return ThumbsUp;
       case 'average':
-        return '💪';
+        return TrendingUp;
       default:
-        return '📚';
+        return BookOpen;
     }
   };
+  const PerfIcon = getPerformanceIcon(results.performance_level);
 
   return (
     <div className="quiz-results mx-auto w-full max-w-4xl space-y-6">
@@ -74,7 +76,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
         </div>
         <div className="space-y-4 p-6 text-center">
           <div className="flex items-center justify-center gap-4">
-            <span className="text-6xl">{getPerformanceEmoji(results.performance_level)}</span>
+            <PerfIcon className={`h-14 w-14 ${getPerformanceColor(results.performance_level)}`} />
             <div>
               <div className={`text-6xl font-bold ${getPerformanceColor(results.performance_level)}`}>
                 {results.score_percent}%
@@ -91,7 +93,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="text-center">
-            <div className="mb-2 text-2xl text-green-600">✓</div>
+            <Check className="mx-auto mb-2 h-6 w-6 text-green-600" />
             <div className="mb-1 text-sm text-gray-600">Score</div>
             <div className="text-2xl font-bold text-gray-900">
               {results.correct_answers}/{results.total_questions}
@@ -102,7 +104,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="text-center">
-            <div className="mb-2 text-2xl text-indigo-600">📊</div>
+            <BarChart3 className="mx-auto mb-2 h-6 w-6 text-indigo-600" />
             <div className="mb-1 text-sm text-gray-600">Your Rank</div>
             <div className="text-2xl font-bold text-gray-900">{results.percentile}%</div>
             <div className="mt-1 text-xs text-gray-500">of learners</div>
@@ -111,7 +113,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="text-center">
-            <div className="mb-2 text-2xl">⏱️</div>
+            <Clock className="mx-auto mb-2 h-6 w-6 text-gray-700" />
             <div className="mb-1 text-sm text-gray-600">Time Spent</div>
             <div className="text-2xl font-bold text-gray-900">
               {formatTime(results.time_spent_seconds)}
@@ -128,7 +130,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
           <div className="rounded-xl border border-red-200 bg-red-50 shadow-sm">
             <div className="border-b border-red-100 px-6 py-4">
               <h3 className="flex items-center gap-2 font-semibold text-red-700">
-                <span>⚠</span>
+                <AlertTriangle className="h-4 w-4" />
                 Focus Areas
               </h3>
             </div>
@@ -137,9 +139,9 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
                 {results.weak_concepts.map((concept) => (
                   <div
                     key={concept}
-                    className="rounded border border-red-200 bg-white p-3 text-sm text-gray-700"
+                    className="flex items-center gap-2 rounded border border-red-200 bg-white p-3 text-sm text-gray-700"
                   >
-                    📖 {concept}
+                    <BookOpen className="h-4 w-4 text-red-500" /> {concept}
                   </div>
                 ))}
               </div>
@@ -152,7 +154,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
           <div className="rounded-xl border border-green-200 bg-green-50 shadow-sm">
             <div className="border-b border-green-100 px-6 py-4">
               <h3 className="flex items-center gap-2 font-semibold text-green-700">
-                <span>✓</span>
+                <Check className="h-4 w-4" />
                 Mastered Topics
               </h3>
             </div>
@@ -161,9 +163,9 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
                 {results.strong_concepts.map((concept) => (
                   <div
                     key={concept}
-                    className="rounded border border-green-200 bg-white p-3 text-sm text-gray-700"
+                    className="flex items-center gap-2 rounded border border-green-200 bg-white p-3 text-sm text-gray-700"
                   >
-                    ⭐ {concept}
+                    <Star className="h-4 w-4 text-green-500" /> {concept}
                   </div>
                 ))}
               </div>
@@ -187,9 +189,10 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
                   type="button"
                   className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
-                  {action.type === 'review' ? '📚 Review' : '🚀 Advance'}
+                  {action.type === 'review' ? <BookOpen className="h-4 w-4" /> : <Rocket className="h-4 w-4" />}
+                  {action.type === 'review' ? 'Review' : 'Advance'}
                   {action.concept && ` ${action.concept}`}
-                  <span>→</span>
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               ))}
             </div>
@@ -204,14 +207,14 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
           onClick={onClose}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-indigo-600 text-base font-medium text-white transition-colors hover:bg-indigo-700"
         >
-          <span>→</span>
+          <ArrowRight className="h-4 w-4" />
           Continue Learning
         </button>
         <button
           type="button"
-          className="inline-flex h-12 items-center justify-center rounded-lg border border-gray-300 bg-white text-base font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-base font-medium text-gray-700 transition-colors hover:bg-gray-50"
         >
-          📊 View Detailed Analytics
+          <BarChart3 className="h-4 w-4" /> View Detailed Analytics
         </button>
       </div>
     </div>

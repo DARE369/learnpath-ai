@@ -1,4 +1,5 @@
 'use client';
+import { ArrowRight, Network } from 'lucide-react';
 
 import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
@@ -58,17 +59,17 @@ export default function ConceptGraph() {
         <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-white">Concept Map</h1>
-            <Link href="/concepts" className="text-accent text-sm hover:underline">List view →</Link>
+            <Link href="/concepts" className="inline-flex items-center gap-1 text-accent text-sm hover:underline">List view <ArrowRight className="h-3.5 w-3.5" /></Link>
           </div>
           <p className="text-white/50 mt-1 text-sm">
-            Left → right is easier → harder. Lines are prerequisites (amber) and related links (grey). Click a node.
+            Left to right is easier to harder. Lines are prerequisites (amber) and related links (grey). Click a node.
           </p>
 
           {loading ? (
             <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
           ) : nodes.length === 0 ? (
             <div className="bg-surface-elevated border border-border rounded-2xl p-10 text-center mt-8">
-              <div className="text-4xl mb-3">🕸️</div>
+              <Network className="mx-auto mb-3 h-9 w-9 text-white/40" />
               <p className="text-white/60">No concepts yet — an admin can seed the graph from /admin.</p>
             </div>
           ) : (

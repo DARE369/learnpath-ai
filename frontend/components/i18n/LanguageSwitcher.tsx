@@ -6,9 +6,9 @@ export function LanguageSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
 
   const languages = [
-    { code: "en", name: "English", flag: "🇬🇧" },
-    { code: "yo", name: "Yorùbá", flag: "🇳🇬" },
-    { code: "fr", name: "Français", flag: "🇫🇷" },
+    { code: "en", name: "English" },
+    { code: "yo", name: "Yorùbá" },
+    { code: "fr", name: "Français" },
   ];
 
   const currentLanguage = languages.find((lang) => lang.code === router.locale);
@@ -27,7 +27,7 @@ export function LanguageSwitcher() {
         aria-expanded={isOpen}
         aria-label="Switch language"
       >
-        <span className="flag">{currentLanguage?.flag}</span>
+        <span className="flag">{(currentLanguage?.code || "en").toUpperCase()}</span>
         <span className="label">{currentLanguage?.name}</span>
         <span className={`icon ${isOpen ? "open" : ""}`}>▼</span>
       </button>
@@ -42,7 +42,7 @@ export function LanguageSwitcher() {
               role="menuitem"
               aria-current={lang.code === router.locale ? "true" : "false"}
             >
-              <span className="flag">{lang.flag}</span>
+              <span className="flag">{lang.code.toUpperCase()}</span>
               <span className="name">{lang.name}</span>
             </button>
           ))}
@@ -81,7 +81,10 @@ export function LanguageSwitcher() {
         }
 
         .flag {
-          font-size: 18px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          opacity: 0.7;
         }
 
         .icon {

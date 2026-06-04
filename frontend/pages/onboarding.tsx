@@ -3,7 +3,15 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import {
+  BookOpen, Target, Trophy, Briefcase, Languages, FlaskConical, Wrench, Sparkles,
+  Sunrise, Sun, CloudSun, Sunset, Moon, Video, Headphones, FileText, Pencil,
+  MessageSquare, BarChart3, Users, Calendar, Clock, Lightbulb, Rocket, Check,
+  AlertTriangle, ArrowLeft, ArrowRight,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+
+type IconType = React.ComponentType<{ className?: string }>;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,15 +45,15 @@ const EMPTY_FORM: FormData = {
 // Static data
 // ---------------------------------------------------------------------------
 
-const GOAL_OPTIONS = [
-  { id: 'ielts',        label: 'IELTS Exam',          icon: '📚', desc: 'Prepare for IELTS, TOEFL or English proficiency exams' },
-  { id: 'sat',          label: 'SAT / ACT Prep',       icon: '🎯', desc: 'US college admissions standardised test preparation' },
-  { id: 'waec',         label: 'WAEC / JAMB',          icon: '🏆', desc: 'Nigerian secondary school and university entrance exams' },
-  { id: 'professional', label: 'Professional Skill',   icon: '💼', desc: 'Data science, coding, finance, management and more' },
-  { id: 'language',     label: 'Language Learning',    icon: '🗣️', desc: 'English, French, Yoruba or any other language' },
-  { id: 'academic',     label: 'Academic Subject',     icon: '🔬', desc: 'Math, Physics, Chemistry, Biology and more' },
-  { id: 'trades',       label: 'Trades / Practical',   icon: '🛠️', desc: 'Technical, vocational and hands-on skills' },
-  { id: 'hobby',        label: 'Personal Interest',    icon: '🌟', desc: 'Learn something just for the love of it' },
+const GOAL_OPTIONS: { id: string; label: string; icon: IconType; desc: string }[] = [
+  { id: 'ielts',        label: 'IELTS Exam',          icon: BookOpen,     desc: 'Prepare for IELTS, TOEFL or English proficiency exams' },
+  { id: 'sat',          label: 'SAT / ACT Prep',       icon: Target,       desc: 'US college admissions standardised test preparation' },
+  { id: 'waec',         label: 'WAEC / JAMB',          icon: Trophy,       desc: 'Nigerian secondary school and university entrance exams' },
+  { id: 'professional', label: 'Professional Skill',   icon: Briefcase,    desc: 'Data science, coding, finance, management and more' },
+  { id: 'language',     label: 'Language Learning',    icon: Languages,    desc: 'English, French, Yoruba or any other language' },
+  { id: 'academic',     label: 'Academic Subject',     icon: FlaskConical, desc: 'Math, Physics, Chemistry, Biology and more' },
+  { id: 'trades',       label: 'Trades / Practical',   icon: Wrench,       desc: 'Technical, vocational and hands-on skills' },
+  { id: 'hobby',        label: 'Personal Interest',    icon: Sparkles,     desc: 'Learn something just for the love of it' },
 ];
 
 const LEVEL_OPTIONS = [
@@ -69,22 +77,22 @@ const PLACEMENT_QUESTIONS = [
 
 const TIME_COMMITMENT = [5, 10, 15, 20];
 
-const STUDY_TIMES = [
-  { id: 'early_morning', label: 'Early Morning', time: '5 – 7 AM',  icon: '🌅' },
-  { id: 'morning',       label: 'Morning',       time: '7 – 12 PM', icon: '☀️' },
-  { id: 'afternoon',     label: 'Afternoon',     time: '12 – 5 PM', icon: '🌤️' },
-  { id: 'evening',       label: 'Evening',       time: '5 – 9 PM',  icon: '🌆' },
-  { id: 'late_night',    label: 'Late Night',    time: '9 PM+',     icon: '🌙' },
+const STUDY_TIMES: { id: string; label: string; time: string; icon: IconType }[] = [
+  { id: 'early_morning', label: 'Early Morning', time: '5 – 7 AM',  icon: Sunrise },
+  { id: 'morning',       label: 'Morning',       time: '7 – 12 PM', icon: Sun },
+  { id: 'afternoon',     label: 'Afternoon',     time: '12 – 5 PM', icon: CloudSun },
+  { id: 'evening',       label: 'Evening',       time: '5 – 9 PM',  icon: Sunset },
+  { id: 'late_night',    label: 'Late Night',    time: '9 PM+',     icon: Moon },
 ];
 
-const LEARNING_STYLES = [
-  { id: 'video',       label: 'Video lessons',         icon: '📹', desc: 'Learn by watching explanations and examples' },
-  { id: 'audio',       label: 'Audio / Podcasts',      icon: '🎧', desc: 'Listen to lessons while doing other activities' },
-  { id: 'text',        label: 'Reading & Notes',       icon: '📝', desc: 'Prefer text-based content and note-taking' },
-  { id: 'interactive', label: 'Interactive Exercises', icon: '✏️', desc: 'Learn by doing lots of practice problems' },
-  { id: 'discussion',  label: 'Discussion & Q&A',      icon: '💬', desc: 'Learn by asking questions and discussing' },
-  { id: 'visual',      label: 'Visual Diagrams',       icon: '📊', desc: 'Prefer charts, graphs and concept maps' },
-  { id: 'groups',      label: 'Study Groups',          icon: '🤝', desc: 'Learn best with others' },
+const LEARNING_STYLES: { id: string; label: string; icon: IconType; desc: string }[] = [
+  { id: 'video',       label: 'Video lessons',         icon: Video,         desc: 'Learn by watching explanations and examples' },
+  { id: 'audio',       label: 'Audio / Podcasts',      icon: Headphones,    desc: 'Listen to lessons while doing other activities' },
+  { id: 'text',        label: 'Reading & Notes',       icon: FileText,      desc: 'Prefer text-based content and note-taking' },
+  { id: 'interactive', label: 'Interactive Exercises', icon: Pencil,        desc: 'Learn by doing lots of practice problems' },
+  { id: 'discussion',  label: 'Discussion & Q&A',      icon: MessageSquare, desc: 'Learn by asking questions and discussing' },
+  { id: 'visual',      label: 'Visual Diagrams',       icon: BarChart3,     desc: 'Prefer charts, graphs and concept maps' },
+  { id: 'groups',      label: 'Study Groups',          icon: Users,         desc: 'Learn best with others' },
 ];
 
 const GOAL_LABEL: Record<string, string> = Object.fromEntries(GOAL_OPTIONS.map(g => [g.id, g.label]));
@@ -287,12 +295,12 @@ export default function OnboardingPage() {
                       sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
                     }`}
                   >
-                    <span className="text-2xl">{g.icon}</span>
+                    <g.icon className="h-6 w-6 flex-shrink-0 text-accent-light" />
                     <div>
                       <p className={`font-medium ${sel ? 'text-white' : 'text-white/80'}`}>{g.label}</p>
                       <p className="text-xs text-white/40 mt-0.5">{g.desc}</p>
                     </div>
-                    {sel && <span className="ml-auto text-accent">✓</span>}
+                    {sel && <Check className="ml-auto h-4 w-4 text-accent" />}
                   </button>
                 );
               })}
@@ -335,8 +343,8 @@ export default function OnboardingPage() {
                 Want a more accurate level? Take our 10-question placement test. <span className="text-white/40">(optional)</span>
               </p>
               {form.placement_test_taken ? (
-                <p className="mt-2 text-sm text-green-400">
-                  ✓ Test complete — score: {form.test_score}% → {form.level}
+                <p className="mt-2 flex items-center gap-1.5 text-sm text-green-400">
+                  <Check className="h-4 w-4" /> Test complete — score: {form.test_score}% · level: {form.level}
                 </p>
               ) : !showTest ? (
                 <button
@@ -405,7 +413,7 @@ export default function OnboardingPage() {
                 <p className="text-sm font-medium text-white/70">Required pace</p>
                 <p className="text-3xl font-bold text-white mt-1">{pace.hours_per_week} hrs<span className="text-base text-white/50">/week</span></p>
                 <p className="text-xs text-white/40 mt-0.5">({pace.hours_per_day} hrs/day)</p>
-                {!pace.feasible && <p className="mt-2 text-xs text-yellow-400">⚠️ Very ambitious — consider extending your deadline</p>}
+                {!pace.feasible && <p className="mt-2 flex items-center gap-1.5 text-xs text-yellow-400"><AlertTriangle className="h-3.5 w-3.5" /> Very ambitious — consider extending your deadline</p>}
               </div>
             )}
           </div>
@@ -453,12 +461,12 @@ export default function OnboardingPage() {
                         sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
                       }`}
                     >
-                      <span className="text-xl">{t.icon}</span>
+                      <t.icon className="h-5 w-5 flex-shrink-0 text-accent-light" />
                       <div>
                         <p className={`text-sm font-medium ${sel ? 'text-white' : 'text-white/70'}`}>{t.label}</p>
                         <p className="text-xs text-white/30">{t.time}</p>
                       </div>
-                      {sel && <span className="ml-auto text-accent text-sm">✓</span>}
+                      {sel && <Check className="ml-auto h-4 w-4 text-accent" />}
                     </button>
                   );
                 })}
@@ -494,12 +502,12 @@ export default function OnboardingPage() {
                       sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
                     }`}
                   >
-                    <span className="text-2xl">{s.icon}</span>
+                    <s.icon className="h-6 w-6 flex-shrink-0 text-accent-light" />
                     <div>
                       <p className={`font-medium text-sm ${sel ? 'text-white' : 'text-white/70'}`}>{s.label}</p>
                       <p className="text-xs text-white/40 mt-0.5">{s.desc}</p>
                     </div>
-                    {sel && <span className="ml-auto text-accent flex-shrink-0">✓</span>}
+                    {sel && <Check className="ml-auto h-4 w-4 flex-shrink-0 text-accent" />}
                   </button>
                 );
               })}
@@ -518,21 +526,23 @@ export default function OnboardingPage() {
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/10">
               {[
-                { icon: '🎯', label: 'Goals',           value: form.study_goals.map(g => GOAL_LABEL[g] || g).join(', ') || '—' },
-                { icon: '📊', label: 'Level',           value: form.level.charAt(0).toUpperCase() + form.level.slice(1) },
-                { icon: '📅', label: 'Target date',     value: form.deadline_date || '—' },
-                { icon: '⏱️', label: 'Time/week',       value: `${form.weekly_hours} hours` },
-                { icon: '💡', label: 'Learning styles', value: form.learning_styles.join(', ') || '—' },
+                { icon: Target,    label: 'Goals',           value: form.study_goals.map(g => GOAL_LABEL[g] || g).join(', ') || '—' },
+                { icon: BarChart3, label: 'Level',           value: form.level.charAt(0).toUpperCase() + form.level.slice(1) },
+                { icon: Calendar,  label: 'Target date',     value: form.deadline_date || '—' },
+                { icon: Clock,     label: 'Time/week',       value: `${form.weekly_hours} hours` },
+                { icon: Lightbulb, label: 'Learning styles', value: form.learning_styles.join(', ') || '—' },
               ].map(row => (
                 <div key={row.label} className="flex items-center gap-3 px-5 py-4">
-                  <span className="text-xl w-7 flex-shrink-0">{row.icon}</span>
+                  <row.icon className="h-5 w-7 flex-shrink-0 text-accent-light" />
                   <span className="text-sm text-white/50 w-28 flex-shrink-0">{row.label}</span>
                   <span className="text-sm font-medium text-white capitalize">{row.value}</span>
                 </div>
               ))}
             </div>
             <div className="rounded-xl border border-accent/30 bg-accent/10 p-5 text-center">
-              <p className="text-lg font-bold text-white">You&apos;re all set! 🚀</p>
+              <p className="flex items-center justify-center gap-2 text-lg font-bold text-white">
+                <Rocket className="h-5 w-5" /> You&apos;re all set!
+              </p>
               <p className="text-sm text-white/50 mt-1">Click below and we&apos;ll recommend the perfect learning path for you.</p>
             </div>
           </div>
@@ -581,18 +591,18 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => { setStep(s => s - 1); setError(''); }}
-                  className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
                 >
-                  ← Back
+                  <ArrowLeft className="h-4 w-4" /> Back
                 </button>
               )}
               <button
                 type="button"
                 onClick={saveStep}
                 disabled={loading}
-                className="flex-1 rounded-xl bg-accent py-3 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent py-3 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
               >
-                {loading ? 'Saving…' : step === TOTAL ? '🚀 Create My Path' : 'Next →'}
+                {loading ? 'Saving…' : step === TOTAL ? <><Rocket className="h-4 w-4" /> Create My Path</> : <>Next <ArrowRight className="h-4 w-4" /></>}
               </button>
             </div>
           </div>
