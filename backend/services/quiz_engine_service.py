@@ -647,11 +647,11 @@ class QuizEngineService:
 
     async def review_card(self, db: Session, user_id: str, card_id: str, answer: str) -> dict:
         """
-        Grade a review and reschedule the card with a lightweight FSRS-style
-        update: correct recall grows stability (pushes the next due date out);
-        a lapse resets stability and resurfaces the card tomorrow.
+        Grade a review and reschedule the card with the FSRS-5 algorithm. Our
+        reviews are binary, so correct -> Good (3), incorrect -> Again (1).
         """
         from models import NoteFlashcard, UploadFlashcard
+        from services import fsrs
 
         card = (
             db.query(FSRSCard)
@@ -673,25 +673,30 @@ class QuizEngineService:
             is_correct = bool(question and answer == question.correct_answer_id)
 
         now = datetime.utcnow()
+        rating = 3 if is_correct else 1
+        is_new = (card.reps or 0) == 0 or card.state == "new"
+        elapsed = (now - card.last_reviewed).days if card.last_reviewed else 0
+
+        new_s, new_d, interval = fsrs.schedule(
+            stability=card.stability or 0.0,
+            difficulty=card.difficulty or 5.0,
+            elapsed_days=elapsed,
+            rating=rating,
+            is_new=is_new,
+        )
+
         card.reps = (card.reps or 0) + 1
         card.last_reviewed = now
-
+        card.stability = round(new_s, 4)
+        card.difficulty = round(new_d, 4)
+        card.scheduled_days = interval
+        card.elapsed_days = 0
         if is_correct:
-            if card.state in ("new", "learning", "relearning"):
-                card.state = "reviewing"
-            card.difficulty = max(1.0, (card.difficulty or 5.0) - 0.5)
-            growth = 1.8 + (10.0 - card.difficulty) * 0.05
-            card.stability = max(1.0, (card.stability or 1.0) * growth)
-            card.scheduled_days = max(1, int(round(card.stability)))
+            card.state = "reviewing"
         else:
             card.state = "relearning"
             card.lapses = (card.lapses or 0) + 1
-            card.difficulty = min(10.0, (card.difficulty or 5.0) + 1.0)
-            card.stability = 1.0
-            card.scheduled_days = 1
-
-        card.elapsed_days = 0
-        card.due_date = now + timedelta(days=card.scheduled_days)
+        card.due_date = now + timedelta(days=interval)
         db.commit()
 
         feedback = {
