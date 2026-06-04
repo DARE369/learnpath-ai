@@ -86,20 +86,19 @@ the questions you see feed a spaced-repetition deck you clear in Review → repe
 ### 🐞 Root cause of "every time I log in, I have to log in again"
 There are **three compounding causes**, in order of impact:
 
-1. **The bootstrap never tries the refresh cookie.**
-   In `useAuth.tsx`, on a fresh page load the code reads the stored access token;
-   **if there isn't one, it gives up immediately** (`setLoading(false); return;`)
-   and shows the login screen — *even though a valid 7-day refresh cookie may still
-   exist.* So any time the access token isn't in storage (new tab, browser
-   restart, or it simply wasn't persisted), you're sent back to login despite
-   being "remembered."
-   → **Fix:** on bootstrap with no stored token, still call `/api/auth/refresh`;
-   if it returns a token, restore the session. *(Small, low-risk — I can apply it.)*
+1. **The bootstrap never tries the refresh cookie.** ✅ FIXED (commit `e804010`)
+   In `useAuth.tsx`, on a fresh page load the code read the stored access token;
+   **if there wasn't one, it gave up immediately** and showed the login screen —
+   *even though a valid 7-day refresh cookie may still exist.* So any time the
+   access token wasn't in storage (new tab, browser restart, or it simply wasn't
+   persisted), you were sent back to login despite being "remembered."
+   → **Fixed:** the bootstrap now falls back to `POST /api/auth/refresh` when no
+   token is stored and persists the recovered token to `localStorage`.
 
-2. **"Keep me signed in" defaults to OFF.**
-   So the token lands in `sessionStorage` and is gone the moment you close the tab.
-   Combined with #1, closing the tab = guaranteed re-login.
-   → **Fix:** default the checkbox to on, *or* always use `localStorage`.
+2. **"Keep me signed in" defaulted to OFF.** ✅ FIXED (commit `e804010`)
+   The token landed in `sessionStorage` and was gone the moment you closed the
+   tab. → **Fixed:** the checkbox now defaults to on (token → `localStorage`), and
+   new signups persist their token too.
 
 3. **The misconfigured API URL breaks the refresh round-trip in production.**
    While `NEXT_PUBLIC_API_URL` points at `localhost` (see `docs`/ops ledger), the
@@ -289,8 +288,9 @@ copy is a dead Stage-2 placeholder — don't use it).
 
 In rough priority order — these are *navigation/UX* fixes, not new features:
 
-1. **Fix the re-login bug** (§2 bug #1 + #2). Biggest perceived-quality win.
-2. **Fix the Vercel `NEXT_PUBLIC_API_URL`** to the Railway https URL (unblocks #1).
+1. ~~**Fix the re-login bug** (§2 bug #1 + #2).~~ ✅ DONE (commit `e804010`).
+2. **Fix the Vercel `NEXT_PUBLIC_API_URL`** to the Railway https URL — still
+   required for the refresh round-trip to actually work in production (§2 bug #3).
 3. **Point the dashboard "Continue" CTA at the user's real active path**, not `/learning/demo/0`.
 4. **Add role-aware nav** so teachers can reach `/teacher/*` and `/school/*` without typing URLs (mirror the Admin link pattern).
 5. **Add a persistent search/"Learn something new" affordance** in the navbar so the learning loop is enterable from anywhere, not just the Explore tab.
