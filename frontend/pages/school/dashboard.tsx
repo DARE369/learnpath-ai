@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import Navbar from "../../components/Navbar";
 
 interface SchoolDashboard {
   organization: {
@@ -71,7 +70,6 @@ export default function SchoolDashboard() {
   if (loading) {
     return (
       <>
-        <Navbar user={user} onLogout={handleLogout} />
         <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
           <div className="text-white">Loading...</div>
         </div>
@@ -82,7 +80,6 @@ export default function SchoolDashboard() {
   if (!dashboard || !orgId) {
     return (
       <>
-        <Navbar user={user} onLogout={handleLogout} />
         <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
           <div className="text-white">Failed to load dashboard</div>
         </div>
@@ -92,7 +89,6 @@ export default function SchoolDashboard() {
 
   return (
     <>
-      <Navbar user={user} onLogout={handleLogout} />
       <main className="min-h-screen bg-gradient-dark">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Header */}

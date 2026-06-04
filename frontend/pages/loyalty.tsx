@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { Award, Zap, Check, TrendingUp, Gift } from 'lucide-react';
-import Navbar from '@/components/Navbar';
 import { useAuth } from '@/hooks/useAuth';
 
 interface LoyaltyStatus {
@@ -71,15 +70,14 @@ export default function LoyaltyPage() {
     }
   };
 
-  if (loading) return <><Navbar /><div className="flex justify-center items-center min-h-screen bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div></>;
+  if (loading) return <><div className="flex justify-center items-center min-h-screen bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div></>;
 
-  if (!status) return <><Navbar /><div className="min-h-screen bg-gray-50 pt-20"><div className="max-w-3xl mx-auto px-4"><div className="text-yellow-700">No data</div></div></div></>;
+  if (!status) return <><div className="min-h-screen bg-gray-50 pt-20"><div className="max-w-3xl mx-auto px-4"><div className="text-yellow-700">No data</div></div></div></>;
 
   const tierProgress = status.points_to_next_tier ? Math.round(((status.lifetime_points - (status.all_tiers[status.current_tier]?.min_points || 0)) / status.points_to_next_tier) * 100) : 100;
 
   return <>
-    <Navbar />
-    <div className="min-h-screen bg-gray-50 pt-20 pb-12">
+        <div className="min-h-screen bg-gray-50 pt-20 pb-12">
       <div className="max-w-3xl mx-auto px-4">
         <div className="mb-8"><div className="flex items-center gap-3 mb-2"><Award className="w-8 h-8 text-purple-600" /><h1 className="text-3xl font-bold text-gray-900">Loyalty Program</h1></div></div>
 

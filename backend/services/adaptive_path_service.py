@@ -133,6 +133,30 @@ class AdaptivePathService:
             "is_active": p.is_active,
         } for p in rows]
 
+    def active_path(self, db: Session, user_id) -> Optional[dict]:
+        """The path the user should 'Continue learning' on: the most recently
+        created active path that still has incomplete modules (falls back to the
+        most recent active path). Returns None when the user has no paths."""
+        rows = (
+            db.query(AdaptivePath)
+            .filter(AdaptivePath.user_id == user_id, AdaptivePath.is_active == True)  # noqa: E712
+            .order_by(AdaptivePath.created_at.desc())
+            .all()
+        )
+        chosen = next(
+            (p for p in rows if not p.total_modules or p.completed_modules < p.total_modules),
+            rows[0] if rows else None,
+        )
+        if chosen is None:
+            return None
+        return {
+            "id": str(chosen.id),
+            "path_name": chosen.path_name,
+            "completed_modules": chosen.completed_modules,
+            "total_modules": chosen.total_modules,
+            "progress_percent": int(chosen.completed_modules / chosen.total_modules * 100) if chosen.total_modules else 0,
+        }
+
     def _require_path(self, db: Session, path_id: str, user_id) -> AdaptivePath:
         p = db.query(AdaptivePath).filter(AdaptivePath.id == path_id).first()
         if not p or str(p.user_id) != str(user_id):

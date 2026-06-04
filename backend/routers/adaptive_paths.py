@@ -43,6 +43,15 @@ def list_paths(
     return {"paths": svc.list_paths(db, current_user.id)}
 
 
+@router.get("/active")
+def active_path(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The path to resume for 'Continue learning'. `path` is null if none exists."""
+    return {"path": svc.active_path(db, current_user.id)}
+
+
 @router.get("/{path_id}")
 def get_path(
     path_id: str,

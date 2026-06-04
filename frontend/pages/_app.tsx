@@ -3,7 +3,7 @@ import type { AppProps } from "next/app";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/layout/AppShell";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { ProgressProvider } from "../hooks/useProgress";
 import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
@@ -43,7 +43,7 @@ function hidesChrome(pathname: string): boolean {
 
 function Shell({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
 
   const showChrome = !hidesChrome(router.pathname);
   const needsAuth = isProtectedPath(router.pathname);
@@ -85,24 +85,24 @@ function Shell({ Component, pageProps }: AppProps) {
     );
   }
 
-  return (
-    <>
-      {showChrome && (
-        <Navbar
-          user={user ? { name: user.fullName || "", email: user.email } : undefined}
-          isAdmin={user?.role === "admin"}
-          onLogout={() => {
-            logout();
-            router.push("/auth/login");
-          }}
-        />
-      )}
-      <main>
+  // Public / focus pages (landing, auth, onboarding) render full-bleed with no shell.
+  if (!showChrome) {
+    return (
+      <>
         <Component {...pageProps} />
-      </main>
+        <OfflineIndicator />
+        <PWAInstallPrompt />
+      </>
+    );
+  }
+
+  // Authenticated app pages render inside the role-aware sidebar shell.
+  return (
+    <AppShell role={user?.role}>
+      <Component {...pageProps} />
       <OfflineIndicator />
       <PWAInstallPrompt />
-    </>
+    </AppShell>
   );
 }
 

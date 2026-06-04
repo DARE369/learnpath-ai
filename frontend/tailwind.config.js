@@ -25,6 +25,14 @@ module.exports = {
         error: "#ef4444",
         "error-muted": "rgba(239,68,68,0.15)",
         warning: "#f59e0b",
+        "warning-muted": "rgba(245,158,11,0.15)",
+        info: "#38bdf8",
+        "info-muted": "rgba(56,189,248,0.15)",
+      },
+      spacing: {
+        sidebar: "16rem",
+        "sidebar-collapsed": "4.5rem",
+        topbar: "3.5rem",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
