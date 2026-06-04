@@ -104,8 +104,21 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     const initPlayer = () => {
       if (!containerRef.current || !mounted) return;
 
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      // Tear down any prior instance so we never leave a stale player whose
+      // widget timer keeps postMessage-ing to a detached window (console flood).
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch { /* ignore */ }
+        playerRef.current = null;
+      }
+      // YT.Player REPLACES the target node with its iframe. Mount into a
+      // throwaway child so our React-owned containerRef is never detached.
+      containerRef.current.innerHTML = "";
+      const mountNode = document.createElement("div");
+      containerRef.current.appendChild(mountNode);
+
+      playerRef.current = new window.YT.Player(mountNode, {
         videoId: youtubeId,
+        host: "https://www.youtube.com",
         playerVars: {
           controls: 0,
           disablekb: 1,
@@ -114,6 +127,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           iv_load_policy: 3,
           start: Math.floor(initialPosition),
           enablejsapi: 1,
+          // Must match the page origin or the API floods the console with
+          // "target origin does not match recipient window's origin".
+          origin: typeof window !== "undefined" ? window.location.origin : undefined,
         },
         events: {
                   onReady: (e: any) => {
@@ -161,7 +177,10 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     return () => {
       mounted = false;
       stopProgressPoll();
-      playerRef.current?.destroy();
+      try { playerRef.current?.destroy(); } catch { /* ignore */ }
+      playerRef.current = null;
+      // Drop the replaced iframe so no stale widget timer survives the unmount.
+      if (containerRef.current) containerRef.current.innerHTML = "";
     };
   }, [youtubeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
