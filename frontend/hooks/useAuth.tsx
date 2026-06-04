@@ -85,29 +85,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // is installed before /me fires. Inside the effect we still try a manual
   // refresh on failure as a belt-and-braces second path.
   useEffect(() => {
-    const token = readStoredToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    setAccessToken(token);
+    const stored = readStoredToken();
     (async () => {
-      let u = await fetchMe(token);
+      let u: AuthUser | null = null;
+
+      // 1) If we have a stored access token, try it first.
+      if (stored) {
+        setAccessToken(stored);
+        u = await fetchMe(stored);
+      }
+
+      // 2) No stored token (cold load, new tab, browser restart) OR it was
+      //    rejected: fall back to the httpOnly refresh cookie. This is the key
+      //    fix — previously we gave up here and forced a re-login even though a
+      //    valid 7-day refresh cookie still existed.
       if (!u) {
-        // /me failed (likely expired token). Try refresh once before giving up.
         try {
           const refreshRes = await axios.post("/api/auth/refresh");
           const newToken: string | undefined = refreshRes.data?.access_token;
           if (newToken) {
-            const remember = !!localStorage.getItem(TOKEN_KEY);
+            // Preserve where the prior token lived: if it was session-only keep
+            // it so, otherwise persist (the common cold-load case → localStorage)
+            // so the recovered session survives future restarts.
+            const remember =
+              typeof window === "undefined" || !sessionStorage.getItem(TOKEN_KEY);
             persistToken(newToken, remember);
             setAccessToken(newToken);
             u = await fetchMe(newToken);
           }
         } catch {
-          /* refresh failed — fall through to clear state */
+          /* no valid refresh cookie — genuinely logged out */
         }
       }
+
       if (u) {
         setUser(u);
       } else {
@@ -155,7 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         full_name: fullName?.trim() || undefined,
       });
       const token: string = res.data.access_token;
-      persistToken(token, false);
+      // New users stay signed in across restarts (persist to localStorage).
+      persistToken(token, true);
       setAccessToken(token);
       setUser(mapUser(res.data.user));
     },

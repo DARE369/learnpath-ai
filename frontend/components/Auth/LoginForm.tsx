@@ -56,7 +56,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  // Default to staying signed in — the access token then lives in localStorage
+  // and the 7-day refresh cookie keeps the session alive across restarts.
+  const [rememberMe, setRememberMe] = useState(true);
 
   function validate(): boolean {
     const next: FormErrors = {};
