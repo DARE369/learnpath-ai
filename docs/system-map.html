@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LearnPath AI — System Flowchart</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --panel: #161618;
+    --border: #2a2a2e;
+    --text: #e7e7ea;
+    --muted: #8a8a92;
+    --accent: #6ea8fe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 32px 24px 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.02em; }
+  header p { margin: 0; color: var(--muted); }
+  nav.toc {
+    max-width: 1100px;
+    margin: 0 auto 8px;
+    padding: 0 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 14px; }
+  nav.toc a:hover { text-decoration: underline; }
+  section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px;
+  }
+  section h2 {
+    font-size: 20px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  section .sub { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    overflow-x: auto;
+  }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    margin: 14px 0 0; font-size: 13px; color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .mermaid { text-align: center; }
+  footer { max-width: 1100px; margin: 0 auto; padding: 24px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); }
+  code { background: #222; padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LearnPath AI — System Flowchart</h1>
+  <p>Visual companion to <code>docs/SYSTEM_MAP.md</code> · reflects <code>main</code> @ <code>e804010</code> · 2026-06-04</p>
+</header>
+
+<nav class="toc">
+  <a href="#journey">1 · User journey</a>
+  <a href="#nav">2 · Navigation map</a>
+  <a href="#loops">3 · The three loops</a>
+  <a href="#auth">4 · Auth &amp; session</a>
+  <a href="#wiring">5 · Frontend → backend</a>
+</nav>
+
+<section id="journey">
+  <h2>1 · The user journey — login to the deepest point</h2>
+  <p class="sub">The "happy path." You always return to the Dashboard hub; Paths / Concepts / Exams are all alternate doors into the same learning loop.</p>
+  <div class="card">
+    <pre class="mermaid">
+flowchart TD
+    Land["🏠 / (Landing)"] --> SignIn["/auth/login"]
+    Land --> SignUp["/auth/signup"]
+    SignUp --> Onboard["/onboarding<br/>(6-step profile)"]
+    SignIn --> Gate{"onboarding<br/>completed?"}
+    Onboard --> Hub
+    Gate -- no --> Onboard
+    Gate -- yes --> Hub["⭐ /dashboard (HUB)"]
+
+    Hub --> Explore["/explore<br/>type a topic"]
+    Explore --> Build["POST /api/search/build-path"]
+    Build --> Learn["🎬 /learning/{path}/{i}<br/>DEEPEST POINT"]
+
+    Hub --> Paths["/paths"]
+    Hub --> Concepts["/concepts"]
+    Hub --> Exams["/exams"]
+    Paths --> Learn
+    Concepts --> Paths
+    Exams --> Paths
+    Exams --> Mock["/exams/mock/{track}<br/>timed exam"]
+
+    Learn --> Quiz["Inline quiz<br/>(active recall)"]
+    Quiz --> FSRS["Score → FSRS deck"]
+    FSRS --> Review["/review<br/>spaced repetition"]
+    Review --> Hub
+    Learn -->|next index| Learn
+
+    class Learn deep
+    class Hub hub
+    classDef deep fill:#1e3a5f,stroke:#6ea8fe,color:#fff,stroke-width:2px;
+    classDef hub fill:#3a2f1e,stroke:#e0b15e,color:#fff,stroke-width:2px;
+    </pre>
+  </div>
+</section>
+
+<section id="nav">
+  <h2>2 · Full navigation map</h2>
+  <p class="sub">Every page and where it leads. <span style="color:#ff6b6b">Red</span> = navigation gap / dead-end found during the audit.</p>
+  <div class="card">
+    <pre class="mermaid">
+flowchart LR
+    subgraph PUBLIC
+      root["/"]
+      login["/auth/login"]
+      signup["/auth/signup"]
+      onb["/onboarding"]
+    end
+
+    subgraph LEARNER_PRIMARY["LEARNER · navbar primary"]
+      dash["/dashboard"]
+      exp["/explore"]
+      paths["/paths"]
+      exams["/exams"]
+      review["/review"]
+      learn["/learning/{id}/{i}"]
+    end
+
+    subgraph LEARNER_MORE["LEARNER · 'More' menu"]
+      upload["/upload"]
+      content["/content/{id}"]
+      notes["/notes"]
+      noteId["/notes/{youtubeId}"]
+      concepts["/concepts"]
+      graph["/concepts/graph"]
+      conceptId["/concepts/{id}"]
+      buddies["/buddies"]
+      referral["/referral"]
+      loyalty["/loyalty"]
+      settings["/settings"]
+    end
+
+    subgraph BILLING
+      billing["/billing"]
+      payment["/payment"]
+    end
+
+    subgraph TEACHER["TEACHER / SCHOOL (B2B)"]
+      tdash["/teacher/dashboard"]
+      tatrisk["/teacher/at-risk"]
+      tclass["/teacher/class/{id}"]
+      sdash["/school/dashboard"]
+    end
+
+    subgraph ADMIN["ADMIN (role=admin)"]
+      admin["/admin"]
+      aanalytics["/admin/analytics"]
+      acs["/admin/customer-success"]
+      aexp["/admin/expansion"]
+      aconf["/admin/confidence"]
+      ablk["/admin/blacklist"]
+    end
+
+    root --> login
+    root --> signup
+    signup --> onb
+    onb --> dash
+    login --> dash
+
+    dash --> exp --> learn
+    dash --> paths --> learn
+    dash --> exams --> paths
+    exams --> emock["/exams/mock/{track}"]
+    learn --> review --> dash
+
+    dash --> upload --> content
+    dash --> notes --> noteId
+    dash --> concepts --> graph --> conceptId --> paths
+    dash --> buddies
+    dash --> referral
+    dash --> loyalty
+    dash --> settings
+    dash --> billing --> payment
+
+    admin --> aanalytics
+    admin --> acs
+    admin --> aexp
+    admin --> aconf
+    admin --> ablk
+
+    %% GAPS
+    legacy["/courses/{id}<br/>legacy · no inbound links"]:::gap
+    dash -. "CTA hardcoded to<br/>/learning/demo/0" .-> demo["/learning/demo/0<br/>(demo, not real path)"]:::gap
+    tdash:::gap
+    sdash:::gap
+    nolink["⚠ Teacher/School have<br/>NO navbar entry"]:::gap -.-> tdash
+    nolink -.-> sdash
+
+    classDef gap fill:#3a1e1e,stroke:#ff6b6b,color:#ffd9d9,stroke-width:2px;
+    </pre>
+  </div>
+  <div class="legend">
+    <span><i class="swatch" style="background:#1e3a5f"></i> deepest point</span>
+    <span><i class="swatch" style="background:#3a2f1e"></i> hub</span>
+    <span><i class="swatch" style="background:#3a1e1e"></i> gap / dead-end</span>
+  </div>
+</section>
+
+<section id="loops">
+  <h2>3 · The three loops — where the experience recycles</h2>
+  <p class="sub">The product is intentionally cyclical: a minute-to-minute loop, a day-to-day loop, and an automatic week-to-week loop.</p>
+  <div class="card">
+    <pre class="mermaid">
+flowchart TB
+    subgraph A["Loop A · Learning (minute-to-minute)"]
+      direction LR
+      a1["pick topic"] --> a2["watch chunk"] --> a3["inline quiz"] --> a4["score → mastery"] --> a5["next video / branch"] --> a1
+    end
+
+    subgraph B["Loop B · Retention (day-to-day)"]
+      direction LR
+      b1["answered Qs<br/>become FSRS cards"] --> b2["/review surfaces<br/>DUE cards"] --> b3["grade recall"] --> b4["next due date<br/>3→11→35→101→269d"] --> b5["streak + badges<br/>on /dashboard"] --> b1
+    end
+
+    subgraph C["Loop C · Adaptation (week-to-week, automatic)"]
+      direction LR
+      c1["module performance"] --> c2["nightly job 03:30 UTC<br/>path_adaptation.py"] --> c3["re-sequence +<br/>insert remediation"] --> c4["path reshapes<br/>to your gaps"] --> c1
+    end
+
+    A -->|"feeds"| B
+    B -->|"signals"| C
+    C -->|"reshapes"| A
+    </pre>
+  </div>
+</section>
+
+<section id="auth">
+  <h2>4 · Auth &amp; session — and the re-login fix</h2>
+  <p class="sub">Access token = 15 min (in storage); refresh token = 7-day httpOnly cookie. The <span style="color:#6ee7a8">green</span> path is the fix that stopped "I have to log in every time."</p>
+  <div class="card">
+    <pre class="mermaid">
+flowchart TD
+    Start["App loads"] --> HasTok{"access token<br/>in storage?"}
+    HasTok -- yes --> Me["GET /api/auth/me"]
+    HasTok -- "no (cold load / new tab)" --> Refresh
+
+    Me --> Ok{"valid?"}
+    Ok -- yes --> In["✅ Signed in → render app"]
+    Ok -- no --> Refresh["POST /api/auth/refresh<br/>(7-day cookie)"]:::fix
+
+    Refresh --> RefOk{"cookie valid?"}
+    RefOk -- yes --> Persist["store new token<br/>in localStorage"]:::fix
+    Persist --> Me2["GET /api/auth/me"] --> In
+    RefOk -- no --> Out["→ /auth/login"]
+
+    In -. "any 401 later" .-> Refresh
+
+    note["BEFORE THE FIX: 'no token' went<br/>straight to /auth/login — the valid<br/>7-day cookie was never tried."]:::warn
+    HasTok -.-> note
+
+    classDef fix fill:#16341f,stroke:#6ee7a8,color:#d9ffe6,stroke-width:2px;
+    classDef warn fill:#3a1e1e,stroke:#ff6b6b,color:#ffd9d9;
+    </pre>
+  </div>
+</section>
+
+<section id="wiring">
+  <h2>5 · Frontend → backend wiring</h2>
+  <p class="sub">Every browser call is a relative <code>/api/*</code> URL that Next.js rewrites to the FastAPI backend. The boxes group routers by what they power.</p>
+  <div class="card">
+    <pre class="mermaid">
+flowchart LR
+    explore["/explore"] --> search["/api/search"]
+    learn["/learning"] --> ytb["/api/youtube"]
+    learn --> summ["/api/summary"]
+    learn --> branch["/api/branching"]
+    learn --> quiz["/api/quiz"]
+    learn --> prog["/api/progress"]
+    learn --> eqs["/api/eqs"]
+    review["/review"] --> quiz
+    paths["/paths"] --> apaths["/api/adaptive-paths"]
+    conceptsP["/concepts"] --> know["/api/knowledge"]
+    examsP["/exams"] --> examsA["/api/exams"]
+    notesP["/notes"] --> notesA["/api/notes"]
+    uploadP["/upload"] --> contentA["/api/content"]
+    buddiesP["/buddies"] --> buddiesA["/api/buddies"]
+    buddiesP --> ws["/api/ws (WebSocket)"]
+    dashP["/dashboard"] --> dashA["/api/dashboard"]
+    billingP["/billing"] --> subs["/api/subscriptions"]
+    adminP["/admin"] --> csA["/api/admin/customer-success"]
+    teacherP["/teacher/*"] --> teachersA["/api/teachers"]
+    teacherP --> schoolsA["/api/schools"]
+
+    auth["all protected pages"] --> authA["/api/auth (Bearer token)"]
+    </pre>
+  </div>
+</section>
+
+<footer>
+  Generated alongside <code>docs/SYSTEM_MAP.md</code>. Diagrams render client-side via Mermaid (CDN) — open this file in any browser.
+  When flows change, update the journey (§1) and navigation map (§2) first.
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "dark",
+    themeVariables: {
+      background: "#161618",
+      primaryColor: "#1f2937",
+      primaryTextColor: "#e7e7ea",
+      primaryBorderColor: "#3a3a40",
+      lineColor: "#6b7280",
+      fontSize: "14px"
+    },
+    flowchart: { curve: "basis", useMaxWidth: true }
+  });
+</script>
+</body>
+</html>
