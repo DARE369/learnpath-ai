@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -7,27 +8,34 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // Colors are driven by CSS variables (see globals.css :root / .dark) so the
+      // whole UI flips between light and dark. `white` is intentionally remapped to
+      // the foreground token so the app's pervasive `text-white/NN` adapts too.
       colors: {
-        background: "#0f0f0f",
-        surface: "#141414",
-        "surface-elevated": "#1c1c1c",
-        "surface-hover": "#222222",
-        border: "rgba(255,255,255,0.08)",
-        "border-focus": "rgba(99,102,241,0.6)",
+        white: "rgb(var(--fg) / <alpha-value>)",
+        background: "rgb(var(--bg) / <alpha-value>)",
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        "surface-elevated": "rgb(var(--surface-elevated) / <alpha-value>)",
+        "surface-hover": "rgb(var(--surface-hover) / <alpha-value>)",
+        border: "rgb(var(--border) / <alpha-value>)",
+        "border-focus": "rgb(var(--accent) / 0.6)",
         accent: {
-          DEFAULT: "#6366f1",
-          hover: "#4f46e5",
-          light: "#818cf8",
-          muted: "rgba(99,102,241,0.15)",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          hover: "rgb(var(--accent-hover) / <alpha-value>)",
+          light: "rgb(var(--accent-light) / <alpha-value>)",
+          muted: "rgb(var(--accent) / 0.15)",
         },
-        success: "#10b981",
-        "success-muted": "rgba(16,185,129,0.15)",
-        error: "#ef4444",
-        "error-muted": "rgba(239,68,68,0.15)",
-        warning: "#f59e0b",
-        "warning-muted": "rgba(245,158,11,0.15)",
-        info: "#38bdf8",
-        "info-muted": "rgba(56,189,248,0.15)",
+        success: "rgb(var(--success) / <alpha-value>)",
+        "success-muted": "rgb(var(--success) / 0.15)",
+        error: "rgb(var(--error) / <alpha-value>)",
+        "error-muted": "rgb(var(--error) / 0.15)",
+        warning: "rgb(var(--warning) / <alpha-value>)",
+        "warning-muted": "rgb(var(--warning) / 0.15)",
+        info: "rgb(var(--info) / <alpha-value>)",
+        "info-muted": "rgb(var(--info) / 0.15)",
+        // Always-white text for content sitting on a coloured (accent/error) fill,
+        // so it stays legible regardless of theme (unlike remapped `white`).
+        onaccent: "#ffffff",
       },
       spacing: {
         sidebar: "16rem",

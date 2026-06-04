@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 
 // Non-standard event fired by Chromium browsers before the install prompt.
 // Not part of the standard DOM lib, so we declare the shape we rely on.
@@ -16,7 +16,7 @@ interface PWAState {
   deferredPrompt: BeforeInstallPromptEvent | null;
 }
 
-export function usePWA() {
+function usePWAImpl() {
   const [state, setState] = useState<PWAState>({
     // Start optimistically online; a real reachability probe on mount corrects
     // this. Defaulting to navigator.onLine caused a false "Offline" banner
@@ -380,4 +380,38 @@ export function usePWA() {
     requestNotificationPermission,
     sendNotification,
   };
+}
+
+// ── Single-instance provider ──────────────────────────────────────────────────
+// usePWAImpl registers the service worker and installs global listeners, so it
+// must run exactly once. Previously multiple components called the hook directly
+// (OfflineIndicator + PWAInstallPrompt), double-registering the SW. The provider
+// runs the impl once and shares its value via context.
+
+type PWAValue = ReturnType<typeof usePWAImpl>;
+
+const PWAContext = createContext<PWAValue | null>(null);
+
+export function PWAProvider({ children }: { children: ReactNode }) {
+  const value = usePWAImpl();
+  return React.createElement(PWAContext.Provider, { value }, children);
+}
+
+const NOOP_PWA: PWAValue = {
+  isOnline: true,
+  isInstallable: false,
+  isInstalled: false,
+  isSyncing: false,
+  installApp: async () => {},
+  queueOfflineChange: () => {},
+  syncOfflineChanges: async () => {},
+  requestPeriodicSync: async () => {},
+  requestNotificationPermission: async () => false,
+  sendNotification: () => {},
+};
+
+export function usePWA(): PWAValue {
+  // Falls back to a no-op outside the provider (e.g. during isolated prerender)
+  // so consumers never crash.
+  return useContext(PWAContext) ?? NOOP_PWA;
 }

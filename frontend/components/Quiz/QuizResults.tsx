@@ -71,8 +71,8 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
     <div className="quiz-results mx-auto w-full max-w-4xl space-y-6">
       {/* Main Score Card */}
       <div className={`rounded-xl border-2 shadow-sm ${getPerformanceBg(results.performance_level)}`}>
-        <div className="border-b border-gray-100 px-6 py-4">
-          <h2 className="text-center text-lg font-semibold text-gray-900">Quiz Complete!</h2>
+        <div className="border-b border-border px-6 py-4">
+          <h2 className="text-center text-lg font-semibold text-white">Quiz Complete!</h2>
         </div>
         <div className="space-y-4 p-6 text-center">
           <div className="flex items-center justify-center gap-4">
@@ -91,34 +91,34 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface-elevated p-6 shadow-sm">
           <div className="text-center">
             <Check className="mx-auto mb-2 h-6 w-6 text-green-600" />
-            <div className="mb-1 text-sm text-gray-600">Score</div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="mb-1 text-sm text-white/60">Score</div>
+            <div className="text-2xl font-bold text-white">
               {results.correct_answers}/{results.total_questions}
             </div>
-            <div className="mt-1 text-xs text-gray-500">correct</div>
+            <div className="mt-1 text-xs text-white/50">correct</div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface-elevated p-6 shadow-sm">
           <div className="text-center">
             <BarChart3 className="mx-auto mb-2 h-6 w-6 text-indigo-600" />
-            <div className="mb-1 text-sm text-gray-600">Your Rank</div>
-            <div className="text-2xl font-bold text-gray-900">{results.percentile}%</div>
-            <div className="mt-1 text-xs text-gray-500">of learners</div>
+            <div className="mb-1 text-sm text-white/60">Your Rank</div>
+            <div className="text-2xl font-bold text-white">{results.percentile}%</div>
+            <div className="mt-1 text-xs text-white/50">of learners</div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface-elevated p-6 shadow-sm">
           <div className="text-center">
-            <Clock className="mx-auto mb-2 h-6 w-6 text-gray-700" />
-            <div className="mb-1 text-sm text-gray-600">Time Spent</div>
-            <div className="text-2xl font-bold text-gray-900">
+            <Clock className="mx-auto mb-2 h-6 w-6 text-white/80" />
+            <div className="mb-1 text-sm text-white/60">Time Spent</div>
+            <div className="text-2xl font-bold text-white">
               {formatTime(results.time_spent_seconds)}
             </div>
-            <div className="mt-1 text-xs text-gray-500">total</div>
+            <div className="mt-1 text-xs text-white/50">total</div>
           </div>
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
                 {results.weak_concepts.map((concept) => (
                   <div
                     key={concept}
-                    className="flex items-center gap-2 rounded border border-red-200 bg-white p-3 text-sm text-gray-700"
+                    className="flex items-center gap-2 rounded border border-red-200 bg-surface-elevated p-3 text-sm text-white/80"
                   >
                     <BookOpen className="h-4 w-4 text-red-500" /> {concept}
                   </div>
@@ -163,7 +163,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
                 {results.strong_concepts.map((concept) => (
                   <div
                     key={concept}
-                    className="flex items-center gap-2 rounded border border-green-200 bg-white p-3 text-sm text-gray-700"
+                    className="flex items-center gap-2 rounded border border-green-200 bg-surface-elevated p-3 text-sm text-white/80"
                   >
                     <Star className="h-4 w-4 text-green-500" /> {concept}
                   </div>
@@ -180,14 +180,14 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
           <h3 className="font-semibold text-indigo-700">Next Steps</h3>
         </div>
         <div className="p-6">
-          <p className="mb-4 text-gray-700">{results.recommendation}</p>
+          <p className="mb-4 text-white/80">{results.recommendation}</p>
           {results.next_actions.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {results.next_actions.map((action, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-elevated px-4 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-background"
                 >
                   {action.type === 'review' ? <BookOpen className="h-4 w-4" /> : <Rocket className="h-4 w-4" />}
                   {action.type === 'review' ? 'Review' : 'Advance'}
@@ -212,7 +212,7 @@ export default function QuizResults({ results, onClose }: QuizResultsProps) {
         </button>
         <button
           type="button"
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white text-base font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-border bg-surface-elevated text-base font-medium text-white/80 transition-colors hover:bg-background"
         >
           <BarChart3 className="h-4 w-4" /> View Detailed Analytics
         </button>

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Menu, Search, Flame, ChevronDown, Settings, CreditCard, LogOut } from "lucide-react";
+import { Menu, Search, Flame, ChevronDown, Settings, CreditCard, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { Avatar } from "../ui/Avatar";
 import { cn } from "../ui/cn";
 import { useAuth } from "../../hooks/useAuth";
 import { useProgress } from "../../hooks/useProgress";
+import { useTheme, type Theme } from "../../hooks/ThemeProvider";
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -22,9 +23,15 @@ export default function Topbar({ onOpenMobile }: TopbarProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { streak } = useProgress();
+  const { theme, setTheme } = useTheme();
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Cycle light -> dark -> system. Icon reflects the current preference.
+  const THEME_ORDER: Theme[] = ["light", "dark", "system"];
+  const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
+  const cycleTheme = () => setTheme(THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -74,6 +81,17 @@ export default function Topbar({ onOpenMobile }: TopbarProps) {
           className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-sm text-white placeholder:text-white/30 focus:border-accent/50 focus:outline-none"
         />
       </form>
+
+      {/* Theme toggle */}
+      <button
+        type="button"
+        onClick={cycleTheme}
+        aria-label={`Theme: ${theme} (click to change)`}
+        title={`Theme: ${theme}`}
+        className="rounded-lg p-2 text-white/60 transition-colors hover:bg-surface-elevated hover:text-white"
+      >
+        <ThemeIcon className="h-[18px] w-[18px]" />
+      </button>
 
       {/* Streak chip */}
       <Link

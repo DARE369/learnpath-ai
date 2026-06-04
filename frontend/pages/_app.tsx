@@ -7,6 +7,8 @@ import AppShell from "../components/layout/AppShell";
 import { homeForRole } from "../components/layout/nav";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { ProgressProvider } from "../hooks/useProgress";
+import { ThemeProvider } from "../hooks/ThemeProvider";
+import { PWAProvider } from "../hooks/usePWA";
 import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
 import { OfflineIndicator } from "../components/PWA/OfflineIndicator";
 import "../styles/globals.css";
@@ -139,9 +141,11 @@ export default function App(props: AppProps) {
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
-      <AuthProvider>
-        <ProgressProvider>
-          <Head>
+      <ThemeProvider>
+        <PWAProvider>
+          <AuthProvider>
+            <ProgressProvider>
+              <Head>
             <title>LearnPath AI</title>
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             <meta name="description" content="AI-powered personalized learning platform" />
@@ -155,8 +159,10 @@ export default function App(props: AppProps) {
             <link rel="icon" type="image/png" href="/icons/icon-192x192.png" />
           </Head>
           <Shell {...props} />
-        </ProgressProvider>
-      </AuthProvider>
+            </ProgressProvider>
+          </AuthProvider>
+        </PWAProvider>
+      </ThemeProvider>
     </GoogleOAuthProvider>
   );
 }

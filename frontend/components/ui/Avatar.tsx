@@ -26,7 +26,7 @@ export function Avatar({ name, email, src, size = "md", className }: AvatarProps
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-full bg-gradient-accent font-semibold text-white",
+        "flex items-center justify-center rounded-full bg-gradient-accent font-semibold text-onaccent",
         SIZES[size],
         className,
       )}
