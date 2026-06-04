@@ -41,6 +41,16 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS concept VARCHAR",
     # Study-buddy presence.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
+    # Performance indexes (Packet 6.2) — auto-applied so no manual migration.
+    "CREATE INDEX IF NOT EXISTS idx_users_tier ON users(tier)",
+    "CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_path_sessions_user_created ON path_sessions(user_id, started_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_path_sessions_youtube_id ON path_sessions(youtube_id)",
+    "CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON user_progress(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_user_progress_user_topic ON user_progress(user_id, topic_id)",
+    "CREATE INDEX IF NOT EXISTS idx_concept_progress_user_id ON concept_progress(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_quiz_responses_user_created ON quiz_responses(user_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_fsrs_cards_user_due ON fsrs_cards(user_id, due_date)",
     # NEW-PACKET-B: video chunking tables
     "CREATE INDEX IF NOT EXISTS ix_video_chunks_video_id ON video_chunks(video_id)",
     "CREATE INDEX IF NOT EXISTS ix_video_chunks_chunk_number ON video_chunks(chunk_number)",
@@ -196,6 +206,28 @@ async def lifespan(app: FastAPI):
         seed_quiz_questions_if_empty()
     except Exception as e:
         logger.error(f"Quiz-seed step failed: {e}", exc_info=True)
+
+    # 2.6 Promote configured admin emails (ADMIN_EMAILS) — no SQL needed.
+    try:
+        emails = [e.strip().lower() for e in (settings.ADMIN_EMAILS or "").split(",") if e.strip()]
+        if emails:
+            from database import _get_session_factory
+            from models import User
+            from sqlalchemy import func
+            db = _get_session_factory()()
+            try:
+                promoted = (
+                    db.query(User)
+                    .filter(func.lower(User.email).in_(emails), User.role != "admin")
+                    .update({"role": "admin"}, synchronize_session=False)
+                )
+                db.commit()
+                if promoted:
+                    logger.info(f"Promoted {promoted} configured admin user(s)")
+            finally:
+                db.close()
+    except Exception as e:
+        logger.error(f"Admin-bootstrap step failed: {e}", exc_info=True)
 
     # 3. Start the nightly self-expansion scheduler (Packet 3.5).
     # No-op when EXPANSION_SCHEDULER_ENABLED=False or apscheduler is missing.

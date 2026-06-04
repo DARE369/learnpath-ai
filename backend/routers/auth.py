@@ -31,6 +31,17 @@ def get_current_user(
     if not user.account_active:
         raise HTTPException(status_code=403, detail="Account deactivated")
 
+    # Auto-promote configured admin emails (ADMIN_EMAILS) on the fly — no SQL,
+    # no restart needed for a configured admin to gain access.
+    try:
+        from config import settings
+        admin_emails = {e.strip().lower() for e in (settings.ADMIN_EMAILS or "").split(",") if e.strip()}
+        if admin_emails and user.email and user.email.lower() in admin_emails and user.role != "admin":
+            user.role = "admin"
+            db.commit()
+    except Exception:
+        db.rollback()
+
     # Presence heartbeat for the study-buddy system — throttled so we write at
     # most once every ~2 min per user, not on every request.
     try:

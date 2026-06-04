@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # RBAC: comma-separated emails auto-promoted to admin on login/startup.
+    ADMIN_EMAILS: Optional[str] = None
+
     # Logging
     LOG_LEVEL: str = "INFO"
 
