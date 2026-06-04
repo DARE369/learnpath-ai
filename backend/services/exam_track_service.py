@@ -233,29 +233,59 @@ class ExamTrackService:
 
     # ── build a study path toward this exam (I -> H) ─────────────────────────--
 
+    def _ensure_concept(self, db, name: str, display: str, difficulty: int, subject: str):
+        from models import Concept
+        c = db.query(Concept).filter(Concept.concept_name == name).first()
+        if not c:
+            c = Concept(concept_name=name, display_name=display, subject=subject,
+                        difficulty_level=difficulty, created_by="exam_track")
+            db.add(c)
+            db.flush()
+        return c
+
+    def ensure_exam_curriculum(self, db: Session, track: ExamTrack):
+        """
+        Build a real mini-curriculum for the exam: a goal Concept plus one Concept
+        per section, wired as prerequisites of the goal (easy->hard by section
+        order). Idempotent. Returns the goal Concept.
+        """
+        from models import ConceptRelationship
+
+        goal = self._ensure_concept(db, track.exam_type, track.name, 8, track.exam_type)
+
+        existing_edges = {
+            str(r.target_concept_id)
+            for r in db.query(ConceptRelationship.target_concept_id).filter(
+                ConceptRelationship.source_concept_id == goal.id,
+                ConceptRelationship.relationship_type == "prerequisite",
+            ).all()
+        }
+        sections = track.sections or []
+        for i, sec in enumerate(sections):
+            sec_name = (sec.get("name") if isinstance(sec, dict) else str(sec)) or f"Section {i+1}"
+            slug = f"{track.exam_type}_{sec_name.lower().replace(' ', '_').replace('&', 'and')}"
+            difficulty = min(8, 4 + i)  # spread so the path orders sections progressively
+            sec_concept = self._ensure_concept(db, slug, f"{track.name}: {sec_name}", difficulty, track.exam_type)
+            if str(sec_concept.id) not in existing_edges:
+                db.add(ConceptRelationship(
+                    source_concept_id=goal.id, target_concept_id=sec_concept.id,
+                    relationship_type="prerequisite", strength=0.9,
+                ))
+        db.commit()
+        db.refresh(goal)
+        return goal
+
     def build_study_path(self, db: Session, user_id, track_id: str) -> dict:
         """
-        Create an adaptive learning path toward this exam. The exam is mapped to
-        a goal Concept (created on demand, named after the exam) so the adaptive
-        path engine can build/sequence toward it.
+        Create an adaptive learning path toward this exam. Builds a real
+        curriculum first (goal concept + one prerequisite concept per exam
+        section) so the generated path covers each section, then sequences it.
         """
-        from models import Concept
         from services.adaptive_path_service import adaptive_path_service
 
         track = self._require_track(db, track_id)
-        concept = db.query(Concept).filter(Concept.concept_name == track.exam_type).first()
-        if not concept:
-            concept = Concept(
-                concept_name=track.exam_type,
-                display_name=track.name,
-                subject=track.exam_type,
-                difficulty_level=7,
-                created_by="exam_track",
-            )
-            db.add(concept)
-            db.commit()
-            db.refresh(concept)
-        return adaptive_path_service.create_path(db, user_id, str(concept.id), target_weeks=8)
+        goal = self.ensure_exam_curriculum(db, track)
+        return adaptive_path_service.create_path(db, user_id, str(goal.id), target_weeks=8)
 
 
 exam_track_service = ExamTrackService()

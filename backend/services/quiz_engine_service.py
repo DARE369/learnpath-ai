@@ -1,12 +1,18 @@
+import json
+import logging
 import math
+import re
 from datetime import datetime, timedelta
 from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 
+from config import settings
 from models import (
     QuizSession, QuizQuestion, QuizResponse, ConceptMastery, FSRSCard
 )
+
+logger = logging.getLogger(__name__)
 
 
 class QuizEngineService:
@@ -38,15 +44,23 @@ class QuizEngineService:
         db.commit()
         db.refresh(session)
 
+        # If scoped to a concept with no question pool, generate some via Claude.
+        if concept:
+            await self.ensure_questions_for_concept(db, concept)
+
         # Generate first question
         first_question = await self._select_next_question(
-            db,
-            user_id,
-            session.estimated_ability,
-            quiz_type,
-            topic_id,
-            concept,
+            db, user_id, session.estimated_ability, quiz_type, topic_id, concept,
         )
+
+        # Concept pool still empty (e.g. Claude unavailable) -> fall back to the
+        # general pool so the quiz still works; drop the concept scope.
+        if not first_question and concept:
+            session.concept = None
+            db.commit()
+            first_question = await self._select_next_question(
+                db, user_id, session.estimated_ability, quiz_type, topic_id, None,
+            )
 
         if not first_question:
             raise ValueError("No questions available for this quiz")
@@ -57,6 +71,89 @@ class QuizEngineService:
             "question_number": 1,
             "total_questions": 5
         }
+
+    # ------------------------------------------------------------------
+    # On-demand question generation (so any concept can be quizzed)
+    # ------------------------------------------------------------------
+
+    async def ensure_questions_for_concept(self, db: Session, concept: str, count: int = 5) -> int:
+        """
+        Generate multiple-choice questions for a concept via Claude when its pool
+        is thin (<3). Best-effort: returns 0 and never raises if generation fails
+        (the caller falls back to the general pool).
+        """
+        existing = db.query(QuizQuestion).filter(QuizQuestion.concept_id == concept).count()
+        if existing >= 3:
+            return 0
+        if not settings.CLAUDE_API_KEY:
+            return 0
+
+        pretty = concept.replace("_", " ")
+        prompt = (
+            f"Write {count} multiple-choice questions that test understanding of "
+            f"the concept \"{pretty}\". Each has exactly 4 options with exactly one "
+            "correct. Return ONLY JSON:\n"
+            '{"questions":[{"question":"...","options":[{"id":"A","text":"...",'
+            '"correct":true},{"id":"B","text":"...","correct":false},'
+            '{"id":"C","text":"...","correct":false},{"id":"D","text":"...",'
+            '"correct":false}],"explanation":"why the correct answer is right"}]}'
+        )
+        text = await self._call_claude(prompt, max_tokens=1800)
+        data = self._parse_json(text)
+        questions = (data or {}).get("questions", []) if isinstance(data, dict) else []
+
+        inserted = 0
+        for i, q in enumerate(questions):
+            opts = q.get("options") or []
+            correct = next((o.get("id") for o in opts if o.get("correct")), None)
+            if not q.get("question") or not opts or not correct:
+                continue
+            # Spread difficulty a little for IRT variety.
+            diff = round(-1.0 + (2.0 * (i / max(1, len(questions) - 1))), 2) if len(questions) > 1 else 0.0
+            db.add(QuizQuestion(
+                topic_id=None,
+                question_text=q["question"],
+                question_type="multiple_choice",
+                options=opts,
+                correct_answer_id=correct,
+                explanation=q.get("explanation", ""),
+                concept_id=concept,
+                difficulty_parameter=diff,
+                discrimination_parameter=1.0,
+            ))
+            inserted += 1
+        if inserted:
+            db.commit()
+            logger.info(f"Generated {inserted} questions for concept '{concept}'")
+        return inserted
+
+    async def _call_claude(self, prompt: str, max_tokens: int = 1500):
+        if not settings.CLAUDE_API_KEY:
+            return None
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=settings.CLAUDE_API_KEY)
+            msg = await client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text
+        except Exception as e:
+            logger.error(f"Quiz question generation via Claude failed: {e}")
+            return None
+
+    @staticmethod
+    def _parse_json(text):
+        if not text:
+            return None
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        if not m:
+            return None
+        try:
+            return json.loads(m.group())
+        except json.JSONDecodeError:
+            return None
 
     async def _get_user_ability(self, db: Session, user_id: str) -> float:
         """
