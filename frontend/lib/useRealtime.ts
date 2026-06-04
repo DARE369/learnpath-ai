@@ -8,12 +8,24 @@ export function useRealtime(onEvent: (event: any) => void) {
   cb.current = onEvent;
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL;
+    let base = process.env.NEXT_PUBLIC_API_URL;
     const token =
       typeof window !== "undefined"
         ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
         : null;
     if (!base || !token) return;
+
+    // On an HTTPS page, force a secure backend origin so the socket is wss://
+    // (an ws:// socket from an https page is blocked as mixed content).
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      base.startsWith("http://") &&
+      !base.includes("localhost") &&
+      !base.includes("127.0.0.1")
+    ) {
+      base = "https://" + base.slice("http://".length);
+    }
 
     const wsUrl = base.replace(/^http/, "ws") + "/api/ws?token=" + encodeURIComponent(token);
     let ws: WebSocket | null = null;

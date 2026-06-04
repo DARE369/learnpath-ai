@@ -23,8 +23,17 @@ const nextConfig = {
   },
 
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    let apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!apiUrl) return { afterFiles: [] };
+    // Proxy to https (Railway serves https); an http destination risks mixed
+    // content. Keep http for localhost dev.
+    if (
+      apiUrl.startsWith("http://") &&
+      !apiUrl.includes("localhost") &&
+      !apiUrl.includes("127.0.0.1")
+    ) {
+      apiUrl = "https://" + apiUrl.slice("http://".length);
+    }
     return {
       afterFiles: [
         {

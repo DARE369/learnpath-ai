@@ -67,8 +67,18 @@ export function usePWA() {
       setState((prev) => (prev.isOnline === online ? prev : { ...prev, isOnline: online }));
 
     const verifyConnectivity = async (): Promise<boolean> => {
-      const base = process.env.NEXT_PUBLIC_API_URL;
+      let base = process.env.NEXT_PUBLIC_API_URL;
       if (!base) return navigator.onLine; // no probe target — trust the browser
+      // Avoid mixed-content: on an HTTPS page, never probe an http:// backend.
+      if (
+        typeof window !== "undefined" &&
+        window.location.protocol === "https:" &&
+        base.startsWith("http://") &&
+        !base.includes("localhost") &&
+        !base.includes("127.0.0.1")
+      ) {
+        base = "https://" + base.slice("http://".length);
+      }
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 4000);

@@ -3,7 +3,7 @@
  * Network-first strategy for API calls, cache-first for static assets
  */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `learnpath-static-${CACHE_VERSION}`;
 const API_CACHE = `learnpath-api-${CACHE_VERSION}`;
 const IMAGE_CACHE = `learnpath-images-${CACHE_VERSION}`;
@@ -67,11 +67,17 @@ self.addEventListener("activate", (event) => {
  */
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+
+  // Only GET is cacheable. Let POST/PUT/DELETE/etc. (uploads, mutations) go
+  // straight to the network — intercepting them breaks the Cache API.
+  if (request.method !== "GET") return;
+
   const url = new URL(request.url);
 
-  // API calls: Network-first (with fallback to cache)
+  // API calls: always go to the network (responses are auth'd/user-specific and
+  // must not be cached/served stale). No SW caching for the API.
   if (url.pathname.startsWith("/api/")) {
-    return event.respondWith(networkFirstStrategy(request));
+    return event.respondWith(fetch(request));
   }
 
   // Images: Cache-first
@@ -105,8 +111,8 @@ async function networkFirstStrategy(request) {
   try {
     const response = await fetch(request);
 
-    // Cache successful API responses
-    if (request.url.includes("/api/") && response.ok) {
+    // Only cache safe, cacheable GET responses (never POST/etc.).
+    if (request.method === "GET" && response.ok && request.url.startsWith(self.location.origin)) {
       const cache = await caches.open(API_CACHE);
       cache.put(request, response.clone());
     }
