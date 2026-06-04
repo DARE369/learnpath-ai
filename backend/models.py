@@ -1371,3 +1371,31 @@ class BuddyConnection(Base):
     status = Column(String, default="pending", index=True)  # pending | accepted
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     accepted_at = Column(DateTime, nullable=True)
+
+
+class SharedItem(Base):
+    """A note or uploaded-content item shared from one user to a buddy."""
+    __tablename__ = "shared_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    item_type = Column(String, nullable=False)   # note | upload
+    item_ref = Column(String, nullable=False)     # youtube_id (note) or upload_id (content)
+    title = Column(String)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class BuddyMessage(Base):
+    """A direct message between two buddies."""
+    __tablename__ = "buddy_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    recipient_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    body = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

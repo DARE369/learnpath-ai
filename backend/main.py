@@ -474,6 +474,10 @@ app.include_router(exams_router.router)
 from routers import buddies as buddies_router
 app.include_router(buddies_router.router)
 
+# PHASE 2: Real-time presence + message push (WebSocket)
+from routers import realtime as realtime_router
+app.include_router(realtime_router.router)
+
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)

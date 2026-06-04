@@ -5,6 +5,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { printPdf } from '@/lib/printPdf';
+import ShareButton from '@/components/Social/ShareButton';
 
 function authHeaders(): Record<string, string> {
   const t =
@@ -99,14 +100,17 @@ export default function ContentDetail() {
             </p>
           )}
 
-          <div className="flex flex-wrap gap-2 mt-5">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`px-3 py-1.5 rounded-lg text-sm border transition ${tab === t.key ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-              >{t.label}</button>
-            ))}
+          <div className="flex items-center justify-between gap-3 mt-5 flex-wrap">
+            <div className="flex flex-wrap gap-2">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition ${tab === t.key ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
+                >{t.label}</button>
+              ))}
+            </div>
+            <ShareButton itemType="upload" itemRef={contentId} title={summary?.title || 'Uploaded notes'} />
           </div>
 
           <div className="mt-6 bg-surface-elevated border border-border rounded-2xl p-6 min-h-[300px]">
