@@ -47,7 +47,10 @@ export default function ConceptsLibrary() {
       <Head><title>Concepts — LearnPath AI</title></Head>
       <div className="min-h-screen bg-background">
         <div className="max-w-4xl mx-auto px-6 py-10">
-          <h1 className="text-2xl font-bold text-white">Concept Map</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-white">Concepts</h1>
+            <Link href="/concepts/graph" className="text-accent text-sm hover:underline">Map view →</Link>
+          </div>
           <p className="text-white/50 mt-1 text-sm">
             Explore concepts, their prerequisites, and what to learn first.
           </p>

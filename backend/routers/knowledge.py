@@ -79,7 +79,12 @@ def get_graph(
 # ── admin: bootstrap the graph from existing data ──────────────────────────--
 
 @router.post("/seed")
-def seed(current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
+async def seed(current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     added = svc.seed_from_existing(db)
-    rels = svc.infer_relationships(db)
-    return {"concepts_added": added, "relationships_added": rels}
+    # Prefer Claude-inferred edges; fall back to name-similarity heuristic.
+    rels = await svc.infer_relationships_claude(db)
+    method = "claude"
+    if rels == 0:
+        rels = svc.infer_relationships(db)
+        method = "heuristic"
+    return {"concepts_added": added, "relationships_added": rels, "relationship_method": method}

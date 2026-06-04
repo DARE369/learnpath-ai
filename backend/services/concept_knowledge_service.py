@@ -12,11 +12,14 @@ Note: relationship inference is heuristic (name similarity). It bootstraps a
 usable graph; high-precision edges would come from Claude/content analysis.
 """
 
+import json
 import logging
+import re
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from config import settings
 from models import (
     Concept, ConceptRelationship, ConceptMastery, ConceptProgress, QuizQuestion,
 )
@@ -106,6 +109,83 @@ class ConceptKnowledgeService:
         if added:
             db.commit()
         return added
+
+    async def infer_relationships_claude(self, db: Session, max_concepts: int = 60) -> int:
+        """
+        Use Claude to infer prerequisite/related edges between concepts — higher
+        precision than name-token similarity. Falls back to 0 if Claude is off or
+        the response can't be parsed (caller then uses the heuristic).
+        """
+        if not settings.CLAUDE_API_KEY:
+            return 0
+        concepts = db.query(Concept).limit(max_concepts).all()
+        if len(concepts) < 2:
+            return 0
+        by_name = {c.display_name or c.concept_name: c for c in concepts}
+        names = list(by_name.keys())
+
+        prompt = (
+            "You are mapping a learning knowledge graph. Given these concepts, list "
+            "directed edges. Use type \"prerequisite\" when the target must be "
+            "learned before the source, or \"related\" for siblings. Only use the "
+            "given names verbatim. Return ONLY JSON:\n"
+            '{"edges":[{"from":"Concept A","to":"Concept B","type":"prerequisite"}]}\n\n'
+            f"Concepts:\n- " + "\n- ".join(names)
+        )
+        text = await self._call_claude(prompt, max_tokens=1500)
+        data = self._parse_json(text)
+        edges = (data or {}).get("edges", []) if isinstance(data, dict) else []
+
+        existing_pairs = {
+            (str(r.source_concept_id), str(r.target_concept_id))
+            for r in db.query(
+                ConceptRelationship.source_concept_id, ConceptRelationship.target_concept_id
+            ).all()
+        }
+        added = 0
+        for e in edges:
+            src = by_name.get(e.get("from"))
+            tgt = by_name.get(e.get("to"))
+            if not src or not tgt or src.id == tgt.id:
+                continue
+            rtype = "prerequisite" if e.get("type") == "prerequisite" else "related"
+            if (str(src.id), str(tgt.id)) in existing_pairs:
+                continue
+            db.add(ConceptRelationship(
+                source_concept_id=src.id, target_concept_id=tgt.id,
+                relationship_type=rtype, strength=0.9,
+            ))
+            existing_pairs.add((str(src.id), str(tgt.id)))
+            added += 1
+        if added:
+            db.commit()
+        return added
+
+    async def _call_claude(self, prompt: str, max_tokens: int = 1500):
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=settings.CLAUDE_API_KEY)
+            msg = await client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text
+        except Exception as e:
+            logger.error(f"Concept relationship inference via Claude failed: {e}")
+            return None
+
+    @staticmethod
+    def _parse_json(text):
+        if not text:
+            return None
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        if not m:
+            return None
+        try:
+            return json.loads(m.group())
+        except json.JSONDecodeError:
+            return None
 
     # ── queries ──────────────────────────────────────────────────────────────
 
