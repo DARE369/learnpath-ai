@@ -15,6 +15,16 @@ export function useRealtime(onEvent: (event: any) => void) {
         : null;
     if (!base || !token) return;
 
+    // A localhost API base can't be reached from a deployed (non-local) page —
+    // don't attempt a WebSocket to it (avoids connection-refused noise when the
+    // env var was left at the dev default in prod).
+    const baseIsLocal = base.includes("localhost") || base.includes("127.0.0.1");
+    const pageIsLocal =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1");
+    if (baseIsLocal && !pageIsLocal) return;
+
     // On an HTTPS page, force a secure backend origin so the socket is wss://
     // (an ws:// socket from an https page is blocked as mixed content).
     if (

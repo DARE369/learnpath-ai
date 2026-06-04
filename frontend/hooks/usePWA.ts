@@ -69,6 +69,15 @@ export function usePWA() {
     const verifyConnectivity = async (): Promise<boolean> => {
       let base = process.env.NEXT_PUBLIC_API_URL;
       if (!base) return navigator.onLine; // no probe target — trust the browser
+      // A localhost/127.0.0.1 API base is unreachable from a deployed (non-local)
+      // page — probing it just throws ERR_CONNECTION_REFUSED. If the env var was
+      // left at the dev default in prod, skip the probe and trust the browser.
+      const baseIsLocal = base.includes("localhost") || base.includes("127.0.0.1");
+      const pageIsLocal =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1");
+      if (baseIsLocal && !pageIsLocal) return navigator.onLine;
       // Avoid mixed-content: on an HTTPS page, never probe an http:// backend.
       if (
         typeof window !== "undefined" &&
