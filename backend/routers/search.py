@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 class BuildPathRequest(BaseModel):
     query: str = Field(..., min_length=2, max_length=200)
     use_cache: bool = True
+    # Explicit "Rebuild fresh" from the UI — bypasses the cache and regenerates,
+    # overwriting the stored path for this topic.
+    force_refresh: bool = False
 
 
 class PathVideo(BaseModel):
@@ -131,6 +134,92 @@ async def get_cached_path(
     return _path_to_response(cached, topic_name=decoded, source="cache", generation_time=0)
 
 
+@router.get("/lookup")
+async def lookup(
+    q: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cheap pre-build check (NO generation): does a reusable path already exist,
+    and has THIS user explored the topic before? Powers the "you've built this
+    before" prompt on Explore."""
+    from services.cache_service import cache_service
+    from models import CachedPath, SearchEvent
+
+    query = q.strip()
+    key = query.lower()
+    topic_id = cache_service.get_query_mapping(query, db=db)
+    cp = None
+    if topic_id:
+        cp = (
+            db.query(CachedPath)
+            .filter(CachedPath.topic_id == topic_id, CachedPath.valid.is_(True))
+            .first()
+        )
+    last = None
+    try:
+        last = (
+            db.query(SearchEvent)
+            .filter(SearchEvent.user_id == user.id, SearchEvent.query_normalized == key)
+            .order_by(SearchEvent.created_at.desc())
+            .first()
+        )
+    except Exception:
+        db.rollback()
+
+    return {
+        "query": query,
+        "exists": bool(cp),
+        "topic_id": (cp.topic_id if cp else (topic_id or None)),
+        "from_cache": bool(cp),
+        "video_count": (cp.video_count if cp else 0),
+        "explored_before": bool(last),
+        "last_explored_at": (last.created_at.isoformat() if last else None),
+    }
+
+
+@router.get("/history")
+async def history(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 20,
+):
+    """The signed-in user's recently explored topics (most recent first), joined
+    to the shared path library for metadata. Lets returning users find what they
+    already generated instead of rebuilding it."""
+    from sqlalchemy import func
+    from models import CachedPath, SearchEvent
+
+    try:
+        rows = (
+            db.query(
+                SearchEvent.query_normalized,
+                func.max(SearchEvent.created_at).label("last"),
+            )
+            .filter(SearchEvent.user_id == user.id)
+            .group_by(SearchEvent.query_normalized)
+            .order_by(func.max(SearchEvent.created_at).desc())
+            .limit(max(1, min(limit, 100)))
+            .all()
+        )
+    except Exception:
+        db.rollback()
+        rows = []
+
+    out = []
+    for qn, last in rows:
+        cp = db.query(CachedPath).filter(CachedPath.query_normalized == qn).first()
+        out.append({
+            "query": qn,
+            "topic_id": (cp.topic_id if cp else qn),
+            "video_count": (cp.video_count if cp else 0),
+            "average_score": (cp.average_score if cp else 0),
+            "available": bool(cp and cp.valid),
+            "last_explored_at": (last.isoformat() if last else None),
+        })
+    return {"history": out}
+
+
 @router.post("/build-path", response_model=BuildPathResponse)
 async def build_path(
     payload: BuildPathRequest,
@@ -170,7 +259,7 @@ async def build_path(
     try:
         result = await service.search_and_build_path(
             query=payload.query.strip(),
-            use_cache=payload.use_cache,
+            use_cache=payload.use_cache and not payload.force_refresh,
             user_id=str(user.id) if getattr(user, "id", None) else None,
             db=db,
         )

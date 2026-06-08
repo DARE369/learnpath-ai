@@ -68,6 +68,48 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
   const [result, setResult] = useState<BuiltPath | null>(null);
   const [remediationOpen, setRemediationOpen] = useState(false);
 
+  // "You've built this before" confirm + the user's recently-explored topics.
+  interface ConfirmInfo {
+    query: string;
+    topicId: string | null;
+    fromCache: boolean;
+    exploredBefore: boolean;
+    videoCount: number;
+  }
+  interface HistoryItem {
+    query: string;
+    topic_id: string;
+    video_count: number;
+    average_score: number;
+    available: boolean;
+    last_explored_at: string | null;
+  }
+  const [confirmInfo, setConfirmInfo] = useState<ConfirmInfo | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  const authHeader = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+
+  const loadHistory = React.useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await axios.get<{ history: HistoryItem[] }>("/api/search/history", {
+        params: { limit: 8 },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setHistory(res.data?.history ?? []);
+    } catch {
+      /* non-fatal */
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  function openTopic(topicId: string) {
+    router.push(`/learning/${encodeURIComponent(topicId)}/0`);
+  }
+
   function rotateStages() {
     const start = Date.now();
     setStageIndex(0);
@@ -80,7 +122,7 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
     return () => clearInterval(id);
   }
 
-  async function runSearch(rawQuery: string) {
+  async function runSearch(rawQuery: string, forceRefresh = false) {
     const trimmed = rawQuery.trim();
     if (trimmed.length < 2) {
       setError("Please enter a topic (at least 2 characters)");
@@ -89,17 +131,19 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
 
     setError(null);
     setResult(null);
+    setConfirmInfo(null);
     setLoading(true);
     const stopRotating = rotateStages();
 
     try {
       const res = await axios.post<BuiltPath>(
         "/api/search/build-path",
-        { query: trimmed, use_cache: true },
-        { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} },
+        { query: trimmed, use_cache: !forceRefresh, force_refresh: forceRefresh },
+        { headers: authHeader },
       );
       setResult(res.data);
       onBuilt?.(res.data);
+      void loadHistory();
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const status = err.response?.status;
@@ -125,9 +169,57 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
     }
   }
 
+  // Cheap pre-build check: if a reusable path already exists or the user has
+  // explored this before, ask before regenerating (saves tokens).
+  async function preflight(rawQuery: string) {
+    const trimmed = rawQuery.trim();
+    if (trimmed.length < 2) {
+      setError("Please enter a topic (at least 2 characters)");
+      return;
+    }
+    setError(null);
+    setResult(null);
+    try {
+      const res = await axios.get("/api/search/lookup", {
+        params: { q: trimmed },
+        headers: authHeader,
+      });
+      const d = res.data || {};
+      if (d.exists || d.explored_before) {
+        setConfirmInfo({
+          query: trimmed,
+          topicId: d.topic_id ?? null,
+          fromCache: !!d.from_cache,
+          exploredBefore: !!d.explored_before,
+          videoCount: d.video_count ?? 0,
+        });
+        return;
+      }
+    } catch {
+      /* lookup failed — fall through and just build */
+    }
+    await runSearch(trimmed, false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await runSearch(query);
+    await preflight(query);
+  }
+
+  function continueExisting() {
+    const info = confirmInfo;
+    setConfirmInfo(null);
+    if (info?.fromCache && info.topicId) {
+      openTopic(info.topicId); // reuse the stored path — zero tokens
+    } else if (info) {
+      void runSearch(info.query, false); // serve-if-cached, else build
+    }
+  }
+
+  function rebuildFresh() {
+    const info = confirmInfo;
+    setConfirmInfo(null);
+    if (info) void runSearch(info.query, true);
   }
 
   // Auto-run search when arriving with ?q=...&autorun=1 — used by catalog
@@ -218,6 +310,68 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
           )}
         </button>
       </form>
+
+      {/* "You've built this before" confirm */}
+      {confirmInfo && !loading && (
+        <div className="p-5 rounded-2xl bg-surface-elevated border border-accent/30 animate-fade-in">
+          <p className="text-sm font-medium text-white">
+            You&apos;ve explored &ldquo;{confirmInfo.query}&rdquo; before.
+          </p>
+          <p className="text-xs text-white/50 mt-1">
+            {confirmInfo.fromCache
+              ? `A ready-made path${confirmInfo.videoCount ? ` (${confirmInfo.videoCount} videos)` : ""} already exists — continue instantly, or rebuild it fresh.`
+              : "Continue where you left off, or rebuild it fresh with the latest content."}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={continueExisting}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-onaccent text-sm font-semibold hover:bg-accent-hover transition-colors"
+            >
+              Continue
+            </button>
+            <button
+              type="button"
+              onClick={rebuildFresh}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface border border-border text-white/70 hover:text-white text-sm font-medium transition-colors"
+            >
+              Rebuild fresh
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmInfo(null)}
+              className="px-4 py-2 rounded-xl text-white/50 hover:text-white text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Recently explored — jump back into something already built (no tokens) */}
+      {!loading && !result && !confirmInfo && history.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+            Recently explored
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {history.map((h) => (
+              <button
+                key={h.topic_id}
+                type="button"
+                onClick={() => openTopic(h.topic_id)}
+                title={h.available ? `${h.video_count} videos · avg ${h.average_score}` : "Rebuilds on open"}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-elevated px-3 py-1.5 text-sm text-white/70 transition-colors hover:border-accent/40 hover:text-white"
+              >
+                {h.query}
+                {h.available && h.video_count > 0 && (
+                  <span className="text-xs text-white/30">· {h.video_count}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="px-4 py-3 rounded-xl bg-error-muted border border-error/20 text-error text-sm">
