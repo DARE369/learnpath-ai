@@ -4,6 +4,10 @@
 
 AI-powered personalized learning platform that curates YouTube content, generates structured learning paths, and uses active recall for deeper understanding.
 
+> 📖 **New here? Read [OVERVIEW.md](OVERVIEW.md)** — a complete, diagram-rich walkthrough
+> of the entire system (architecture, every workflow, the algorithms behind each part,
+> and a prioritized list of what to consider next). This README below is setup-focused.
+
 ## Project Overview
 
 LearnPath AI helps students:
