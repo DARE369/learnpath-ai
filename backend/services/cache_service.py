@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 TOPIC_TTL_DAYS = 30
 QUERY_TTL_DAYS = 7
+# Re-validate a stored path at most this often, and drop it (regenerate) if a
+# prune leaves fewer than this many videos.
+VALIDATION_TTL_DAYS = 30
+MIN_PATH_VIDEOS = 3
 
 
 class CacheService:
@@ -69,16 +73,36 @@ class CacheService:
                     .first()
                 )
                 if row is not None:
+                    path_data = row.path_json
+                    # Cheap freshness re-check on stale rows (no Claude): prune
+                    # videos that have since been blacklisted. If too few remain,
+                    # invalidate so the next request regenerates.
+                    last_val = row.last_validated_at
+                    is_stale = last_val is None or (
+                        datetime.utcnow() - last_val > timedelta(days=VALIDATION_TTL_DAYS)
+                    )
+                    if is_stale:
+                        revalidated = self._revalidate_path(path_data, db)
+                        if revalidated is None:
+                            row.valid = False
+                            db.commit()
+                            logger.info(f"Cached path invalidated (too thin after prune): {topic_id}")
+                            self.misses += 1
+                            return None
+                        path_data = revalidated
+                        row.path_json = revalidated
+                        row.video_count = int(revalidated.get("video_count") or 0)
+                        row.last_validated_at = datetime.utcnow()
                     row.times_served = (row.times_served or 0) + 1
                     db.commit()
                     self._topic_cache[topic_id] = {
-                        "data": row.path_json,
+                        "data": path_data,
                         "expires_at": datetime.utcnow() + timedelta(days=TOPIC_TTL_DAYS),
                         "cached_at": datetime.utcnow().isoformat(),
                     }
                     logger.info(f"Topic cache HIT (db): {topic_id}")
                     self.hits += 1
-                    return row.path_json
+                    return path_data
             except Exception as e:
                 logger.warning(f"Topic cache DB read failed for {topic_id}: {e}")
                 try:
@@ -137,6 +161,37 @@ class CacheService:
 
         logger.info(f"Topic path cached: {topic_id} (TTL {TOPIC_TTL_DAYS}d)")
         return True
+
+    def _revalidate_path(self, path: Dict, db) -> Optional[Dict]:
+        """
+        Cheap, no-Claude freshness check: drop videos that have been blacklisted
+        since the path was built. Returns a pruned copy, or None if fewer than
+        MIN_PATH_VIDEOS survive (caller should regenerate). Re-uses the EQS scores
+        already stored in the path — only structure changes.
+        """
+        videos = path.get("videos") or []
+        if not videos:
+            return path  # nothing to prune (older/empty cache shape)
+        try:
+            from services.blacklist_service import blacklist_service
+            yt_ids = [v.get("youtube_id") for v in videos if v.get("youtube_id")]
+            allowed = set(blacklist_service.filter_blacklisted(db, yt_ids))
+        except Exception as e:
+            logger.warning(f"Revalidation prune skipped (blacklist check failed): {e}")
+            return path  # fail-open: serve as-is rather than block
+
+        kept = [v for v in videos if v.get("youtube_id") in allowed]
+        if len(kept) == len(videos):
+            return path  # nothing pruned
+        if len(kept) < MIN_PATH_VIDEOS:
+            return None  # too thin → regenerate
+
+        new_path = dict(path)
+        new_path["videos"] = kept
+        new_path["video_sequence"] = [v.get("video_id") for v in kept if v.get("video_id")]
+        new_path["video_count"] = len(kept)
+        logger.info(f"Revalidated path: pruned {len(videos) - len(kept)} blacklisted video(s)")
+        return new_path
 
     def invalidate_topic_cache(self, topic_id: str, db=None) -> bool:
         """
