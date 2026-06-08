@@ -47,29 +47,53 @@ class CacheService:
 
     def get_topic_path(self, topic_id: str, db=None) -> Optional[Dict]:
         """
-        Return cached path for topic_id, or None if absent/expired.
-        `db` is accepted for future DB-backed compatibility but unused in Stage 1.
+        Return the cached path for topic_id (memory L1 → DB L2), or None.
+        When `db` is provided, a DB hit warms memory and bumps times_served so the
+        path survives restarts and is shared across users.
         """
         entry = self._topic_cache.get(topic_id)
-        if entry is None:
-            logger.info(f"Topic cache MISS: {topic_id}")
-            self.misses += 1
-            return None
-
-        if datetime.utcnow() > entry["expires_at"]:
-            logger.info(f"Topic cache EXPIRED: {topic_id}")
+        if entry is not None and datetime.utcnow() <= entry["expires_at"]:
+            logger.info(f"Topic cache HIT (memory): {topic_id}")
+            self.hits += 1
+            return entry["data"]
+        if entry is not None:
+            # Expired in memory — drop and fall through to the DB.
             del self._topic_cache[topic_id]
-            self.misses += 1
-            return None
 
-        logger.info(f"Topic cache HIT: {topic_id}")
-        self.hits += 1
-        return entry["data"]
+        if db is not None:
+            try:
+                from models import CachedPath
+                row = (
+                    db.query(CachedPath)
+                    .filter(CachedPath.topic_id == topic_id, CachedPath.valid.is_(True))
+                    .first()
+                )
+                if row is not None:
+                    row.times_served = (row.times_served or 0) + 1
+                    db.commit()
+                    self._topic_cache[topic_id] = {
+                        "data": row.path_json,
+                        "expires_at": datetime.utcnow() + timedelta(days=TOPIC_TTL_DAYS),
+                        "cached_at": datetime.utcnow().isoformat(),
+                    }
+                    logger.info(f"Topic cache HIT (db): {topic_id}")
+                    self.hits += 1
+                    return row.path_json
+            except Exception as e:
+                logger.warning(f"Topic cache DB read failed for {topic_id}: {e}")
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
 
-    def cache_topic_path(self, path: Dict, db=None) -> bool:
+        logger.info(f"Topic cache MISS: {topic_id}")
+        self.misses += 1
+        return None
+
+    def cache_topic_path(self, path: Dict, db=None, user_id=None) -> bool:
         """
-        Store an assembled path in the topic cache.
-        `db` accepted for future DB-backed compatibility.
+        Store an assembled path in memory (L1) and, when `db` is given, upsert it
+        into `cached_paths` (L2) so it's durable and reusable by every user.
         """
         topic_id = path.get("topic_id")
         if not topic_id:
@@ -81,6 +105,36 @@ class CacheService:
             "expires_at": datetime.utcnow() + timedelta(days=TOPIC_TTL_DAYS),
             "cached_at": datetime.utcnow().isoformat(),
         }
+
+        if db is not None:
+            try:
+                from models import CachedPath
+                vc = int(path.get("video_count") or 0)
+                avg = int(path.get("average_score") or 0)
+                row = db.query(CachedPath).filter(CachedPath.topic_id == topic_id).first()
+                if row is not None:
+                    row.path_json = path
+                    row.video_count = vc
+                    row.average_score = avg
+                    row.valid = True
+                    row.last_validated_at = datetime.utcnow()
+                else:
+                    db.add(CachedPath(
+                        topic_id=topic_id,
+                        query_normalized=self._normalise(str(topic_id)),
+                        path_json=path,
+                        video_count=vc,
+                        average_score=avg,
+                        created_by_user_id=user_id,
+                    ))
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Topic cache DB write failed for {topic_id}: {e}")
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
         logger.info(f"Topic path cached: {topic_id} (TTL {TOPIC_TTL_DAYS}d)")
         return True
 
@@ -91,9 +145,21 @@ class CacheService:
         """
         if topic_id in self._topic_cache:
             del self._topic_cache[topic_id]
-            logger.info(f"Topic cache invalidated: {topic_id}")
-        else:
-            logger.info(f"Topic cache invalidate — key not found: {topic_id}")
+            logger.info(f"Topic cache invalidated (memory): {topic_id}")
+        if db is not None:
+            try:
+                from models import CachedPath
+                row = db.query(CachedPath).filter(CachedPath.topic_id == topic_id).first()
+                if row is not None:
+                    row.valid = False
+                    db.commit()
+                    logger.info(f"Topic cache invalidated (db): {topic_id}")
+            except Exception as e:
+                logger.warning(f"Topic cache DB invalidate failed for {topic_id}: {e}")
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
         return True
 
     # ------------------------------------------------------------------
@@ -108,20 +174,39 @@ class CacheService:
         key = self._normalise(query)
         entry = self._query_cache.get(key)
 
-        if entry is None:
-            logger.info(f"Query cache MISS: '{query}'")
-            self.misses += 1
-            return None
-
-        if datetime.utcnow() > entry["expires_at"]:
-            logger.info(f"Query cache EXPIRED: '{query}'")
+        if entry is not None and datetime.utcnow() <= entry["expires_at"]:
+            logger.info(f"Query cache HIT (memory): '{query}' -> {entry['topic_id']}")
+            self.hits += 1
+            return entry["topic_id"]
+        if entry is not None:
             del self._query_cache[key]
-            self.misses += 1
-            return None
 
-        logger.info(f"Query cache HIT: '{query}' → {entry['topic_id']}")
-        self.hits += 1
-        return entry["topic_id"]
+        if db is not None:
+            try:
+                from models import CachedPath
+                row = (
+                    db.query(CachedPath)
+                    .filter(CachedPath.query_normalized == key, CachedPath.valid.is_(True))
+                    .first()
+                )
+                if row is not None:
+                    self._query_cache[key] = {
+                        "topic_id": row.topic_id,
+                        "expires_at": datetime.utcnow() + timedelta(days=QUERY_TTL_DAYS),
+                    }
+                    logger.info(f"Query cache HIT (db): '{query}' -> {row.topic_id}")
+                    self.hits += 1
+                    return row.topic_id
+            except Exception as e:
+                logger.warning(f"Query cache DB read failed for '{query}': {e}")
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+        logger.info(f"Query cache MISS: '{query}'")
+        self.misses += 1
+        return None
 
     def cache_query_mapping(self, query: str, topic_id: str) -> bool:
         """Map a raw query string to a topic_id with a 7-day TTL."""

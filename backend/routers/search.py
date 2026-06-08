@@ -110,6 +110,7 @@ def _path_to_response(path: dict, topic_name: str, source: str, generation_time:
 async def get_cached_path(
     topic_id: str,
     _user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """Return a previously-built learning path from cache without rebuilding."""
     from urllib.parse import unquote
@@ -118,12 +119,12 @@ async def get_cached_path(
         raise HTTPException(status_code=503, detail="Search service not initialized")
 
     decoded = unquote(topic_id).strip()
-    cached = service.cache.get_topic_path(decoded)
+    cached = service.cache.get_topic_path(decoded, db=db)
     if not cached:
         # Try the query-mapping layer too (in case topic_id is the original query)
-        mapped = service.cache.get_query_mapping(decoded)
+        mapped = service.cache.get_query_mapping(decoded, db=db)
         if mapped:
-            cached = service.cache.get_topic_path(mapped)
+            cached = service.cache.get_topic_path(mapped, db=db)
     if not cached:
         raise HTTPException(status_code=404, detail=f"No cached path for: {decoded}")
 

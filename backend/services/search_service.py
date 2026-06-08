@@ -106,9 +106,9 @@ class SearchService:
         # Step 1 + 2: Cache check
         # ----------------------------------------------------------------
         if use_cache:
-            cached_topic_id = self.cache.get_query_mapping(query)
+            cached_topic_id = self.cache.get_query_mapping(query, db=db)
             if cached_topic_id:
-                cached_path = self.cache.get_topic_path(cached_topic_id)
+                cached_path = self.cache.get_topic_path(cached_topic_id, db=db)
                 if cached_path:
                     logger.info(f"Serving from cache: {cached_topic_id}")
                     _log_search_event(
@@ -327,7 +327,7 @@ class SearchService:
         # ----------------------------------------------------------------
         # Step 8: Cache both layers
         # ----------------------------------------------------------------
-        self.cache.cache_topic_path(path)
+        self.cache.cache_topic_path(path, db=db, user_id=user_id)
         self.cache.cache_query_mapping(query, path["topic_id"])
 
         elapsed = round((datetime.utcnow() - start).total_seconds(), 2)

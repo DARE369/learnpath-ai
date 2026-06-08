@@ -186,6 +186,32 @@ class SearchEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
+class CachedPath(Base):
+    """
+    Durable, cross-user store for an assembled learning path (the "persistence
+    stage" the in-memory CacheService was always meant to graduate into).
+
+    A path is topic-level (videos + concepts, no personal data), so one row is
+    shared by every user who searches that topic — generated once, reused forever
+    (until invalidated), saving Claude/YouTube tokens. Per-user progress lives
+    elsewhere (adaptive_paths, progress); this is just the reusable content.
+    """
+    __tablename__ = "cached_paths"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    topic_id = Column(String, unique=True, nullable=False, index=True)
+    query_normalized = Column(String, index=True)  # query→topic lookup layer
+    path_json = Column(JSON, nullable=False)  # the full assembled path dict
+    video_count = Column(Integer, default=0)
+    average_score = Column(Integer, default=0)
+    created_by_user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    times_served = Column(Integer, default=0)  # reuse counter (token-savings metric)
+    valid = Column(Boolean, default=True, index=True)
+    last_validated_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class TopicAlias(Base):
     """
     Semantic dedup map (Packet 3.5).
