@@ -1,5 +1,15 @@
+function resolvedApiUrl(): string {
+  let url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  // Force HTTPS on any non-localhost origin so browser mixed-content rules
+  // are never triggered regardless of how the env var was set in Vercel.
+  if (url.startsWith("http://") && !url.includes("localhost") && !url.includes("127.0.0.1")) {
+    url = "https://" + url.slice("http://".length);
+  }
+  return url;
+}
+
 export const config = {
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  apiUrl: resolvedApiUrl(),
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
   appName: "LearnPath AI",
