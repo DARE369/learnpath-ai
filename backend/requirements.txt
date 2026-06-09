@@ -59,5 +59,7 @@ isort==5.13.2
 
 # Logging & Monitoring
 python-json-logger==2.0.7
+# Error monitoring (Stage 2). Optional at runtime — only active when SENTRY_DSN is set.
+sentry-sdk[fastapi]==2.20.0
 
 # CORS is handled by fastapi's built-in CORSMiddleware (via starlette)

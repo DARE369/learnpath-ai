@@ -15,6 +15,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Error monitoring (Stage 2). No-op unless SENTRY_DSN is set; import is optional
+# so a missing SDK never blocks boot.
+if settings.SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.ENVIRONMENT,
+            release=settings.APP_VERSION,
+            traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+            send_default_pii=False,  # don't ship user PII to Sentry
+            integrations=[StarletteIntegration(), FastApiIntegration()],
+        )
+        logger.info("Sentry error monitoring initialized")
+    except Exception as e:  # pragma: no cover
+        logger.warning(f"Sentry init failed (continuing without it): {e}")
+
 
 # Idempotent schema patches for tables that pre-date a column. create_all()
 # never alters existing tables, so when the model gains a new column the live
@@ -293,9 +313,44 @@ app.add_middleware(PerformanceMiddleware)
 
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
-    response = await call_next(request)
-    logger.info(f"{request.method} {request.url.path} → {response.status_code}")
+async def request_context(request: Request, call_next):
+    """Attach a request id, time the request, log a structured line, and make sure
+    unhandled errors are captured (Sentry) with a clean JSON 500 carrying the id."""
+    import time
+    import uuid
+
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
+    start = time.time()
+
+    try:
+        import sentry_sdk
+        sentry_sdk.set_tag("request_id", request_id)
+    except Exception:
+        pass
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = int((time.time() - start) * 1000)
+        logger.exception(
+            f"[{request_id}] {request.method} {request.url.path} -> 500 ({duration_ms}ms)"
+        )
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_exception()
+        except Exception:
+            pass
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "request_id": request_id},
+            headers={"X-Request-ID": request_id},
+        )
+
+    duration_ms = int((time.time() - start) * 1000)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        f"[{request_id}] {request.method} {request.url.path} -> {response.status_code} ({duration_ms}ms)"
+    )
     return response
 
 
