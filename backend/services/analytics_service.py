@@ -507,6 +507,65 @@ class AnalyticsService:
         _cached_set(key, result, ttl=900)
         return result
 
+    def get_activation_funnel(self, db: Session, days: int = 30) -> Dict:
+        """Activation/retention funnel for the cohort that signed up in the last
+        `days`: signup -> onboarded -> built a path -> did a quiz -> returned.
+        Computed from existing tables; each step is best-effort so a missing table
+        can't break the whole report."""
+        from sqlalchemy import func
+        from models import User, UserProfile, SearchEvent, QuizSession
+
+        since = datetime.utcnow() - timedelta(days=max(1, days))
+
+        def _count(q):
+            try:
+                return int(q.scalar() or 0)
+            except Exception as e:
+                logger.warning(f"activation funnel step failed: {e}")
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                return 0
+
+        signups = _count(db.query(func.count(User.id)).filter(User.created_at >= since))
+        onboarded = _count(
+            db.query(func.count(func.distinct(UserProfile.user_id)))
+            .join(User, User.id == UserProfile.user_id)
+            .filter(User.created_at >= since, UserProfile.onboarding_completed.is_(True))
+        )
+        built_path = _count(
+            db.query(func.count(func.distinct(SearchEvent.user_id)))
+            .join(User, User.id == SearchEvent.user_id)
+            .filter(User.created_at >= since)
+        )
+        did_quiz = _count(
+            db.query(func.count(func.distinct(QuizSession.user_id)))
+            .join(User, User.id == QuizSession.user_id)
+            .filter(User.created_at >= since)
+        )
+        returned = _count(
+            db.query(func.count(User.id)).filter(
+                User.created_at >= since,
+                User.last_seen_at.isnot(None),
+                func.date(User.last_seen_at) > func.date(User.created_at),
+            )
+        )
+
+        def pct(n):
+            return round(n / signups * 100, 1) if signups else 0.0
+
+        return {
+            "window_days": days,
+            "steps": [
+                {"step": "signed_up", "users": signups, "pct_of_signups": 100.0 if signups else 0.0},
+                {"step": "completed_onboarding", "users": onboarded, "pct_of_signups": pct(onboarded)},
+                {"step": "built_a_path", "users": built_path, "pct_of_signups": pct(built_path)},
+                {"step": "took_a_quiz", "users": did_quiz, "pct_of_signups": pct(did_quiz)},
+                {"step": "returned_another_day", "users": returned, "pct_of_signups": pct(returned)},
+            ],
+        }
+
     def _compute_funnel_metrics(self, db: Session) -> Dict:
         """
         Approximates the signup→video→paid funnel from available data.

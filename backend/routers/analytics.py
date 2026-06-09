@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from routers.auth import get_current_user
+from routers.auth import get_current_user, require_admin
 from services.analytics_service import analytics_service
 
 router = APIRouter()
@@ -40,6 +40,21 @@ def get_user_analytics(
 
 
 # ── Platform / admin analytics ────────────────────────────────────────────────
+
+
+@router.get("/activation")
+def get_activation_funnel(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    days: int = 30,
+):
+    """Admin: activation/retention funnel (signup → onboarded → path → quiz → return)
+    for the cohort that signed up in the last `days`."""
+    try:
+        return analytics_service.get_activation_funnel(db, days=days)
+    except Exception as e:
+        logger.warning(f"activation funnel failed: {e}")
+        raise HTTPException(status_code=500, detail="Could not compute activation funnel")
 
 
 @router.get("/platform")
