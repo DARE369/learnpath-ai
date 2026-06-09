@@ -13,7 +13,7 @@ import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
 import { OfflineIndicator } from "../components/PWA/OfflineIndicator";
 import "../styles/globals.css";
 
-const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/onboarding"];
+const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/onboarding", "/legal"];
 
 const PROTECTED_PREFIXES = [
   "/dashboard",

@@ -134,6 +134,12 @@ export default function SignupPage() {
             <div className="auth-card">
               <SignupForm onSuccess={handleSuccess} />
             </div>
+
+            <p className="mt-5 text-center text-xs text-white/35">
+              By creating an account you agree to our{" "}
+              <Link href="/legal/terms" className="text-accent-light hover:text-white">Terms</Link>{" "}and{" "}
+              <Link href="/legal/privacy" className="text-accent-light hover:text-white">Privacy Policy</Link>.
+            </p>
           </div>
         </div>
       </div>
