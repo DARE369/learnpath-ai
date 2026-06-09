@@ -2,7 +2,8 @@
 
 import logging
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -161,28 +162,75 @@ async def create_class(
         raise HTTPException(status_code=500, detail="Failed to create class")
 
 
+def _teacher_or_403(current_user, db) -> Teacher:
+    if getattr(current_user, "role", "user") not in ("teacher", "school_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not a teacher")
+    return TeacherService(db).ensure_teacher(current_user)
+
+
 @router.get("/classes/{class_id}", tags=["teachers"])
 async def get_class_details(
     class_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get detailed class information."""
-    class_obj = db.query(Class).filter(Class.id == class_id).first()
-    if not class_obj:
-        raise HTTPException(status_code=404, detail="Class not found")
-
-    teacher = db.query(Teacher).filter(Teacher.id == class_obj.teacher_id).first()
-    if not teacher or str(teacher.user_id) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
+    """Class header detail (counts + averages). Owner-only."""
+    service = TeacherService(db)
+    teacher = _teacher_or_403(current_user, db)
     try:
-        service = TeacherService(db)
-        details = await service.get_class_details(class_id, class_obj.teacher_id)
-        return details
+        return service.get_class_detail(teacher, class_id)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your class")
     except Exception as e:
         logger.exception(f"get_class_details failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to load class details")
+
+
+@router.get("/classes/{class_id}/roster", tags=["teachers"])
+async def get_class_roster(
+    class_id: str,
+    status: Optional[str] = Query(None),
+    sort_by: str = Query("progress"),
+    search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=1000),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Full class roster with filter / sort / search / pagination. Owner-only."""
+    service = TeacherService(db)
+    teacher = _teacher_or_403(current_user, db)
+    try:
+        return service.get_class_roster(
+            teacher, class_id, status=status, sort_by=sort_by,
+            search=search, page=page, page_size=page_size,
+        )
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your class")
+    except Exception as e:
+        logger.exception(f"get_class_roster failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load roster")
+
+
+@router.get("/students/{student_id}", tags=["teachers"])
+async def get_student_profile(
+    student_id: str,
+    class_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Detailed student profile within one of the teacher's classes. Owner-only."""
+    service = TeacherService(db)
+    teacher = _teacher_or_403(current_user, db)
+    try:
+        return service.get_student_profile(teacher, student_id, class_id)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your class")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception(f"get_student_profile failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load student profile")
 
 
 @router.get("/{teacher_id}/at-risk", tags=["teachers"])

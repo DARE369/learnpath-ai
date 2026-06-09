@@ -23,6 +23,18 @@ def _alert_for(m) -> Optional[Dict]:
     return None
 
 
+def _status_for(m) -> str:
+    """good | caution | at_risk for a ClassMembership."""
+    if _alert_for(m):
+        return "at_risk"
+    score = m.average_score or 0
+    progress = m.progress_percent or 0
+    days_inactive = (datetime.utcnow() - m.last_active).days if m.last_active else None
+    if (60 <= score < 70) or (days_inactive is not None and 3 <= days_inactive <= 5) or (0 < progress < 30):
+        return "caution"
+    return "good"
+
+
 class TeacherService:
     def __init__(self, db: Session):
         self.db = db
@@ -198,6 +210,167 @@ class TeacherService:
         out = [a for a in out if a["occurred_at"]]
         out.sort(key=lambda x: x["occurred_at"], reverse=True)
         return out[:15]
+
+    # ── ADMIN-1.2: class roster + student profile ────────────────────────────
+
+    def _require_owned_class(self, teacher, class_id):
+        from models import Class
+        c = self.db.query(Class).filter(Class.id == class_id).first()
+        if not c or str(c.teacher_id) != str(teacher.id):
+            raise PermissionError("Class not found or not yours")
+        return c
+
+    def get_class_detail(self, teacher, class_id: str) -> Dict:
+        from models import ClassMembership
+        c = self._require_owned_class(teacher, class_id)
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        ms = (
+            self.db.query(ClassMembership)
+            .filter(ClassMembership.class_id == class_id, ClassMembership.enrollment_status == "active")
+            .all()
+        )
+        n = len(ms)
+        return {
+            "class_id": str(c.id),
+            "class_name": c.name,
+            "subject": c.subject,
+            "student_count": n,
+            "avg_score": round(sum(m.average_score or 0 for m in ms) / n, 1) if n else 0,
+            "avg_progress": round(sum(m.progress_percent or 0 for m in ms) / n, 1) if n else 0,
+            "active_this_week": sum(1 for m in ms if m.last_active and m.last_active >= week_ago),
+            "at_risk_count": sum(1 for m in ms if _alert_for(m)),
+        }
+
+    def get_class_roster(self, teacher, class_id: str, status=None, sort_by="progress",
+                         search=None, page=1, page_size=25) -> Dict:
+        from models import ClassMembership, User
+        self._require_owned_class(teacher, class_id)
+        ms = (
+            self.db.query(ClassMembership)
+            .filter(ClassMembership.class_id == class_id, ClassMembership.enrollment_status == "active")
+            .all()
+        )
+        student_ids = list({m.student_id for m in ms})
+        users = {}
+        if student_ids:
+            for u in self.db.query(User).filter(User.id.in_(student_ids)).all():
+                users[u.id] = u
+
+        rows = []
+        for m in ms:
+            u = users.get(m.student_id)
+            rows.append({
+                "student_id": str(m.student_id),
+                "name": (u.full_name if u and u.full_name else (u.email.split("@")[0] if u and u.email else "Student")),
+                "email": (u.email if u else None),
+                "progress": m.progress_percent or 0,
+                "score": m.average_score or 0,
+                "status": _status_for(m),
+                "last_active": m.last_active.isoformat() if m.last_active else None,
+            })
+
+        if status and status != "all":
+            rows = [r for r in rows if r["status"] == status]
+        if search:
+            q = search.strip().lower()
+            rows = [r for r in rows if q in (r["name"] or "").lower() or q in (r["email"] or "").lower()]
+
+        if sort_by == "score":
+            rows.sort(key=lambda r: r["score"], reverse=True)
+        elif sort_by == "name":
+            rows.sort(key=lambda r: (r["name"] or "").lower())
+        elif sort_by == "activity":
+            rows.sort(key=lambda r: r["last_active"] or "", reverse=True)
+        else:  # progress
+            rows.sort(key=lambda r: r["progress"], reverse=True)
+
+        total = len(rows)
+        page = max(1, page)
+        start = (page - 1) * page_size
+        return {
+            "roster": rows[start:start + page_size],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "pages": max(1, (total + page_size - 1) // page_size),
+            },
+        }
+
+    def get_student_profile(self, teacher, student_id: str, class_id: str) -> Dict:
+        from models import ClassMembership, User, Class, ConceptMastery, QuizSession
+        self._require_owned_class(teacher, class_id)
+
+        m = (
+            self.db.query(ClassMembership)
+            .filter(ClassMembership.class_id == class_id, ClassMembership.student_id == student_id)
+            .first()
+        )
+        if not m:
+            raise ValueError("Student not in this class")
+
+        student = self.db.query(User).filter(User.id == student_id).first()
+        cls = self.db.query(Class).filter(Class.id == class_id).first()
+
+        # Score breakdown + weak concepts from ConceptMastery
+        mastery = self.db.query(ConceptMastery).filter(ConceptMastery.user_id == student_id).all()
+        breakdown = [
+            {"name": cm.concept_id, "accuracy": cm.accuracy_percent or 0}
+            for cm in sorted(mastery, key=lambda x: x.accuracy_percent or 0)
+        ]
+        weak = [b for b in breakdown if b["accuracy"] < 70][:5]
+
+        # Activity timeline from recent quiz sessions
+        timeline = []
+        try:
+            sessions = (
+                self.db.query(QuizSession)
+                .filter(QuizSession.user_id == student_id)
+                .order_by(QuizSession.session_started_at.desc())
+                .limit(15)
+                .all()
+            )
+            for s in sessions:
+                when = s.session_completed_at or s.session_started_at
+                score = s.score_percent
+                timeline.append({
+                    "type": "quiz",
+                    "title": f"Completed a {(s.quiz_type or 'quiz').replace('_', ' ')} quiz",
+                    "score": score,
+                    "passed": (score or 0) >= 65,
+                    "occurred_at": when.isoformat() if when else None,
+                })
+            total_seconds = sum((s.total_time_seconds or 0) for s in sessions)
+        except Exception as e:
+            logger.warning(f"student timeline fetch failed: {e}")
+            total_seconds = 0
+        timeline = [t for t in timeline if t["occurred_at"]]
+
+        name = (student.full_name if student and student.full_name
+                else (student.email.split("@")[0] if student and student.email else "Student"))
+        return {
+            "student": {
+                "id": str(student_id),
+                "name": name,
+                "email": student.email if student else None,
+            },
+            "enrollment": {
+                "class_id": str(class_id),
+                "class_name": cls.name if cls else "",
+                "teacher_name": teacher.name,
+                "enrolled_at": m.enrolled_date.isoformat() if m.enrolled_date else None,
+                "status": _status_for(m),
+            },
+            "performance": {
+                "current_score": m.average_score or 0,
+                "progress_percent": m.progress_percent or 0,
+                "time_invested_hours": round(total_seconds / 3600, 1),
+                "last_active": m.last_active.isoformat() if m.last_active else None,
+            },
+            "score_breakdown": breakdown,
+            "weak_concepts": weak,
+            "activity_timeline": timeline,
+        }
 
     async def get_teacher_dashboard(self, teacher_id: str) -> Dict:
         """Get teacher's main dashboard"""

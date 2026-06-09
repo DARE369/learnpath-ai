@@ -1,258 +1,179 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import Head from "next/head";
 import { useRouter } from "next/router";
-import Link from "next/link";
+import { ArrowLeft, Search, Download, Users } from "lucide-react";
+import { useAuth } from "../../../hooks/useAuth";
+import { Card, Button, Skeleton, Badge, EmptyState } from "../../../components/ui";
+import ClassRosterTable from "../../../components/Teacher/ClassRosterTable";
+import type { ClassDetail, RosterResponse, RosterStudent } from "../../../components/Teacher/types";
 
-interface Student {
-  id: string;
-  progress: number;
-  avg_score: number;
-  last_active: string | null;
-  status: string;
-}
+const PAGE_SIZE = 25;
 
-interface ClassDetails {
-  class: {
-    id: string;
-    name: string;
-    subject: string;
-    description: string;
-  };
-  students: Student[];
-  summary: {
-    total: number;
-    active: number;
-    avg_progress: number;
-    avg_score: number;
-  };
-}
-
-function authHeaders(): Record<string, string> {
-  const t =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
-      : null;
-  return t ? { Authorization: `Bearer ${t}` } : {};
-}
-
-export default function ClassPage() {
+export default function ClassDetailPage() {
   const router = useRouter();
-  const { id } = router.query;
-  const [classData, setClassData] = useState<ClassDetails | null>(null);
+  const classId = typeof router.query.id === "string" ? router.query.id : "";
+  const { accessToken } = useAuth();
+
+  const [detail, setDetail] = useState<ClassDetail | null>(null);
+  const [roster, setRoster] = useState<RosterResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "active" | "at-risk">("all");
+  const [error, setError] = useState<string | null>(null);
 
-  // Auth + teacher-role access are enforced by the app shell (_app.tsx).
-  useEffect(() => {
-    if (id) fetchClassDetails();
-  }, [id]);
+  const [status, setStatus] = useState("all");
+  const [sortBy, setSortBy] = useState("progress");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
-  async function fetchClassDetails() {
+  const auth = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+
+  const load = useCallback(async () => {
+    if (!classId || !accessToken) return;
+    setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/teachers/classes/${id}`, { headers: authHeaders() });
-      if (!response.ok) throw new Error("Failed to load class");
-      const data = await response.json();
-      setClassData(data);
-    } catch (error) {
-      console.error("Class load error:", error);
+      const params = new URLSearchParams({ sort_by: sortBy, page: String(page), page_size: String(PAGE_SIZE) });
+      if (status !== "all") params.set("status", status);
+      if (search.trim()) params.set("search", search.trim());
+      const [d, r] = await Promise.all([
+        fetch(`/api/teachers/classes/${classId}`, { headers: auth }),
+        fetch(`/api/teachers/classes/${classId}/roster?${params}`, { headers: auth }),
+      ]);
+      if (!d.ok || !r.ok) throw new Error();
+      setDetail(await d.json());
+      setRoster(await r.json());
+    } catch {
+      setError("Couldn't load this class.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [classId, accessToken, status, sortBy, search, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) {
-    return (
-      <>
-        <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
-          <div className="text-white">Loading...</div>
-        </div>
-      </>
-    );
-  }
+  useEffect(() => { void load(); }, [load]);
 
-  if (!classData) {
-    return (
-      <>
-        <div className="min-h-screen bg-gradient-dark flex items-center justify-center">
-          <div className="text-white">Failed to load class</div>
-        </div>
-      </>
-    );
-  }
+  const viewStudent = (studentId: string) =>
+    router.push(`/teacher/students/${studentId}?class=${encodeURIComponent(classId)}`);
 
-  const getFilteredStudents = () => {
-    const { students, summary } = classData;
-    switch (filter) {
-      case "active":
-        return students.filter((s) => s.last_active && new Date(s.last_active) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-      case "at-risk":
-        return students.filter((s) => s.avg_score < 60 || s.progress < 20);
-      default:
-        return students;
+  async function exportCsv() {
+    if (!classId || !accessToken) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/teachers/classes/${classId}/roster?page=1&page_size=1000&sort_by=name`, { headers: auth });
+      const data: RosterResponse = await res.json();
+      const rows: RosterStudent[] = data.roster || [];
+      const header = ["Name", "Email", "Progress %", "Score %", "Status", "Last active"];
+      const csv = [
+        header.join(","),
+        ...rows.map((s) =>
+          [s.name, s.email ?? "", s.progress, s.score, s.status, s.last_active ?? ""]
+            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+            .join(","),
+        ),
+      ].join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${detail?.class_name || "roster"}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
     }
-  };
-
-  const filteredStudents = getFilteredStudents();
-  const { summary } = classData;
+  }
 
   return (
     <>
-      <main className="min-h-screen bg-gradient-dark">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          {/* Header */}
-          <div className="mb-8">
-            <Link href="/teacher/dashboard" className="text-accent hover:text-accent/80 text-sm mb-4 inline-flex items-center gap-1">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" fill="none" />
-              </svg>
-              Back to Dashboard
-            </Link>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              {classData.class.name}
-            </h1>
-            <p className="text-white/60">{classData.class.subject}</p>
-            {classData.class.description && (
-              <p className="text-white/40 text-sm mt-2">{classData.class.description}</p>
-            )}
-          </div>
+      <Head><title>{detail?.class_name || "Class"} — LearnPath AI</title></Head>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <button onClick={() => router.push("/teacher/dashboard")} className="mb-4 inline-flex items-center gap-1.5 text-sm text-accent-light hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Dashboard
+        </button>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-surface-elevated rounded-xl p-4 border border-border">
-              <p className="text-white/60 text-xs uppercase tracking-wide mb-1">Total Students</p>
-              <p className="text-3xl font-bold text-white">{summary.total}</p>
-            </div>
-            <div className="bg-surface-elevated rounded-xl p-4 border border-border">
-              <p className="text-white/60 text-xs uppercase tracking-wide mb-1">Active This Week</p>
-              <p className="text-3xl font-bold text-white">{summary.active}</p>
-            </div>
-            <div className="bg-surface-elevated rounded-xl p-4 border border-border">
-              <p className="text-white/60 text-xs uppercase tracking-wide mb-1">Avg Progress</p>
-              <p className="text-3xl font-bold text-white">{summary.avg_progress}%</p>
-            </div>
-            <div className="bg-surface-elevated rounded-xl p-4 border border-border">
-              <p className="text-white/60 text-xs uppercase tracking-wide mb-1">Avg Score</p>
-              <p className="text-3xl font-bold text-white">{summary.avg_score}%</p>
-            </div>
-          </div>
-
-          {/* Students section */}
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Students ({filteredStudents.length})</h2>
-              <div className="flex gap-2">
-                {["all", "active", "at-risk"].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f as any)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      filter === f
-                        ? "bg-gradient-accent text-white"
-                        : "bg-surface-elevated text-white/60 hover:text-white"
-                    }`}
-                  >
-                    {f === "all" ? "All" : f === "active" ? "Active" : "At-Risk"}
-                  </button>
-                ))}
+        {loading && !detail ? (
+          <Skeleton className="h-72 w-full" />
+        ) : error ? (
+          <Card><p className="text-sm text-error">{error}</p><Button className="mt-3" size="sm" variant="secondary" onClick={load}>Retry</Button></Card>
+        ) : detail ? (
+          <>
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-white">{detail.class_name}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/50">
+                <span>{detail.student_count} students</span>
+                <span>·</span><span>{detail.avg_score}% avg score</span>
+                <span>·</span><span>{detail.avg_progress}% avg progress</span>
+                <span>·</span><span>{detail.active_this_week} active this week</span>
+                {detail.at_risk_count > 0 && <Badge tone="error">{detail.at_risk_count} at-risk</Badge>}
               </div>
             </div>
 
-            {filteredStudents.length === 0 ? (
-              <div className="bg-surface-elevated rounded-xl p-8 border border-border text-center">
-                <p className="text-white/60">
-                  No students in &quot;{filter}&quot; filter
-                </p>
-              </div>
-            ) : (
-              <div className="bg-surface-elevated rounded-xl border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
-                          Student ID
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
-                          Progress
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
-                          Score
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-white/60 uppercase tracking-wider">
-                          Last Active
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {filteredStudents.map((student) => (
-                        <tr key={student.id} className="hover:bg-surface-hover transition-colors">
-                          <td className="px-6 py-3 text-sm text-white font-medium">
-                            {student.id.slice(0, 8)}...
-                          </td>
-                          <td className="px-6 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 h-2 bg-surface-hover rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-gradient-accent"
-                                  style={{ width: `${student.progress}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-white/60">{student.progress}%</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3 text-sm">
-                            <span
-                              className={
-                                student.avg_score >= 70
-                                  ? "text-green-400"
-                                  : student.avg_score >= 50
-                                  ? "text-yellow-400"
-                                  : "text-error"
-                              }
-                            >
-                              {student.avg_score}%
-                            </span>
-                          </td>
-                          <td className="px-6 py-3">
-                            <span
-                              className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                                student.status === "active"
-                                  ? "bg-green-400/20 text-green-400"
-                                  : "bg-white/10 text-white/60"
-                              }`}
-                            >
-                              {student.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3 text-sm text-white/60">
-                            {student.last_active
-                              ? new Date(student.last_active).toLocaleDateString()
-                              : "Never"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
+            <div className="grid gap-6 lg:grid-cols-4">
+              <div className="space-y-4 lg:col-span-3">
+                {/* Filters */}
+                <Card padding="sm">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Select label="Show" value={status} onChange={(v) => { setStatus(v); setPage(1); }}
+                      options={[["all", "All students"], ["good", "On track"], ["caution", "Caution"], ["at_risk", "At-risk"]]} />
+                    <Select label="Sort by" value={sortBy} onChange={(v) => { setSortBy(v); setPage(1); }}
+                      options={[["progress", "Progress"], ["score", "Score"], ["activity", "Activity"], ["name", "Name"]]} />
+                    <div>
+                      <label className="mb-1 block text-xs text-white/40">Search</label>
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                        <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                          placeholder="Find a student…" className="input-field pl-9" />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
 
-          {/* Quick actions */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Link href={`/teacher/class/${id}/assign`} className="bg-surface-elevated rounded-xl p-6 border border-border hover:border-accent/50 transition-all">
-              <h3 className="text-white font-semibold mb-1">Assign Content</h3>
-              <p className="text-white/60 text-sm">Create assignment or quiz</p>
-            </Link>
-            <Link href={`/teacher/class/${id}/analytics`} className="bg-surface-elevated rounded-xl p-6 border border-border hover:border-accent/50 transition-all">
-              <h3 className="text-white font-semibold mb-1">View Analytics</h3>
-              <p className="text-white/60 text-sm">Class-wide performance data</p>
-            </Link>
-          </div>
-        </div>
-      </main>
+                {/* Roster */}
+                {roster && roster.roster.length > 0 ? (
+                  <>
+                    <ClassRosterTable roster={roster.roster} onView={viewStudent} />
+                    {roster.pagination.pages > 1 && (
+                      <div className="flex items-center justify-center gap-3 text-sm">
+                        <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+                        <span className="text-white/50">Page {roster.pagination.page} of {roster.pagination.pages}</span>
+                        <Button size="sm" variant="secondary" disabled={page >= roster.pagination.pages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <EmptyState icon={<Users className="h-5 w-5" />} title="No students found" description="No students match your filters yet." />
+                )}
+              </div>
+
+              {/* Quick actions */}
+              <div>
+                <Card padding="md">
+                  <h3 className="mb-3 text-sm font-semibold text-white">Quick actions</h3>
+                  <div className="space-y-2">
+                    <Button fullWidth size="sm" variant="secondary" onClick={exportCsv} loading={exporting} leftIcon={<Download className="h-4 w-4" />}>
+                      Export roster (CSV)
+                    </Button>
+                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Send class message</Button>
+                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Assign homework</Button>
+                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Generate report</Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
     </>
+  );
+}
+
+function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-white/40">{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field">
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </div>
   );
 }
