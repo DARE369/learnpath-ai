@@ -223,15 +223,16 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
   }
 
   // Auto-run search when arriving with ?q=...&autorun=1 — used by catalog
-  // "Start learning" buttons so a single click pipes a curated course title
-  // through the real search pipeline.
-  const autorunFiredRef = useRef(false);
+  // "Start course" buttons so a single click pipes a curated course title
+  // through the real search pipeline. Track the last autorun query so
+  // navigating to a different catalog course on the same page fires again.
+  const autorunFiredRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!router.isReady || autorunFiredRef.current) return;
+    if (!router.isReady) return;
     const q = router.query.q;
     const autorun = router.query.autorun;
-    if (typeof q === "string" && q && autorun === "1") {
-      autorunFiredRef.current = true;
+    if (typeof q === "string" && q && autorun === "1" && autorunFiredRef.current !== q) {
+      autorunFiredRef.current = q;
       setQuery(q);
       void runSearch(q);
     }

@@ -196,7 +196,7 @@ function PlacementTest({ onComplete }: { onComplete: (score: number, level: stri
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { accessToken } = useAuth();
+  const { accessToken, refresh } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -259,6 +259,9 @@ export default function OnboardingPage() {
       }
 
       if (step === TOTAL) {
+        // Sync auth context so _app.tsx guard sees onboardingCompleted=true
+        // before navigating — without this it immediately redirects back here.
+        await refresh();
         router.replace('/dashboard');
       } else {
         setStep(s => s + 1);

@@ -335,8 +335,10 @@ export default function LearningSessionPage() {
                 : "not_started";
             mastery = real.mastery;
           } else {
+            // No real mastery data yet — show 0 until the backend records progress.
+            // "learning" status signals the user is actively on this concept.
             status = i === videoIndex ? "learning" : "not_started";
-            mastery = i === videoIndex ? 30 : 0;
+            mastery = 0;
           }
           list.push({ name: c, status, mastery });
         });
