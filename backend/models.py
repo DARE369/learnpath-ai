@@ -665,6 +665,9 @@ class Teacher(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    # Links this teacher record to the platform User (added ADMIN-1.1). Nullable
+    # for legacy rows; new teachers are provisioned with it set.
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=False)
     role = Column(String, default="teacher")  # teacher | department_head | principal

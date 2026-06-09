@@ -61,6 +61,10 @@ _SCHEMA_PATCHES = [
     "ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS concept VARCHAR",
     # Study-buddy presence.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP",
+    # Link a Teacher record to its platform User (ADMIN-1.1). The teacher dashboard
+    # query depends on this column.
+    "ALTER TABLE teachers ADD COLUMN IF NOT EXISTS user_id UUID",
+    "CREATE INDEX IF NOT EXISTS idx_teachers_user_id ON teachers(user_id)",
     # Performance indexes (Packet 6.2) — auto-applied so no manual migration.
     "CREATE INDEX IF NOT EXISTS idx_users_tier ON users(tier)",
     "CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC)",

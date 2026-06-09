@@ -77,15 +77,14 @@ async def get_teacher_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get teacher's main dashboard."""
-    teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
-    if not teacher:
-        raise HTTPException(status_code=404, detail="Teacher profile not found")
-
+    """Get teacher's aggregated dashboard hub (auto-provisions a teacher record on
+    first access so individual teachers work with no manual org setup)."""
+    if getattr(current_user, "role", "user") not in ("teacher", "school_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not a teacher")
     try:
         service = TeacherService(db)
-        dashboard = await service.get_teacher_dashboard(str(teacher.id))
-        return dashboard
+        teacher = service.ensure_teacher(current_user)
+        return service.get_dashboard_overview(str(teacher.id))
     except Exception as e:
         logger.exception(f"get_teacher_dashboard failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to load dashboard")
