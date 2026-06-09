@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 LOW_SCORE_THRESHOLD = 65
 
+# Nominal NGN cost charged to a user per generated (cache-miss) path, for the
+# per-user daily AI budget fence. A soft estimate, not exact billing.
+_GEN_COST_NGN = 5.0
+
 
 def _log_search_event(
     db: Optional[Session],
@@ -126,6 +130,14 @@ class SearchService:
                     }
 
         logger.info("Cache miss — executing full pipeline")
+
+        # Per-user AI spend fence (Stage 6): generation costs tokens, so charge the
+        # user a nominal estimate before the expensive calls. Cache hits above are
+        # free and never charged. Raises BudgetExceeded -> router maps to 429.
+        if user_id:
+            from services.cost_tracker import cost_tracker
+            cost_tracker.charge_user(user_id, _GEN_COST_NGN)
+
         start = datetime.utcnow()
 
         # ----------------------------------------------------------------

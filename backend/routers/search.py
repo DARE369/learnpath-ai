@@ -17,6 +17,7 @@ import services.search_service as _search_mod
 from database import get_db
 from models import User
 from routers.auth import get_current_user
+from services.cost_tracker import BudgetExceeded
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -262,6 +263,12 @@ async def build_path(
             use_cache=payload.use_cache and not payload.force_refresh,
             user_id=str(user.id) if getattr(user, "id", None) else None,
             db=db,
+        )
+    except BudgetExceeded:
+        # Per-user daily AI budget reached (Stage 6).
+        raise HTTPException(
+            status_code=429,
+            detail="You've reached today's limit for building new paths. Try a path you've already explored, or come back tomorrow.",
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -5,12 +5,45 @@ These are admin/ops endpoints — add authentication before exposing in producti
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
+from database import get_db
+from models import User
+from routers.auth import require_admin
 from services.cache_service import cache_service
+from services.cost_tracker import cost_tracker
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/metrics")
+async def cost_and_cache_metrics(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin: AI cost fences, cache hit-rate, and path-library reuse — the
+    token-savings dashboard. Each DB serve of a stored path avoided a generation."""
+    from sqlalchemy import func
+    from models import CachedPath
+
+    row = db.query(
+        func.count(CachedPath.id),
+        func.coalesce(func.sum(CachedPath.times_served), 0),
+    ).filter(CachedPath.valid.is_(True)).first()
+    stored_paths = int(row[0] or 0) if row else 0
+    total_reuse = int(row[1] or 0) if row else 0
+
+    return {
+        "ai_budgets": cost_tracker.stats(),
+        "cache": cache_service.get_cache_stats(),
+        "path_library": {
+            "stored_paths": stored_paths,
+            "served_from_library": total_reuse,
+            "est_generations_saved": total_reuse,
+        },
+    }
 
 
 @router.get("/stats")
@@ -34,7 +67,7 @@ async def list_cached_topics():
 
 
 @router.post("/clear")
-async def clear_cache():
+async def clear_cache(_admin: User = Depends(require_admin)):
     """
     Wipe both cache layers and reset hit/miss counters.
     Use after a bulk EQS re-score or schema migration.
@@ -45,7 +78,7 @@ async def clear_cache():
 
 
 @router.post("/invalidate/{topic_id}", status_code=status.HTTP_200_OK)
-async def invalidate_topic(topic_id: str):
+async def invalidate_topic(topic_id: str, _admin: User = Depends(require_admin)):
     """
     Invalidate the Layer 1 cache entry for a specific topic.
     Call this when EQS scores are updated for videos in that topic.

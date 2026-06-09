@@ -33,6 +33,7 @@ class CostTracker:
         if budgets:
             self._budgets.update(budgets)
         self._spend: Dict[str, float] = {}
+        self._user_spend: Dict[str, float] = {}  # per-user NGN spend for the day
         self._day: date = date.today()
         self._lock = threading.Lock()
 
@@ -42,6 +43,41 @@ class CostTracker:
             logger.info(f"Cost tracker: rolling over from {self._day} to {today}")
             self._day = today
             self._spend.clear()
+            self._user_spend.clear()
+
+    @staticmethod
+    def _user_daily_cap() -> float:
+        try:
+            from config import settings
+            return float(getattr(settings, "AI_USER_DAILY_BUDGET_NGN", 0) or 0)
+        except Exception:
+            return 0.0
+
+    def user_remaining(self, user_id: str) -> float:
+        cap = self._user_daily_cap()
+        if cap <= 0:
+            return float("inf")
+        with self._lock:
+            self._rollover_if_new_day()
+            return max(0.0, cap - self._user_spend.get(str(user_id), 0.0))
+
+    def charge_user(self, user_id: str, amount_ngn: float) -> float:
+        """Record a per-user AI spend. Raises BudgetExceeded if it would push the
+        user over AI_USER_DAILY_BUDGET_NGN. A cap of 0 disables the per-user fence
+        (still tracks spend for metrics)."""
+        if not user_id:
+            return 0.0
+        uid = str(user_id)
+        cap = self._user_daily_cap()
+        with self._lock:
+            self._rollover_if_new_day()
+            current = self._user_spend.get(uid, 0.0)
+            if cap > 0 and current + amount_ngn > cap:
+                raise BudgetExceeded(
+                    f"Daily AI budget exceeded for user: ₦{current:.2f} + ₦{amount_ngn:.2f} > ₦{cap:.2f}"
+                )
+            self._user_spend[uid] = current + amount_ngn
+            return self._user_spend[uid]
 
     def budget(self, feature: str) -> float:
         return self._budgets.get(feature, 0.0)
