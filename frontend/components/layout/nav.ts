@@ -15,6 +15,7 @@ import {
   Settings,
   School,
   AlertTriangle,
+  ClipboardList,
   Shield,
   TrendingUp,
   Layers,
@@ -80,6 +81,7 @@ const TEACHER: NavGroup[] = [
     label: "Teaching",
     items: [
       { label: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },
+      { label: "Assignments", href: "/teacher/assignments", icon: ClipboardList },
       { label: "At-risk students", href: "/teacher/at-risk", icon: AlertTriangle },
     ],
   },

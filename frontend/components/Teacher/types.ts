@@ -107,6 +107,58 @@ export const STATUS_TONE: Record<StudentStatus, "success" | "warning" | "error">
   at_risk: "error",
 };
 
+// ── ADMIN-1.3: assignments ────────────────────────────────────────────────────
+
+export const ASSIGNMENT_TYPES: [string, string][] = [
+  ["quick_quiz", "Quick quiz"],
+  ["custom_quiz", "Custom quiz"],
+  ["video", "Video"],
+  ["path", "Learning path"],
+  ["document", "Document"],
+  ["discussion", "Discussion"],
+  ["external_link", "External link"],
+];
+export const ASSIGNMENT_TYPE_LABEL: Record<string, string> = Object.fromEntries(ASSIGNMENT_TYPES);
+
+export interface AssignmentListItem {
+  id: string;
+  name: string;
+  assignment_type: string;
+  class_id: string;
+  class_name: string;
+  due_date: string | null;
+  total: number;
+  submitted: number;
+  graded: number;
+  created_at: string;
+}
+
+export interface ResponseRow {
+  submission_id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string | null;
+  status: "assigned" | "submitted" | "pending_manual" | "graded" | string;
+  score: number | null;
+  teacher_notes: string | null;
+  is_late: boolean;
+  submitted_at: string | null;
+}
+
+export interface AssignmentResponses {
+  assignment: { id: string; name: string; assignment_type: string; due_date: string | null; description: string | null };
+  stats: { assigned: number; submitted: number; pending_manual: number; graded: number; total: number };
+  responses: ResponseRow[];
+  pagination: { page: number; page_size: number; total: number; pages: number };
+}
+
+export const SUBMISSION_TONE: Record<string, "success" | "warning" | "error" | "neutral"> = {
+  graded: "success",
+  submitted: "warning",
+  pending_manual: "warning",
+  assigned: "neutral",
+};
+
 export function timeAgo(iso: string | null): string {
   if (!iso) return "Never";
   const diff = Date.now() - new Date(iso).getTime();

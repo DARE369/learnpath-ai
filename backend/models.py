@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, String, Integer, Float, Boolean,
-    DateTime, Date, Text, ForeignKey, JSON,
+    DateTime, Date, Text, ForeignKey, JSON, UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
@@ -706,6 +706,58 @@ class ClassMembership(Base):
     last_active = Column(DateTime)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TeacherAssignment(Base):
+    """A homework/quiz/content assignment a teacher gives a class (ADMIN-1.3).
+    Type-specific payload lives in content_data (JSON) so we don't need a table
+    per type. Student submission/auto-grading/notifications are a later packet."""
+    __tablename__ = "teacher_assignments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("teachers.id"), nullable=False, index=True)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False, index=True)
+
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    # quick_quiz | custom_quiz | video | path | document | discussion | external_link
+    assignment_type = Column(String, default="document")
+    content_data = Column(JSON, default=dict)  # link/url, doc note, question list, content id…
+
+    due_date = Column(DateTime, nullable=True)
+    deadline_type = Column(String, default="allow_anytime")  # allow_anytime | hard_cutoff | late_with_penalty
+    late_penalty_percent = Column(Integer, nullable=True)
+    late_penalty_days = Column(Integer, nullable=True)
+
+    assigned_to_type = Column(String, default="whole_class")  # whole_class | individuals
+    is_active = Column(Boolean, default=True, index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AssignmentSubmission(Base):
+    """One student's submission/grade record for an assignment (ADMIN-1.3). A row
+    is created per targeted student at assignment time (status 'assigned')."""
+    __tablename__ = "assignment_submissions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    assignment_id = Column(UUID(as_uuid=True), ForeignKey("teacher_assignments.id"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    submission_data = Column(JSON, default=dict)
+    status = Column(String, default="assigned", index=True)  # assigned | submitted | pending_manual | graded
+    auto_score = Column(Integer, nullable=True)
+    manual_score = Column(Integer, nullable=True)
+    teacher_notes = Column(Text, nullable=True)
+
+    is_late = Column(Boolean, default=False)
+    submitted_at = Column(DateTime, nullable=True)
+    graded_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("assignment_id", "student_id", name="uq_assignment_student"),)
 
 
 class OrganizationSubscription(Base):

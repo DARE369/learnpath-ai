@@ -11,6 +11,7 @@ from database import get_db
 from models import User, Teacher, Class, ClassMembership, Organization
 from routers.auth import get_current_user
 from services.teacher_service import TeacherService
+from services.assignment_service import AssignmentService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -231,6 +232,109 @@ async def get_student_profile(
     except Exception as e:
         logger.exception(f"get_student_profile failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to load student profile")
+
+
+# ── ADMIN-1.3: assignments (teacher side) ─────────────────────────────────────
+
+
+class CreateAssignmentRequest(BaseModel):
+    class_id: str
+    name: str
+    description: Optional[str] = None
+    assignment_type: str = "document"
+    content_data: dict = {}
+    due_date: Optional[str] = None
+    deadline_type: str = "allow_anytime"
+    late_penalty_percent: Optional[int] = None
+    late_penalty_days: Optional[int] = None
+    assigned_to_type: str = "whole_class"
+    assigned_student_ids: list[str] = []
+
+
+class GradeRequest(BaseModel):
+    score: int
+    notes: Optional[str] = ""
+
+
+@router.get("/assignments", tags=["assignments"])
+async def list_assignments(
+    class_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    teacher = _teacher_or_403(current_user, db)
+    return {"assignments": AssignmentService(db).list_assignments(teacher, class_id)}
+
+
+@router.post("/assignments", tags=["assignments"])
+async def create_assignment(
+    payload: CreateAssignmentRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    teacher = _teacher_or_403(current_user, db)
+    try:
+        return AssignmentService(db).create_assignment(teacher, payload.class_id, payload.model_dump())
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your class")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception(f"create_assignment failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create assignment")
+
+
+@router.get("/assignments/{assignment_id}/responses", tags=["assignments"])
+async def assignment_responses(
+    assignment_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=1000),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    teacher = _teacher_or_403(current_user, db)
+    try:
+        return AssignmentService(db).get_responses(teacher, assignment_id, page, page_size)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your assignment")
+    except Exception as e:
+        logger.exception(f"assignment_responses failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load responses")
+
+
+@router.put("/submissions/{submission_id}/grade", tags=["assignments"])
+async def grade_submission(
+    submission_id: str,
+    payload: GradeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    teacher = _teacher_or_403(current_user, db)
+    try:
+        return AssignmentService(db).grade_submission(teacher, submission_id, payload.score, payload.notes or "")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your assignment")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception(f"grade_submission failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to grade submission")
+
+
+@router.delete("/assignments/{assignment_id}", tags=["assignments"])
+async def delete_assignment(
+    assignment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    teacher = _teacher_or_403(current_user, db)
+    try:
+        return AssignmentService(db).delete_assignment(teacher, assignment_id)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your assignment")
+    except Exception as e:
+        logger.exception(f"delete_assignment failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete assignment")
 
 
 @router.get("/{teacher_id}/at-risk", tags=["teachers"])

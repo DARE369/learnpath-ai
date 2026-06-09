@@ -72,7 +72,7 @@ export default function TeacherDashboardPage() {
               <Card padding="md">
                 <h3 className="mb-3 text-sm font-semibold text-white">Quick actions</h3>
                 <div className="space-y-1.5">
-                  <Action icon={<ClipboardList className="h-4 w-4" />} label="Create assignment" soon />
+                  <Action icon={<ClipboardList className="h-4 w-4" />} label="Create assignment" onClick={() => router.push("/teacher/assignments")} />
                   <Action icon={<MessageSquare className="h-4 w-4" />} label="Message a student" soon />
                   <Action icon={<BookOpen className="h-4 w-4" />} label="Assign content" soon />
                   <Action icon={<BarChart3 className="h-4 w-4" />} label="View analytics" onClick={() => router.push("/teacher/at-risk")} />
