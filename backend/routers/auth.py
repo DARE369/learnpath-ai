@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
@@ -208,6 +209,54 @@ async def reset_password(payload: ResetPasswordRequest, db: Session = Depends(ge
     auth_service.set_password(db, user, payload.new_password)
     logger.info(f"Password reset for: {user.email}")
     return {"message": "Password updated. Please sign in."}
+
+
+# ── Data rights (Stage 8) ─────────────────────────────────────────────────────
+
+
+@router.get("/export")
+async def export_my_data(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download everything we hold for the signed-in user (NDPR/GDPR access)."""
+    from services.privacy_service import export_user_data
+    return {
+        "exported_at": datetime.utcnow().isoformat(),
+        "user_id": str(current_user.id),
+        "data": export_user_data(db, current_user.id),
+    }
+
+
+class DeleteAccountRequest(BaseModel):
+    confirm: bool = False
+    password: Optional[str] = None
+
+
+@router.post("/account/delete")
+async def delete_my_account(
+    payload: DeleteAccountRequest,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    refresh_token: Optional[str] = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    """Erase the signed-in user's account (anonymise + deactivate). Requires the
+    account password when the user has one."""
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="Confirmation required")
+    if current_user.password_hash:
+        from services.auth_service import verify_password
+        if not payload.password or not verify_password(payload.password, current_user.password_hash):
+            raise HTTPException(status_code=403, detail="Password is incorrect")
+
+    from services.privacy_service import delete_user_account
+    delete_user_account(db, current_user)
+    if refresh_token:
+        auth_service.revoke_refresh_token(db, refresh_token)
+    response.delete_cookie(REFRESH_COOKIE, path="/")
+    logger.info("Account deletion completed")
+    return {"message": "Your account has been deleted."}
 
 
 @router.get("/me", response_model=UserResponse)

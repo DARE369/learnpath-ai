@@ -152,6 +152,56 @@ export default function SettingsPage() {
     router.push("/auth/login");
   }
 
+  // ── Privacy & data (Stage 8) ────────────────────────────────────────────────
+  const [exporting, setExporting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleExport() {
+    if (!accessToken) return;
+    setExporting(true);
+    try {
+      const res = await axios.get("/api/auth/export", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `learnpath-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* surfaced via button state only */
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!accessToken) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await axios.post(
+        "/api/auth/account/delete",
+        { confirm: true, password: deletePassword || undefined },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      logout();
+      router.push("/");
+    } catch (err: unknown) {
+      let message = "Couldn't delete your account.";
+      if (axios.isAxiosError(err)) {
+        message = (err.response?.data as { detail?: string } | undefined)?.detail || message;
+      }
+      setDeleteError(message);
+      setDeleting(false);
+    }
+  }
+
   return (
     <>
       <Head>
@@ -271,6 +321,37 @@ export default function SettingsPage() {
             </form>
           </Section>
 
+          {/* Privacy & data */}
+          <Section title="Privacy & data" description="Export or permanently delete your data.">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-5">
+              <div>
+                <p className="text-sm font-medium text-white">Download my data</p>
+                <p className="text-xs text-white/40 mt-0.5">Get a JSON copy of everything we hold for you.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting}
+                className="px-5 py-2.5 rounded-xl bg-surface border border-border text-white/80 text-sm font-medium hover:text-white hover:border-white/25 transition-colors disabled:opacity-50"
+              >
+                {exporting ? "Preparing…" : "Download data"}
+              </button>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-5">
+              <div>
+                <p className="text-sm font-medium text-white">Delete my account</p>
+                <p className="text-xs text-white/40 mt-0.5">Permanently removes your personal data. This can&apos;t be undone.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeleteOpen(true); setDeleteError(null); setDeletePassword(""); }}
+                className="px-5 py-2.5 rounded-xl bg-error-muted text-error text-sm font-semibold hover:bg-error/20 transition-colors"
+              >
+                Delete account
+              </button>
+            </div>
+          </Section>
+
           {/* Account */}
           <Section title="Account" description="Sign out or manage your account.">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -289,6 +370,53 @@ export default function SettingsPage() {
           </Section>
         </div>
       </div>
+
+      {/* Delete-account confirm modal */}
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => !deleting && setDeleteOpen(false)} />
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface-elevated p-6">
+            <h3 className="text-lg font-semibold text-white">Delete your account?</h3>
+            <p className="mt-1 text-sm text-white/50">
+              This permanently removes your personal data and signs you out. This action can&apos;t be undone.
+            </p>
+            {user?.email && (
+              <div className="mt-4">
+                <label htmlFor="delpw" className="label">Confirm your password</label>
+                <input
+                  id="delpw"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  className="input-field"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
+                <p className="mt-1 text-xs text-white/30">Leave blank if you signed up with Google.</p>
+              </div>
+            )}
+            {deleteError && <p className="mt-3 text-sm text-error">{deleteError}</p>}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(false)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-white/60 hover:text-white text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="px-5 py-2.5 rounded-xl bg-error text-onaccent text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete forever"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
