@@ -1,618 +1,831 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import {
-  BookOpen, Target, Trophy, Briefcase, Languages, FlaskConical, Wrench, Sparkles,
-  Sunrise, Sun, CloudSun, Sunset, Moon, Video, Headphones, FileText, Pencil,
-  MessageSquare, BarChart3, Users, Calendar, Clock, Lightbulb, Rocket, Check,
-  AlertTriangle, ArrowLeft, ArrowRight,
+  BookOpen, Target, Trophy, Briefcase, Languages, FlaskConical,
+  Wrench, Sparkles, Check, ArrowRight, ArrowLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
-type IconType = React.ComponentType<{ className?: string }>;
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+type GoalType = 'waec_jamb' | 'sat_ielts' | 'general';
 
-interface FormData {
-  study_goals: string[];
-  level: string;
-  placement_test_taken: boolean;
-  test_score: number | null;
-  deadline_date: string;
-  target_score: number;
-  weekly_hours: number;
-  preferred_times: string[];
-  learning_styles: string[];
-}
+interface WAECSubject { id: string; name: string; code: string; category: string }
+interface DiagnosticQuestion { id: string; topic_id: string | null; question: string; options: string[] }
 
-const EMPTY_FORM: FormData = {
-  study_goals: [],
-  level: 'intermediate',
-  placement_test_taken: false,
-  test_score: null,
-  deadline_date: '',
-  target_score: 7,
-  weekly_hours: 10,
-  preferred_times: [],
-  learning_styles: [],
-};
+// ─── Goal options ─────────────────────────────────────────────────────────────
 
-// ---------------------------------------------------------------------------
-// Static data
-// ---------------------------------------------------------------------------
-
-const GOAL_OPTIONS: { id: string; label: string; icon: IconType; desc: string }[] = [
-  { id: 'ielts',        label: 'IELTS Exam',          icon: BookOpen,     desc: 'Prepare for IELTS, TOEFL or English proficiency exams' },
-  { id: 'sat',          label: 'SAT / ACT Prep',       icon: Target,       desc: 'US college admissions standardised test preparation' },
-  { id: 'waec',         label: 'WAEC / JAMB',          icon: Trophy,       desc: 'Nigerian secondary school and university entrance exams' },
-  { id: 'professional', label: 'Professional Skill',   icon: Briefcase,    desc: 'Data science, coding, finance, management and more' },
-  { id: 'language',     label: 'Language Learning',    icon: Languages,    desc: 'English, French, Yoruba or any other language' },
-  { id: 'academic',     label: 'Academic Subject',     icon: FlaskConical, desc: 'Math, Physics, Chemistry, Biology and more' },
-  { id: 'trades',       label: 'Trades / Practical',   icon: Wrench,       desc: 'Technical, vocational and hands-on skills' },
-  { id: 'hobby',        label: 'Personal Interest',    icon: Sparkles,     desc: 'Learn something just for the love of it' },
+const GOAL_OPTIONS = [
+  {
+    id: 'waec_jamb' as GoalType,
+    label: 'WAEC / JAMB',
+    icon: Trophy,
+    desc: 'Nigerian secondary school and university entrance exams',
+    badge: '🇳🇬 Most popular',
+  },
+  {
+    id: 'sat_ielts' as GoalType,
+    label: 'SAT / IELTS / TOEFL',
+    icon: Target,
+    desc: 'International standardised tests and English proficiency exams',
+    badge: null,
+  },
+  {
+    id: 'general' as GoalType,
+    label: 'Professional or Personal',
+    icon: Sparkles,
+    desc: 'Career skills, DIY, coding, languages, or anything else',
+    badge: null,
+  },
 ];
 
-const LEVEL_OPTIONS = [
-  { id: 'beginner',     label: 'Beginner',     desc: "I'm new to this or still struggling with the basics" },
-  { id: 'intermediate', label: 'Intermediate', desc: 'I understand the basics and want to build on them' },
-  { id: 'advanced',     label: 'Advanced',     desc: "I'm confident and want to master advanced material" },
+const SS_LEVELS = [
+  { id: 'SS1', label: 'SS1', desc: 'First year senior secondary' },
+  { id: 'SS2', label: 'SS2', desc: 'Second year — heading into exam prep' },
+  { id: 'SS3', label: 'SS3', desc: 'Final year — exam is close' },
 ];
 
-const PLACEMENT_QUESTIONS = [
-  { id: 'p1',  diff: 'easy',   text: 'Which planet is closest to the Sun?',           opts: ['Mercury','Venus','Earth','Mars'] },
-  { id: 'p2',  diff: 'easy',   text: 'What is 15 × 4?',                               opts: ['50','60','55','65'] },
-  { id: 'p3',  diff: 'easy',   text: 'What is the chemical symbol for water?',        opts: ['H2O','CO2','O2','HO'] },
-  { id: 'p4',  diff: 'medium', text: 'What is the derivative of x³?',                 opts: ['3x²','x²','3x','2x³'] },
-  { id: 'p5',  diff: 'medium', text: 'In which country was Shakespeare born?',        opts: ['England','Ireland','Scotland','France'] },
-  { id: 'p6',  diff: 'medium', text: 'What does CPU stand for?',                      opts: ['Central Processing Unit','Core Power Unit','Computer Processing Unit','Central Program Unit'] },
-  { id: 'p7',  diff: 'medium', text: 'What is the capital of Australia?',             opts: ['Sydney','Melbourne','Canberra','Brisbane'] },
-  { id: 'p8',  diff: 'hard',   text: 'What is the integral of 1/x?',                  opts: ['ln|x| + C','x⁻² + C','eˣ + C','x + C'] },
-  { id: 'p9',  diff: 'hard',   text: 'Who developed the theory of general relativity?', opts: ['Einstein','Newton','Bohr','Heisenberg'] },
-  { id: 'p10', diff: 'hard',   text: 'What does DNA stand for?',                      opts: ['Deoxyribonucleic Acid','Dinucleic Acid','Dinitrogen Acid','Deoxynuclein Acid'] },
+const INTL_EXAMS = [
+  { id: 'ielts', label: 'IELTS', desc: 'International English Language Testing System' },
+  { id: 'toefl', label: 'TOEFL', desc: 'Test of English as a Foreign Language' },
+  { id: 'sat',   label: 'SAT',   desc: 'US college admissions standardised test' },
+  { id: 'act',   label: 'ACT',   desc: 'Alternative US college admissions test' },
 ];
 
-const TIME_COMMITMENT = [5, 10, 15, 20];
-
-const STUDY_TIMES: { id: string; label: string; time: string; icon: IconType }[] = [
-  { id: 'early_morning', label: 'Early Morning', time: '5 – 7 AM',  icon: Sunrise },
-  { id: 'morning',       label: 'Morning',       time: '7 – 12 PM', icon: Sun },
-  { id: 'afternoon',     label: 'Afternoon',     time: '12 – 5 PM', icon: CloudSun },
-  { id: 'evening',       label: 'Evening',       time: '5 – 9 PM',  icon: Sunset },
-  { id: 'late_night',    label: 'Late Night',    time: '9 PM+',     icon: Moon },
+const LEARNING_STYLES = [
+  { id: 'video',       label: 'Video lessons',       icon: '🎬' },
+  { id: 'text',        label: 'Reading & Notes',      icon: '📖' },
+  { id: 'interactive', label: 'Practice questions',   icon: '✏️' },
+  { id: 'audio',       label: 'Audio / Podcasts',     icon: '🎧' },
+  { id: 'visual',      label: 'Diagrams & Charts',    icon: '📊' },
 ];
 
-const LEARNING_STYLES: { id: string; label: string; icon: IconType; desc: string }[] = [
-  { id: 'video',       label: 'Video lessons',         icon: Video,         desc: 'Learn by watching explanations and examples' },
-  { id: 'audio',       label: 'Audio / Podcasts',      icon: Headphones,    desc: 'Listen to lessons while doing other activities' },
-  { id: 'text',        label: 'Reading & Notes',       icon: FileText,      desc: 'Prefer text-based content and note-taking' },
-  { id: 'interactive', label: 'Interactive Exercises', icon: Pencil,        desc: 'Learn by doing lots of practice problems' },
-  { id: 'discussion',  label: 'Discussion & Q&A',      icon: MessageSquare, desc: 'Learn by asking questions and discussing' },
-  { id: 'visual',      label: 'Visual Diagrams',       icon: BarChart3,     desc: 'Prefer charts, graphs and concept maps' },
-  { id: 'groups',      label: 'Study Groups',          icon: Users,         desc: 'Learn best with others' },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const GOAL_LABEL: Record<string, string> = Object.fromEntries(GOAL_OPTIONS.map(g => [g.id, g.label]));
-
-// ---------------------------------------------------------------------------
-// Progress bar
-// ---------------------------------------------------------------------------
-
-function ProgressBar({ current, total }: { current: number; total: number }) {
+function ProgressDots({ total, current }: { total: number; current: number }) {
   return (
-    <div className="w-full">
-      <div className="flex justify-between text-xs text-white/40 mb-2">
-        <span>Step {current} of {total}</span>
-        <span>{Math.round((current / total) * 100)}% complete</span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-white/10">
+    <div className="flex items-center gap-2">
+      {Array.from({ length: total }).map((_, i) => (
         <div
-          className="h-1.5 rounded-full bg-accent transition-all duration-500"
-          style={{ width: `${(current / total) * 100}%` }}
+          key={i}
+          className={`h-1.5 rounded-full transition-all duration-300 ${
+            i < current ? 'w-6 bg-accent' : i === current ? 'w-3 bg-accent/60' : 'w-3 bg-white/10'
+          }`}
         />
-      </div>
+      ))}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Placement test mini-component
-// ---------------------------------------------------------------------------
-
-function PlacementTest({ onComplete }: { onComplete: (score: number, level: string) => void }) {
-  const [qIdx, setQIdx] = useState(0);
-  const [correct, setCorrect] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState(false);
-
-  // Use a simple sequential ordering for the client-side demo test
-  const ANSWERS: Record<string, string> = {
-    p1: 'Mercury', p2: '60', p3: 'H2O', p4: '3x²', p5: 'England',
-    p6: 'Central Processing Unit', p7: 'Canberra',
-    p8: 'ln|x| + C', p9: 'Einstein', p10: 'Deoxyribonucleic Acid',
-  };
-
-  const q = PLACEMENT_QUESTIONS[qIdx];
-
-  const handleSelect = (opt: string) => {
-    if (revealed) return;
-    setSelected(opt);
-    setRevealed(true);
-    const isCorrect = opt === ANSWERS[q.id];
-    if (isCorrect) setCorrect(c => c + 1);
-
-    setTimeout(() => {
-      if (qIdx + 1 >= PLACEMENT_QUESTIONS.length) {
-        const total = qIdx + 1;
-        const score = Math.round(((isCorrect ? correct + 1 : correct) / total) * 100);
-        const level = score < 34 ? 'beginner' : score < 67 ? 'intermediate' : 'advanced';
-        onComplete(score, level);
-      } else {
-        setQIdx(i => i + 1);
-        setSelected(null);
-        setRevealed(false);
-      }
-    }, 900);
-  };
-
-  const rightAnswer = ANSWERS[q.id];
-
+function Card({ selected, onClick, children }: { selected?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-5 space-y-4">
-      <div className="flex items-center justify-between text-sm text-white/50">
-        <span>Question {qIdx + 1} / {PLACEMENT_QUESTIONS.length}</span>
-        <span className="capitalize px-2 py-0.5 rounded-full bg-white/10 text-xs">{q.diff}</span>
-      </div>
-      <p className="text-white font-medium">{q.text}</p>
-      <div className="grid grid-cols-1 gap-2">
-        {q.opts.map(opt => {
-          let cls = 'rounded-lg border p-3 text-sm text-left transition-all cursor-pointer ';
-          if (!revealed) {
-            cls += selected === opt
-              ? 'border-accent bg-accent/20 text-white'
-              : 'border-white/10 bg-white/5 text-white/80 hover:border-accent/50';
-          } else {
-            if (opt === rightAnswer) cls += 'border-green-500 bg-green-500/20 text-green-300';
-            else if (opt === selected) cls += 'border-red-500 bg-red-500/20 text-red-300';
-            else cls += 'border-white/10 bg-white/5 text-white/40';
-          }
-          return (
-            <button key={opt} type="button" className={cls} onClick={() => handleSelect(opt)}>
-              {opt}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left rounded-2xl border p-4 transition-all ${
+        selected
+          ? 'border-accent bg-accent/10 shadow-glow-sm'
+          : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main onboarding component
-// ---------------------------------------------------------------------------
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { accessToken, refresh } = useAuth();
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+
+  // Shared
+  const [goalType, setGoalType] = useState<GoalType | null>(null);
+  const [learningStyles, setLearningStyles] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [showTest, setShowTest] = useState(false);
-  const [pace, setPace] = useState<{ hours_per_week: number; hours_per_day: number; feasible: boolean } | null>(null);
-  const [form, setForm] = useState<FormData>(EMPTY_FORM);
 
-  const TOTAL = 6;
+  // WAEC/JAMB path
+  const [subjects, setSubjects] = useState<WAECSubject[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [ssLevel, setSsLevel] = useState('');
+  const [examDate, setExamDate] = useState('');
 
-  const set = (patch: Partial<FormData>) => setForm(f => ({ ...f, ...patch }));
+  // Diagnostic
+  const [diagSubjectIndex, setDiagSubjectIndex] = useState(0);
+  const [diagQuestions, setDiagQuestions] = useState<DiagnosticQuestion[]>([]);
+  const [diagAnswers, setDiagAnswers] = useState<number[]>([]);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagResult, setDiagResult] = useState<{ score_percent: number; weak_topics: string[]; message: string } | null>(null);
+  const [allDiagResults, setAllDiagResults] = useState<Record<string, typeof diagResult>>({});
 
-  const toggleArr = <K extends keyof FormData>(key: K, val: string) => {
-    const arr = form[key] as string[];
-    set({ [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] } as any);
-  };
+  // SAT/IELTS path
+  const [intlExam, setIntlExam] = useState('');
+  const [testDate, setTestDate] = useState('');
 
-  // -----------------------------------------------------------------------
-  // Validation per step
-  // -----------------------------------------------------------------------
-  const validate = (): string | null => {
-    if (step === 1 && form.study_goals.length === 0) return 'Please select at least one goal';
-    if (step === 3 && !form.deadline_date) return 'Please pick a target date';
-    if (step === 5 && form.learning_styles.length < 2) return 'Please select at least 2 learning styles';
-    return null;
-  };
+  // General path
+  const [generalTopic, setGeneralTopic] = useState('');
 
-  // -----------------------------------------------------------------------
-  // Save step to backend
-  // -----------------------------------------------------------------------
-  const saveStep = useCallback(async () => {
-    const err = validate();
-    if (err) { setError(err); return; }
-    setError('');
-    setLoading(true);
+  // Step control
+  const [step, setStep] = useState(0);
 
-    const payloads: Record<number, object> = {
-      1: { study_goals: form.study_goals },
-      2: { level: form.level, test_taken: form.placement_test_taken, test_score: form.test_score },
-      3: { deadline_date: form.deadline_date, target_score: form.target_score },
-      4: { weekly_hours: form.weekly_hours, preferred_times: form.preferred_times },
-      5: { learning_styles: form.learning_styles },
-      6: {},
-    };
+  const authHeader = accessToken
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }
+    : { 'Content-Type': 'application/json' };
 
-    try {
-      const res = await fetch(`/api/learner/onboarding/${step}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(payloads[step]),
-      });
-      if (!res.ok) throw new Error('Failed to save — please try again');
-
-      // After step 3 fetch pace
-      if (step === 3) {
-        const pr = await fetch('/api/learner/calculate-pace', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (pr.ok) setPace(await pr.json());
-      }
-
-      if (step === TOTAL) {
-        // Sync auth context so _app.tsx guard sees onboardingCompleted=true
-        // before navigating — without this it immediately redirects back here.
-        await refresh();
-        router.replace('/dashboard');
-      } else {
-        setStep(s => s + 1);
-      }
-    } catch (e: any) {
-      setError(e.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
+  // Load subjects for WAEC path
+  useEffect(() => {
+    if (goalType === 'waec_jamb' && subjects.length === 0) {
+      fetch('/api/curriculum/subjects', { headers: authHeader })
+        .then(r => r.json())
+        .then(d => setSubjects(d.subjects || []))
+        .catch(() => {});
     }
-  }, [step, form, accessToken, router]);
+  }, [goalType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // -----------------------------------------------------------------------
-  // Render step content
-  // -----------------------------------------------------------------------
-  const renderStep = () => {
-    switch (step) {
-      // ---- STEP 1: Goals ----
-      case 1:
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white">What do you want to achieve?</h2>
-              <p className="mt-1 text-white/50">Select 1–2 goals that matter most to you</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {GOAL_OPTIONS.map(g => {
-                const sel = form.study_goals.includes(g.id);
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => toggleArr('study_goals', g.id)}
-                    className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
-                      sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
-                    }`}
-                  >
-                    <g.icon className="h-6 w-6 flex-shrink-0 text-accent-light" />
-                    <div>
-                      <p className={`font-medium ${sel ? 'text-white' : 'text-white/80'}`}>{g.label}</p>
-                      <p className="text-xs text-white/40 mt-0.5">{g.desc}</p>
-                    </div>
-                    {sel && <Check className="ml-auto h-4 w-4 text-accent" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
+  // ── Step definitions per path ──────────────────────────────────────────────
 
-      // ---- STEP 2: Level ----
-      case 2:
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white">What is your current level?</h2>
-              <p className="mt-1 text-white/50">Choose the level that best describes you</p>
-            </div>
-            <div className="space-y-3">
-              {LEVEL_OPTIONS.map(l => {
-                const sel = form.level === l.id;
-                return (
-                  <button
-                    key={l.id}
-                    type="button"
-                    onClick={() => set({ level: l.id, placement_test_taken: false })}
-                    className={`w-full flex items-start gap-4 rounded-xl border p-4 text-left transition-all ${
-                      sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
-                    }`}
-                  >
-                    <div className={`mt-0.5 h-4 w-4 flex-shrink-0 rounded-full border-2 ${sel ? 'border-accent bg-accent' : 'border-white/30'}`} />
-                    <div>
-                      <p className={`font-semibold capitalize ${sel ? 'text-white' : 'text-white/70'}`}>{l.label}</p>
-                      <p className="text-sm text-white/40 mt-0.5">{l.desc}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+  // WAEC: 0=goal, 1=subjects, 2=ss_level, 3=exam_date, 4=diagnostic, 5=styles, 6=done
+  // SAT:  0=goal, 1=exam_select, 2=test_date, 3=styles, 4=done
+  // GENERAL: 0=goal, 1=topic, 2=styles, 3=done
 
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-sm font-medium text-white/70">
-                Want a more accurate level? Take our 10-question placement test. <span className="text-white/40">(optional)</span>
-              </p>
-              {form.placement_test_taken ? (
-                <p className="mt-2 flex items-center gap-1.5 text-sm text-green-400">
-                  <Check className="h-4 w-4" /> Test complete — score: {form.test_score}% · level: {form.level}
-                </p>
-              ) : !showTest ? (
-                <button
-                  type="button"
-                  onClick={() => setShowTest(true)}
-                  className="mt-3 rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20"
-                >
-                  Take Placement Test
-                </button>
-              ) : (
-                <PlacementTest
-                  onComplete={(score, level) => {
-                    set({ placement_test_taken: true, test_score: score, level });
-                    setShowTest(false);
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        );
+  const totalSteps = !goalType ? 1 : goalType === 'waec_jamb' ? 7 : goalType === 'sat_ielts' ? 5 : 4;
 
-      // ---- STEP 3: Deadline ----
-      case 3: {
-        const hasIelts = form.study_goals.includes('ielts');
-        const minDate = new Date();
-        minDate.setDate(minDate.getDate() + 28);
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white">When do you want to achieve this?</h2>
-              <p className="mt-1 text-white/50">Set a target date to help us pace your learning</p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-white/60">Target date</label>
-              <input
-                type="date"
-                value={form.deadline_date}
-                min={minDate.toISOString().split('T')[0]}
-                onChange={e => set({ deadline_date: e.target.value })}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white [color-scheme:dark] focus:border-accent focus:outline-none"
-              />
-            </div>
+  // ── Diagnostic flow ────────────────────────────────────────────────────────
 
-            {hasIelts && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-white/60">Target IELTS score</span>
-                  <span className="font-bold text-accent">{form.target_score}</span>
-                </div>
-                <input
-                  type="range" min={5} max={9} step={0.5}
-                  value={form.target_score}
-                  onChange={e => set({ target_score: parseFloat(e.target.value) })}
-                  className="w-full accent-indigo-500"
-                />
-                <div className="flex justify-between text-xs text-white/30">
-                  <span>5.0 (basic)</span>
-                  <span>7.0 (proficient)</span>
-                  <span>9.0 (native)</span>
-                </div>
-              </div>
-            )}
+  const loadDiagnosticForCurrentSubject = useCallback(async () => {
+    if (!selectedSubjects[diagSubjectIndex] || !ssLevel) return;
+    setDiagLoading(true);
+    setDiagQuestions([]);
+    setDiagAnswers([]);
+    setDiagResult(null);
+    try {
+      const res = await fetch('/api/curriculum/diagnostic/start', {
+        method: 'POST',
+        headers: authHeader,
+        body: JSON.stringify({ subject_id: selectedSubjects[diagSubjectIndex], ss_level: ssLevel }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setDiagQuestions(data.questions || []);
+    } catch {
+      setError('Could not load diagnostic questions. We\'ll skip this for now.');
+      advanceDiagnosticOrFinish({});
+    } finally {
+      setDiagLoading(false);
+    }
+  }, [selectedSubjects, diagSubjectIndex, ssLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-            {pace && (
-              <div className={`rounded-xl border p-4 ${pace.feasible ? 'border-green-500/40 bg-green-500/10' : 'border-yellow-500/40 bg-yellow-500/10'}`}>
-                <p className="text-sm font-medium text-white/70">Required pace</p>
-                <p className="text-3xl font-bold text-white mt-1">{pace.hours_per_week} hrs<span className="text-base text-white/50">/week</span></p>
-                <p className="text-xs text-white/40 mt-0.5">({pace.hours_per_day} hrs/day)</p>
-                {!pace.feasible && <p className="mt-2 flex items-center gap-1.5 text-xs text-yellow-400"><AlertTriangle className="h-3.5 w-3.5" /> Very ambitious — consider extending your deadline</p>}
-              </div>
-            )}
-          </div>
-        );
+  const submitDiagnostic = useCallback(async () => {
+    const subjectId = selectedSubjects[diagSubjectIndex];
+    if (!subjectId || diagQuestions.length === 0) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/curriculum/diagnostic/submit', {
+        method: 'POST',
+        headers: authHeader,
+        body: JSON.stringify({
+          subject_id: subjectId,
+          ss_level: ssLevel,
+          questions: diagQuestions,
+          answers: diagAnswers,
+        }),
+      });
+      const data = await res.json();
+      setDiagResult(data);
+      const newResults = { ...allDiagResults, [subjectId]: data };
+      setAllDiagResults(newResults);
+    } catch {
+      setError('Could not save diagnostic result. Moving on.');
+      advanceDiagnosticOrFinish({});
+    } finally {
+      setSaving(false);
+    }
+  }, [selectedSubjects, diagSubjectIndex, diagQuestions, diagAnswers, ssLevel, allDiagResults]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function advanceDiagnosticOrFinish(results: Record<string, typeof diagResult>) {
+    const nextIdx = diagSubjectIndex + 1;
+    if (nextIdx < selectedSubjects.length) {
+      setDiagSubjectIndex(nextIdx);
+      setDiagResult(null);
+    } else {
+      setStep(s => s + 1); // move to learning styles
+    }
+  }
+
+  useEffect(() => {
+    if (goalType === 'waec_jamb' && step === 4) {
+      void loadDiagnosticForCurrentSubject();
+    }
+  }, [step, diagSubjectIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Save final onboarding to backend ──────────────────────────────────────
+
+  const completeOnboarding = useCallback(async () => {
+    setSaving(true);
+    try {
+      // Save goal + level
+      await fetch('/api/learner/onboarding/1', {
+        method: 'POST',
+        headers: authHeader,
+        body: JSON.stringify({
+          study_goals: goalType === 'waec_jamb'
+            ? ['waec']
+            : goalType === 'sat_ielts'
+            ? [intlExam || 'sat']
+            : ['hobby'],
+        }),
+      });
+
+      // Save level
+      await fetch('/api/learner/onboarding/2', {
+        method: 'POST',
+        headers: authHeader,
+        body: JSON.stringify({ level: 'intermediate', test_taken: false, test_score: null }),
+      });
+
+      // Save deadline
+      const deadline = examDate || testDate;
+      if (deadline) {
+        await fetch('/api/learner/onboarding/3', {
+          method: 'POST',
+          headers: authHeader,
+          body: JSON.stringify({ deadline_date: deadline, target_score: 7 }),
+        });
       }
 
-      // ---- STEP 4: Time commitment ----
-      case 4:
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white">How much time can you commit?</h2>
-              <p className="mt-1 text-white/50">Per week — we&apos;ll build a schedule around this</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {TIME_COMMITMENT.map(h => {
-                const sel = form.weekly_hours === h;
-                return (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => set({ weekly_hours: h })}
-                    className={`rounded-xl border py-5 text-center transition-all ${
-                      sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
-                    }`}
-                  >
-                    <p className={`text-2xl font-bold ${sel ? 'text-accent' : 'text-white'}`}>{h}</p>
-                    <p className="text-xs text-white/40 mt-1">hours / week</p>
-                  </button>
-                );
-              })}
-            </div>
+      // Save learning styles
+      await fetch('/api/learner/onboarding/5', {
+        method: 'POST',
+        headers: authHeader,
+        body: JSON.stringify({ learning_styles: learningStyles }),
+      });
 
+      // Mark complete
+      await fetch('/api/learner/onboarding/6', {
+        method: 'POST',
+        headers: authHeader,
+        body: JSON.stringify({}),
+      });
+
+      await refresh();
+      router.replace('/dashboard');
+    } catch {
+      setError('Something went wrong saving your profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }, [goalType, intlExam, examDate, testDate, learningStyles, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  const canAdvance = () => {
+    if (step === 0) return !!goalType;
+    if (!goalType) return false;
+
+    if (goalType === 'waec_jamb') {
+      if (step === 1) return selectedSubjects.length >= 1;
+      if (step === 2) return !!ssLevel;
+      if (step === 3) return !!examDate;
+      if (step === 4) return diagQuestions.length === 0 || diagAnswers.length === diagQuestions.length;
+      if (step === 5) return learningStyles.length >= 1;
+    }
+    if (goalType === 'sat_ielts') {
+      if (step === 1) return !!intlExam;
+      if (step === 2) return !!testDate;
+      if (step === 3) return learningStyles.length >= 1;
+    }
+    if (goalType === 'general') {
+      if (step === 1) return generalTopic.trim().length >= 3;
+      if (step === 2) return learningStyles.length >= 1;
+    }
+    return true;
+  };
+
+  const handleNext = async () => {
+    setError('');
+    if (!canAdvance()) return;
+
+    // Diagnostic submit before advancing
+    if (goalType === 'waec_jamb' && step === 4 && diagResult === null && diagQuestions.length > 0) {
+      await submitDiagnostic();
+      return; // submitDiagnostic sets diagResult; user clicks "Continue" to advance
+    }
+
+    // Last step — complete onboarding
+    const lastStep = goalType === 'waec_jamb' ? 5 : goalType === 'sat_ielts' ? 3 : 2;
+    if (step === lastStep) {
+      await completeOnboarding();
+      return;
+    }
+
+    setStep(s => s + 1);
+  };
+
+  const handleBack = () => {
+    setError('');
+    if (step === 0) return;
+    // When going back from diagnostic, reset diagnostic state
+    if (goalType === 'waec_jamb' && step === 4) {
+      setDiagSubjectIndex(0);
+      setDiagQuestions([]);
+      setDiagAnswers([]);
+      setDiagResult(null);
+    }
+    setStep(s => s - 1);
+  };
+
+  const toggleStyle = (id: string) => {
+    setLearningStyles(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSubject = (id: string) => {
+    setSelectedSubjects(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const setDiagAnswer = (qi: number, answer: number) => {
+    setDiagAnswers(prev => {
+      const next = [...prev];
+      next[qi] = answer;
+      return next;
+    });
+  };
+
+  // ── Render step ────────────────────────────────────────────────────────────
+
+  const currentSubjectId = selectedSubjects[diagSubjectIndex];
+  const currentSubjectName = subjects.find(s => s.id === currentSubjectId)?.name || currentSubjectId;
+
+  const renderStep = () => {
+    // STEP 0 — Goal selection (all paths)
+    if (step === 0) {
+      return (
+        <div className="space-y-5">
+          <div>
+            <h1 className="text-2xl font-bold text-white">What are you studying for?</h1>
+            <p className="mt-1.5 text-white/50 text-sm">Pick the option that best describes your goal.</p>
+          </div>
+          <div className="space-y-3">
+            {GOAL_OPTIONS.map(g => (
+              <Card key={g.id} selected={goalType === g.id} onClick={() => setGoalType(g.id)}>
+                <div className="flex items-start gap-3">
+                  <g.icon className="h-5 w-5 text-accent-light mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-white text-sm">{g.label}</p>
+                      {g.badge && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-light font-medium">
+                          {g.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-white/40 mt-0.5">{g.desc}</p>
+                  </div>
+                  {goalType === g.id && <Check className="h-4 w-4 text-accent flex-shrink-0" />}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── WAEC/JAMB PATH ──────────────────────────────────────────────────────
+
+    if (goalType === 'waec_jamb') {
+      if (step === 1) {
+        return (
+          <div className="space-y-5">
             <div>
-              <p className="text-sm font-medium text-white/60 mb-3">Preferred study times <span className="text-white/30">(optional)</span></p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {STUDY_TIMES.map(t => {
-                  const sel = form.preferred_times.includes(t.id);
+              <h1 className="text-2xl font-bold text-white">Which subjects are you taking?</h1>
+              <p className="mt-1.5 text-white/50 text-sm">Select all the subjects you need to pass. You&apos;ll get a personalised plan for each.</p>
+            </div>
+            {subjects.length === 0 ? (
+              <div className="text-center py-8 text-white/40 text-sm">Loading subjects…</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {subjects.map(s => {
+                  const sel = selectedSubjects.includes(s.id);
                   return (
                     <button
-                      key={t.id}
+                      key={s.id}
                       type="button"
-                      onClick={() => toggleArr('preferred_times', t.id)}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                        sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
+                      onClick={() => toggleSubject(s.id)}
+                      className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
+                        sel ? 'border-accent bg-accent/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20'
                       }`}
                     >
-                      <t.icon className="h-5 w-5 flex-shrink-0 text-accent-light" />
-                      <div>
-                        <p className={`text-sm font-medium ${sel ? 'text-white' : 'text-white/70'}`}>{t.label}</p>
-                        <p className="text-xs text-white/30">{t.time}</p>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-medium truncate">{s.name}</span>
+                        {sel && <Check className="h-3.5 w-3.5 text-accent flex-shrink-0" />}
                       </div>
-                      {sel && <Check className="ml-auto h-4 w-4 text-accent" />}
+                      <p className="text-[10px] text-white/30 mt-0.5 capitalize">{s.category}</p>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            )}
+            {selectedSubjects.length > 0 && (
+              <p className="text-xs text-accent-light">{selectedSubjects.length} subject{selectedSubjects.length > 1 ? 's' : ''} selected</p>
+            )}
           </div>
         );
+      }
 
-      // ---- STEP 5: Learning styles ----
-      case 5:
+      if (step === 2) {
         return (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
-              <h2 className="text-2xl font-bold text-white">How do you prefer to learn?</h2>
-              <p className="mt-1 text-white/50">Select 2–3 styles that resonate with you</p>
+              <h1 className="text-2xl font-bold text-white">Which year are you in?</h1>
+              <p className="mt-1.5 text-white/50 text-sm">This helps us pitch the content at the right level.</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {LEARNING_STYLES.map(s => {
-                const sel = form.learning_styles.includes(s.id);
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      const arr = form.learning_styles;
-                      if (arr.includes(s.id)) {
-                        set({ learning_styles: arr.filter(x => x !== s.id) });
-                      } else if (arr.length < 4) {
-                        set({ learning_styles: [...arr, s.id] });
-                      }
-                    }}
-                    className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
-                      sel ? 'border-accent bg-accent/15' : 'border-white/10 bg-white/5 hover:border-accent/40'
-                    }`}
-                  >
-                    <s.icon className="h-6 w-6 flex-shrink-0 text-accent-light" />
+            <div className="space-y-3">
+              {SS_LEVELS.map(l => (
+                <Card key={l.id} selected={ssLevel === l.id} onClick={() => setSsLevel(l.id)}>
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className={`font-medium text-sm ${sel ? 'text-white' : 'text-white/70'}`}>{s.label}</p>
-                      <p className="text-xs text-white/40 mt-0.5">{s.desc}</p>
+                      <p className="font-semibold text-white">{l.label}</p>
+                      <p className="text-xs text-white/40 mt-0.5">{l.desc}</p>
                     </div>
-                    {sel && <Check className="ml-auto h-4 w-4 flex-shrink-0 text-accent" />}
-                  </button>
-                );
-              })}
+                    {ssLevel === l.id && <Check className="h-4 w-4 text-accent" />}
+                  </div>
+                </Card>
+              ))}
             </div>
-            <p className="text-xs text-white/30">{form.learning_styles.length}/4 selected (min 2)</p>
           </div>
         );
+      }
 
-      // ---- STEP 6: Review ----
-      case 6:
+      if (step === 3) {
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() + 14);
         return (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
-              <h2 className="text-2xl font-bold text-white">Your Learning Profile</h2>
-              <p className="mt-1 text-white/50">Review your choices before we build your path</p>
+              <h1 className="text-2xl font-bold text-white">When is your exam?</h1>
+              <p className="mt-1.5 text-white/50 text-sm">We&apos;ll use this to build a realistic study schedule and show you how much time you have left.</p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 divide-y divide-white/10">
-              {[
-                { icon: Target,    label: 'Goals',           value: form.study_goals.map(g => GOAL_LABEL[g] || g).join(', ') || '—' },
-                { icon: BarChart3, label: 'Level',           value: form.level.charAt(0).toUpperCase() + form.level.slice(1) },
-                { icon: Calendar,  label: 'Target date',     value: form.deadline_date || '—' },
-                { icon: Clock,     label: 'Time/week',       value: `${form.weekly_hours} hours` },
-                { icon: Lightbulb, label: 'Learning styles', value: form.learning_styles.join(', ') || '—' },
-              ].map(row => (
-                <div key={row.label} className="flex items-center gap-3 px-5 py-4">
-                  <row.icon className="h-5 w-7 flex-shrink-0 text-accent-light" />
-                  <span className="text-sm text-white/50 w-28 flex-shrink-0">{row.label}</span>
-                  <span className="text-sm font-medium text-white capitalize">{row.value}</span>
+            <div className="space-y-2">
+              <label className="text-sm text-white/60">Exam date</label>
+              <input
+                type="date"
+                value={examDate}
+                min={minDate.toISOString().split('T')[0]}
+                onChange={e => setExamDate(e.target.value)}
+                className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-accent/50 transition-colors"
+              />
+            </div>
+            {examDate && (
+              <div className="p-4 rounded-xl bg-accent/10 border border-accent/20">
+                <p className="text-sm text-white/80">
+                  You have{' '}
+                  <span className="font-semibold text-accent-light">
+                    {Math.ceil((new Date(examDate).getTime() - Date.now()) / 86400000)} days
+                  </span>{' '}
+                  to prepare. That&apos;s enough time to make a real difference.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      if (step === 4) {
+        // Diagnostic
+        if (diagLoading) {
+          return (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              <p className="text-white/60 text-sm">Building your {currentSubjectName} diagnostic…</p>
+            </div>
+          );
+        }
+
+        if (diagResult !== null) {
+          const pct = diagResult.score_percent;
+          const bar = Math.max(4, pct);
+          return (
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs text-accent-light font-semibold uppercase tracking-wider mb-1">
+                  {currentSubjectName} result
+                </p>
+                <h1 className="text-2xl font-bold text-white">You scored {pct}%</h1>
+                <p className="mt-1.5 text-white/50 text-sm">{diagResult.message}</p>
+              </div>
+
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={`h-2 rounded-full transition-all duration-700 ${pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                  style={{ width: `${bar}%` }}
+                />
+              </div>
+
+              {diagResult.weak_topics.length > 0 && (
+                <div className="p-4 rounded-xl bg-white/[0.04] border border-white/10 space-y-2">
+                  <p className="text-xs text-white/50 font-semibold uppercase tracking-wider">Focus areas</p>
+                  <div className="flex flex-wrap gap-2">
+                    {diagResult.weak_topics.map(t => (
+                      <span key={t} className="text-xs px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/20">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {diagSubjectIndex < selectedSubjects.length - 1 ? (
+                <p className="text-sm text-white/50">
+                  Next: <span className="text-white">{subjects.find(s => s.id === selectedSubjects[diagSubjectIndex + 1])?.name}</span>
+                </p>
+              ) : (
+                <p className="text-sm text-white/50">All diagnostics complete. Let&apos;s set up your learning preferences.</p>
+              )}
+            </div>
+          );
+        }
+
+        // Showing questions
+        const answered = diagAnswers.filter(a => a !== undefined).length;
+        return (
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-white/50 font-semibold uppercase tracking-wider">
+                  {currentSubjectName} diagnostic
+                  {selectedSubjects.length > 1 && ` (${diagSubjectIndex + 1}/${selectedSubjects.length})`}
+                </p>
+                <span className="text-xs text-white/40">{answered}/{diagQuestions.length} answered</span>
+              </div>
+              <h1 className="text-lg font-bold text-white">Quick knowledge check</h1>
+              <p className="text-white/50 text-xs mt-0.5">10 questions — no pressure, just to find your starting point.</p>
+            </div>
+
+            <div className="space-y-4 max-h-[340px] overflow-y-auto pr-1">
+              {diagQuestions.map((q, qi) => (
+                <div key={q.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2.5">
+                  <p className="text-sm text-white font-medium leading-snug">
+                    <span className="text-white/30 mr-1.5">{qi + 1}.</span>{q.question}
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {q.options.map((opt, oi) => {
+                      const sel = diagAnswers[qi] === oi;
+                      return (
+                        <button
+                          key={oi}
+                          type="button"
+                          onClick={() => setDiagAnswer(qi, oi)}
+                          className={`text-left text-xs px-3 py-2 rounded-lg border transition-all ${
+                            sel
+                              ? 'border-accent bg-accent/15 text-white'
+                              : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80'
+                          }`}
+                        >
+                          <span className="font-semibold mr-1.5 text-white/30">{['A', 'B', 'C', 'D'][oi]}.</span>
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="rounded-xl border border-accent/30 bg-accent/10 p-5 text-center">
-              <p className="flex items-center justify-center gap-2 text-lg font-bold text-white">
-                <Rocket className="h-5 w-5" /> You&apos;re all set!
-              </p>
-              <p className="text-sm text-white/50 mt-1">Click below and we&apos;ll recommend the perfect learning path for you.</p>
+          </div>
+        );
+      }
+
+      if (step === 5) {
+        return renderStylesStep();
+      }
+    }
+
+    // ── SAT / IELTS PATH ────────────────────────────────────────────────────
+
+    if (goalType === 'sat_ielts') {
+      if (step === 1) {
+        return (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Which exam are you preparing for?</h1>
+              <p className="mt-1.5 text-white/50 text-sm">We&apos;ll tailor your study path to the right format and content.</p>
+            </div>
+            <div className="space-y-3">
+              {INTL_EXAMS.map(e => (
+                <Card key={e.id} selected={intlExam === e.id} onClick={() => setIntlExam(e.id)}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-white">{e.label}</p>
+                      <p className="text-xs text-white/40 mt-0.5">{e.desc}</p>
+                    </div>
+                    {intlExam === e.id && <Check className="h-4 w-4 text-accent" />}
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
         );
+      }
 
-      default:
-        return null;
-    }
-  };
-
-  // -----------------------------------------------------------------------
-  // Page frame
-  // -----------------------------------------------------------------------
-  return (
-    <>
-      <Head>
-        <title>Set up your profile — LearnPath AI</title>
-      </Head>
-
-      <div className="min-h-screen bg-background flex flex-col items-center justify-start px-4 py-10">
-        {/* Header */}
-        <div className="mb-8 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
-            <span className="text-white text-sm font-bold">L</span>
-          </div>
-          <span className="text-white font-semibold text-lg">LearnPath AI</span>
-        </div>
-
-        <div className="w-full max-w-xl">
-          <div className="mb-8">
-            <ProgressBar current={step} total={TOTAL} />
-          </div>
-
-          {/* Step content */}
-          <div className="rounded-2xl border border-white/10 bg-surface-elevated p-6 sm:p-8">
-            {renderStep()}
-
-            {error && (
-              <p className="mt-4 rounded-lg bg-red-500/15 border border-red-500/30 px-4 py-3 text-sm text-red-400">
-                {error}
+      if (step === 2) {
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() + 14);
+        return (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-bold text-white">When is your test?</h1>
+              <p className="mt-1.5 text-white/50 text-sm">
+                We&apos;ll use this to pace your study plan. If you don&apos;t have a date yet, pick a target and adjust later.
               </p>
-            )}
-
-            <div className="mt-8 flex gap-3">
-              {step > 1 && (
-                <button
-                  type="button"
-                  onClick={() => { setStep(s => s - 1); setError(''); }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 py-3 text-sm font-medium text-white/70 hover:bg-white/5 transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={saveStep}
-                disabled={loading}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-accent py-3 text-sm font-semibold text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
-              >
-                {loading ? 'Saving…' : step === TOTAL ? <><Rocket className="h-4 w-4" /> Create My Path</> : <>Next <ArrowRight className="h-4 w-4" /></>}
-              </button>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-white/60">Test date</label>
+              <input
+                type="date"
+                value={testDate}
+                min={minDate.toISOString().split('T')[0]}
+                onChange={e => setTestDate(e.target.value)}
+                className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-accent/50 transition-colors"
+              />
+            </div>
+            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/10">
+              <p className="text-xs text-white/50">
+                We&apos;ll show you a readiness score as you study — not a predicted grade, just an honest indicator of your progress toward your aim.
+              </p>
             </div>
           </div>
+        );
+      }
 
-          <p className="mt-4 text-center text-xs text-white/25">
-            Your answers personalise your path — they can be updated any time in Settings.
-          </p>
+      if (step === 3) return renderStylesStep();
+    }
+
+    // ── GENERAL PATH ────────────────────────────────────────────────────────
+
+    if (goalType === 'general') {
+      if (step === 1) {
+        return (
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-2xl font-bold text-white">What do you want to learn?</h1>
+              <p className="mt-1.5 text-white/50 text-sm">
+                Type anything — a skill, a subject, a project, a question you want answered.
+              </p>
+            </div>
+            <textarea
+              rows={3}
+              value={generalTopic}
+              onChange={e => setGeneralTopic(e.target.value)}
+              placeholder="e.g. How to start a business, Python programming, home electrical wiring, French language basics…"
+              className="w-full bg-white/[0.05] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 focus:outline-none focus:border-accent/50 transition-colors resize-none leading-relaxed"
+            />
+            <p className="text-xs text-white/30">
+              We&apos;ll build a curated learning path from the best videos and resources available.
+            </p>
+          </div>
+        );
+      }
+
+      if (step === 2) return renderStylesStep();
+    }
+
+    return null;
+  };
+
+  function renderStylesStep() {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-bold text-white">How do you learn best?</h1>
+          <p className="mt-1.5 text-white/50 text-sm">Select everything that applies. We&apos;ll weight your content mix accordingly.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          {LEARNING_STYLES.map(s => {
+            const sel = learningStyles.includes(s.id);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => toggleStyle(s.id)}
+                className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                  sel ? 'border-accent bg-accent/10 text-white' : 'border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20'
+                }`}
+              >
+                <span className="text-lg">{s.icon}</span>
+                <span className="text-sm font-medium">{s.label}</span>
+                {sel && <Check className="ml-auto h-4 w-4 text-accent" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── CTA label ─────────────────────────────────────────────────────────────
+
+  const ctaLabel = () => {
+    if (saving) return 'Saving…';
+    if (!goalType) return 'Continue';
+
+    if (goalType === 'waec_jamb') {
+      if (step === 4) {
+        if (diagResult !== null) return diagSubjectIndex < selectedSubjects.length - 1 ? 'Next subject' : 'Continue';
+        if (diagQuestions.length > 0) return 'Submit answers';
+        return 'Skip';
+      }
+      if (step === 5) return 'Create my plan';
+    }
+    if (goalType === 'sat_ielts' && step === 3) return 'Create my plan';
+    if (goalType === 'general' && step === 2) return 'Start learning';
+
+    return 'Continue';
+  };
+
+  const handleCtaClick = async () => {
+    // If on diagnostic result, advance to next subject or next step
+    if (goalType === 'waec_jamb' && step === 4 && diagResult !== null) {
+      const nextIdx = diagSubjectIndex + 1;
+      if (nextIdx < selectedSubjects.length) {
+        setDiagSubjectIndex(nextIdx);
+        setDiagResult(null);
+      } else {
+        setStep(s => s + 1);
+      }
+      return;
+    }
+    await handleNext();
+  };
+
+  return (
+    <>
+      <Head><title>Get started — LearnPath AI</title></Head>
+
+      <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+
+          {/* Logo */}
+          <div className="flex items-center gap-2 mb-8">
+            <div className="w-8 h-8 rounded-xl bg-gradient-accent flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-white font-semibold text-lg">LearnPath AI</span>
+          </div>
+
+          {/* Progress */}
+          {goalType && (
+            <div className="mb-6">
+              <ProgressDots total={totalSteps} current={step} />
+            </div>
+          )}
+
+          {/* Step content */}
+          <div className="min-h-[360px]">
+            {renderStep()}
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p className="mt-4 text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+              {error}
+            </p>
+          )}
+
+          {/* Navigation */}
+          <div className="mt-8 flex items-center gap-3">
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white/50 hover:text-white text-sm transition-colors disabled:opacity-30"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleCtaClick}
+              disabled={saving || !canAdvance()}
+              className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {saving && (
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+              )}
+              {ctaLabel()}
+              {!saving && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </div>
+
         </div>
       </div>
     </>

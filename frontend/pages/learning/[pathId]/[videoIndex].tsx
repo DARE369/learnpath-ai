@@ -7,6 +7,7 @@ import axios from "axios";
 import VideoPlayer, { VideoPlayerHandle } from "../../../components/Learning/VideoPlayer";
 import ChaptersList, { QuizQuestion } from "../../../components/Learning/ChaptersList";
 import ChapterQuizModal from "../../../components/Learning/ChapterQuizModal";
+import AITutorPanel from "../../../components/Learning/AITutorPanel";
 import QuizModal from "../../../components/Quiz/QuizModal";
 import ProgressTracker from "../../../components/Learning/ProgressTracker";
 import ConceptSidebar from "../../../components/Learning/ConceptSidebar";
@@ -589,6 +590,13 @@ export default function LearningSessionPage() {
         isOpen={quizOpen}
         onClose={() => setQuizOpen(false)}
         topicName={currentVideo.title}
+      />
+
+      <AITutorPanel
+        accessToken={accessToken}
+        subject={builtTopicName || undefined}
+        videoTitle={currentVideo.title}
+        learningPathId={decodedPathId || undefined}
       />
     </>
   );

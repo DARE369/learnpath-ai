@@ -1425,3 +1425,113 @@ class BuddyMessage(Base):
     body = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+# ─── WAEC Curriculum Layer ────────────────────────────────────────────────────
+# Three-level hierarchy: Subject → Topic → Subtopic
+# Seeded from backend/data/waec_curriculum.json on first startup.
+
+class WAECSubject(Base):
+    """A WAEC examinable subject (e.g. Mathematics, Biology)."""
+    __tablename__ = "waec_subjects"
+
+    id = Column(String, primary_key=True)          # slug e.g. "mathematics"
+    name = Column(String, nullable=False)
+    code = Column(String, nullable=False)          # e.g. "MAT"
+    category = Column(String, nullable=False)      # compulsory|science|arts|commercial
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class WAECTopic(Base):
+    """A curriculum topic within a WAEC subject, mapped to SS level."""
+    __tablename__ = "waec_topics"
+
+    id = Column(String, primary_key=True)          # e.g. "mat-ss1-1"
+    subject_id = Column(String, ForeignKey("waec_subjects.id"), nullable=False, index=True)
+    title = Column(String, nullable=False)
+    ss_level = Column(String, nullable=False, index=True)   # SS1|SS2|SS3|ALL
+    order = Column(Integer, default=0)
+    exam_weight = Column(Integer, default=5)       # estimated % of WAEC marks
+    description = Column(Text)
+    subtopics = Column(ARRAY(String), default=list)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ─── AI Tutor Session ─────────────────────────────────────────────────────────
+
+class TutorSession(Base):
+    """A conversation session between a user and the AI tutor."""
+    __tablename__ = "tutor_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    # Context at session start — what the user was studying
+    subject = Column(String, nullable=True)
+    topic_id = Column(String, nullable=True)       # waec_topic.id
+    video_title = Column(String, nullable=True)
+    learning_path_id = Column(String, nullable=True)
+
+    message_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    last_message_at = Column(DateTime, nullable=True)
+
+
+class TutorMessage(Base):
+    """A single message in a tutor conversation."""
+    __tablename__ = "tutor_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("tutor_sessions.id"), nullable=False, index=True)
+    role = Column(String, nullable=False)          # "user" | "assistant"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ─── Exam Readiness Score ─────────────────────────────────────────────────────
+
+class ExamReadinessScore(Base):
+    """
+    Per-subject readiness score for a user.
+    Recomputed after each study session or diagnostic.
+    Stored so the dashboard can load instantly without re-computing.
+    """
+    __tablename__ = "exam_readiness_scores"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    subject_id = Column(String, ForeignKey("waec_subjects.id"), nullable=False, index=True)
+
+    score = Column(Integer, default=0)             # 0-100
+    diagnostic_score = Column(Integer, nullable=True)   # score from initial diagnostic
+    weak_topics = Column(ARRAY(String), default=list)   # topic IDs with lowest mastery
+    strong_topics = Column(ARRAY(String), default=list)
+
+    # Trend: list of last 7 daily scores for the sparkline
+    score_history = Column(ARRAY(Integer), default=list)
+
+    computed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ─── Diagnostic Result ────────────────────────────────────────────────────────
+
+class DiagnosticResult(Base):
+    """Stores the result of a per-subject diagnostic assessment at onboarding."""
+    __tablename__ = "diagnostic_results"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    subject_id = Column(String, ForeignKey("waec_subjects.id"), nullable=False)
+    ss_level = Column(String, nullable=True)       # SS1|SS2|SS3
+
+    total_questions = Column(Integer, default=0)
+    correct_answers = Column(Integer, default=0)
+    score_percent = Column(Integer, default=0)
+
+    # Which topics were tested and how the user did per topic
+    topic_scores = Column(JSON, default=dict)      # {topic_id: {correct: int, total: int}}
+    weak_topic_ids = Column(ARRAY(String), default=list)
+
+    taken_at = Column(DateTime, default=datetime.utcnow, nullable=False)

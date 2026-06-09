@@ -207,6 +207,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Quiz-seed step failed: {e}", exc_info=True)
 
+    # 2.6 Seed WAEC curriculum data (idempotent — skips rows that exist).
+    try:
+        from services.curriculum_service import curriculum_service
+        from database import _get_session_factory
+        _sf = _get_session_factory()
+        with _sf() as _db:
+            seeded = curriculum_service.seed(_db)
+            if seeded:
+                logger.info(f"WAEC curriculum seeded: {seeded} rows")
+    except Exception as e:
+        logger.error(f"WAEC curriculum seed failed: {e}", exc_info=True)
+
     # 2.6 Promote configured admin emails (ADMIN_EMAILS) — no SQL needed.
     try:
         emails = [e.strip().lower() for e in (settings.ADMIN_EMAILS or "").split(",") if e.strip()]
@@ -481,6 +493,14 @@ app.include_router(realtime_router.router)
 # NEW-PACKET-C: Interactive Quiz System with Adaptive Difficulty (IRT)
 from routers import quizzes
 app.include_router(quizzes.router)
+
+# PHASE 1: WAEC Curriculum + Diagnostics + Readiness
+from routers import curriculum as curriculum_router
+app.include_router(curriculum_router.router, prefix="/api/curriculum", tags=["curriculum"])
+
+# PHASE 1: AI Tutor (Lexi)
+from routers import tutor as tutor_router
+app.include_router(tutor_router.router, prefix="/api/tutor", tags=["tutor"])
 
 
 if __name__ == "__main__":

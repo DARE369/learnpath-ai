@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Head from "next/head";
-import { Play, ArrowRight, Video, Brain, BookOpen, Clock } from "lucide-react";
+import Link from "next/link";
+import { Play, ArrowRight, Video, Brain, BookOpen, Clock, Target } from "lucide-react";
 import LearnerHome from "../components/Dashboard/LearnerHome";
 import ActivityHeatmap from "../components/Dashboard/ActivityHeatmap";
 import UsageAlert from "../components/Billing/UsageAlert";
@@ -9,6 +10,15 @@ import { Button, Card, StatTile, SectionHeader } from "../components/ui";
 import { useProgress } from "../hooks/useProgress";
 import { useAuth } from "../hooks/useAuth";
 import type { UsageData } from "../components/Billing/UsageCard";
+
+interface ReadinessScore {
+  subject_id: string;
+  subject_name: string;
+  score: number;
+  weak_topics: string[];
+  score_history: number[];
+  updated_at: string | null;
+}
 
 interface ActivePath {
   id: string;
@@ -34,6 +44,7 @@ export default function DashboardPage() {
   const [usageData, setUsageData] = useState<UsageData | null>(null);
   const [activePath, setActivePath] = useState<ActivePath | null>(null);
   const [pathLoaded, setPathLoaded] = useState(false);
+  const [readinessScores, setReadinessScores] = useState<ReadinessScore[]>([]);
 
   useEffect(() => {
     const headers = authHeaders();
@@ -47,6 +58,10 @@ export default function DashboardPage() {
       .then((d) => setActivePath(d?.path ?? null))
       .catch(() => setActivePath(null))
       .finally(() => setPathLoaded(true));
+    fetch("/api/curriculum/readiness", { headers })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.scores && setReadinessScores(d.scores))
+      .catch(() => {});
   }, []);
 
   return (
@@ -102,6 +117,52 @@ export default function DashboardPage() {
           <StatTile icon={<BookOpen className="h-5 w-5" />} label="Courses started" value={stats.coursesStarted} color="info" />
           <StatTile icon={<Clock className="h-5 w-5" />} label="Hours learned" value={stats.hoursLearned.toFixed(1)} color="warning" />
         </div>
+
+        {/* Exam readiness scores — shown when the user has completed diagnostics */}
+        {readinessScores.length > 0 && (
+          <div>
+            <SectionHeader
+              title="Exam Readiness"
+              subtitle="Updated after each study session"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {readinessScores.map((s) => {
+                const pct = s.score;
+                const color = pct >= 70 ? "text-green-400" : pct >= 45 ? "text-amber-400" : "text-rose-400";
+                const barColor = pct >= 70 ? "bg-green-500" : pct >= 45 ? "bg-amber-500" : "bg-rose-500";
+                const label = pct >= 80 ? "Ready" : pct >= 60 ? "On track" : pct >= 40 ? "Needs work" : "Just starting";
+                return (
+                  <Card key={s.subject_id} padding="md" className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{s.subject_name}</p>
+                        <p className={`text-xs mt-0.5 ${color}`}>{label}</p>
+                      </div>
+                      <span className={`text-2xl font-bold tabular-nums ${color}`}>{pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className={`h-1.5 rounded-full transition-all duration-700 ${barColor}`}
+                        style={{ width: `${Math.max(3, pct)}%` }}
+                      />
+                    </div>
+                    {s.weak_topics.length > 0 && (
+                      <p className="text-xs text-white/40 truncate">
+                        Focus: {s.weak_topics.slice(0, 2).join(", ")}
+                      </p>
+                    )}
+                    <Link
+                      href={`/explore?q=${encodeURIComponent(s.subject_name)}&autorun=1`}
+                      className="text-xs text-accent-light hover:text-white transition-colors"
+                    >
+                      Study now →
+                    </Link>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Real learner dashboard: goal, performance, weekly, milestones, achievements, buddies */}
         <LearnerHome />

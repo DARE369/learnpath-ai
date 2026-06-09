@@ -1,0 +1,491 @@
+{
+  "version": "2025",
+  "subjects": [
+    {
+      "id": "mathematics",
+      "name": "Mathematics",
+      "code": "MAT",
+      "category": "compulsory",
+      "description": "Core mathematics covering number theory, algebra, geometry, statistics and introductory calculus.",
+      "topics": [
+        {
+          "id": "mat-ss1-1", "title": "Number and Numeration", "ss_level": "SS1", "order": 1, "exam_weight": 12,
+          "description": "Fractions, decimals, number bases, indices, logarithms, surds",
+          "subtopics": ["Fractions and decimals", "Percentages and ratios", "Number bases (binary, octal, hexadecimal)", "Indices and laws of indices", "Logarithms", "Surds and their simplification", "Approximation and significant figures"]
+        },
+        {
+          "id": "mat-ss1-2", "title": "Algebraic Expressions", "ss_level": "SS1", "order": 2, "exam_weight": 10,
+          "description": "Expansion, factorisation, algebraic fractions and formulae",
+          "subtopics": ["Expansion of brackets", "Factorisation", "Algebraic fractions", "Change of subject of formula", "Variation (direct, inverse, joint)"]
+        },
+        {
+          "id": "mat-ss1-3", "title": "Linear Equations and Inequalities", "ss_level": "SS1", "order": 3, "exam_weight": 8,
+          "description": "Solving linear equations, simultaneous equations and inequalities",
+          "subtopics": ["Linear equations in one variable", "Simultaneous linear equations", "Linear inequalities", "Word problems involving linear equations"]
+        },
+        {
+          "id": "mat-ss1-4", "title": "Plane Geometry", "ss_level": "SS1", "order": 4, "exam_weight": 10,
+          "description": "Properties of lines, angles, triangles and polygons",
+          "subtopics": ["Properties of angles", "Properties of triangles", "Congruency and similarity", "Polygons (sum of interior and exterior angles)", "Properties of quadrilaterals"]
+        },
+        {
+          "id": "mat-ss1-5", "title": "Mensuration I", "ss_level": "SS1", "order": 5, "exam_weight": 10,
+          "description": "Perimeter and area of plane shapes",
+          "subtopics": ["Perimeter and area of triangles", "Perimeter and area of quadrilaterals", "Circumference and area of circles", "Area of sectors and segments", "Composite shapes"]
+        },
+        {
+          "id": "mat-ss2-1", "title": "Quadratic Equations", "ss_level": "SS2", "order": 1, "exam_weight": 10,
+          "description": "Solving quadratic equations by factorisation, formula and completing the square",
+          "subtopics": ["Factorisation method", "Completing the square", "Quadratic formula", "Sum and product of roots", "Word problems leading to quadratic equations", "Quadratic graphs"]
+        },
+        {
+          "id": "mat-ss2-2", "title": "Circle Geometry", "ss_level": "SS2", "order": 2, "exam_weight": 12,
+          "description": "Circle theorems, tangents and chords — one of the most tested WAEC topics",
+          "subtopics": ["Angle at centre vs angle at circumference", "Angles in the same segment", "Cyclic quadrilaterals", "Tangent-radius relationship", "Intersecting chords", "Alternate segment theorem", "Arc length and sector area"]
+        },
+        {
+          "id": "mat-ss2-3", "title": "Trigonometry", "ss_level": "SS2", "order": 3, "exam_weight": 10,
+          "description": "Trigonometric ratios, identities and their applications",
+          "subtopics": ["SOHCAHTOA", "Trigonometric ratios of special angles", "Angles of elevation and depression", "Sine rule", "Cosine rule", "Bearing and distances", "Trigonometric graphs"]
+        },
+        {
+          "id": "mat-ss2-4", "title": "Statistics and Probability I", "ss_level": "SS2", "order": 4, "exam_weight": 10,
+          "description": "Frequency distributions, measures of central tendency and dispersion",
+          "subtopics": ["Frequency tables and histograms", "Mean, median, mode", "Cumulative frequency (ogive)", "Range, variance and standard deviation", "Probability basics", "Simple and compound events"]
+        },
+        {
+          "id": "mat-ss2-5", "title": "Coordinate Geometry", "ss_level": "SS2", "order": 5, "exam_weight": 8,
+          "description": "Straight lines, gradients and equations of lines",
+          "subtopics": ["Distance between two points", "Midpoint of a line segment", "Gradient of a line", "Equation of a straight line (y=mx+c)", "Parallel and perpendicular lines", "Graphs of linear functions"]
+        },
+        {
+          "id": "mat-ss3-1", "title": "Matrices and Determinants", "ss_level": "SS3", "order": 1, "exam_weight": 8,
+          "description": "Matrix operations, determinants and solving systems of equations",
+          "subtopics": ["Types of matrices", "Matrix addition and subtraction", "Matrix multiplication", "Determinant of 2×2 matrix", "Inverse of a matrix", "Solving simultaneous equations using matrices"]
+        },
+        {
+          "id": "mat-ss3-2", "title": "Sequences and Series", "ss_level": "SS3", "order": 2, "exam_weight": 8,
+          "description": "Arithmetic and geometric progressions",
+          "subtopics": ["Arithmetic progression (AP): nth term, sum", "Geometric progression (GP): nth term, sum", "Sum to infinity of GP", "Arithmetic mean and geometric mean", "Real-world applications"]
+        },
+        {
+          "id": "mat-ss3-3", "title": "Mensuration II", "ss_level": "SS3", "order": 3, "exam_weight": 10,
+          "description": "Surface area and volumes of 3D shapes — consistently tested",
+          "subtopics": ["Surface area of cuboids, cylinders, cones, spheres", "Volume of prisms, cylinders, cones, spheres", "Frustum", "Composite 3D shapes", "Latitude and longitude"]
+        },
+        {
+          "id": "mat-ss3-4", "title": "Calculus (Introduction)", "ss_level": "SS3", "order": 4, "exam_weight": 6,
+          "description": "Basic differentiation and integration",
+          "subtopics": ["Differentiation of polynomials", "Maxima and minima", "Gradient of a curve at a point", "Integration as reverse of differentiation", "Definite integrals", "Area under a curve"]
+        },
+        {
+          "id": "mat-ss3-5", "title": "Probability and Statistics II", "ss_level": "SS3", "order": 5, "exam_weight": 6,
+          "description": "Advanced probability and statistical inference",
+          "subtopics": ["Permutation and combination", "Binomial probability", "Expected value", "Normal distribution (concept)", "Regression and correlation (basic)"]
+        }
+      ]
+    },
+    {
+      "id": "english_language",
+      "name": "English Language",
+      "code": "ENG",
+      "category": "compulsory",
+      "description": "Reading comprehension, writing skills, oral English and vocabulary development.",
+      "topics": [
+        {
+          "id": "eng-all-1", "title": "Reading Comprehension", "ss_level": "ALL", "order": 1, "exam_weight": 20,
+          "description": "Extracting meaning, inference, vocabulary in context",
+          "subtopics": ["Factual comprehension", "Inferential comprehension", "Vocabulary in context", "Author's purpose and tone", "Summary and paraphrase"]
+        },
+        {
+          "id": "eng-all-2", "title": "Summary Writing", "ss_level": "ALL", "order": 2, "exam_weight": 15,
+          "description": "Condensing long passages accurately",
+          "subtopics": ["Identifying main points", "Paraphrasing without distortion", "Adhering to word limits", "Avoiding repetition and irrelevance"]
+        },
+        {
+          "id": "eng-all-3", "title": "Essay Writing", "ss_level": "ALL", "order": 3, "exam_weight": 25,
+          "description": "All essay types: narrative, descriptive, expository, argumentative",
+          "subtopics": ["Narrative essays", "Descriptive essays", "Expository essays", "Argumentative/discursive essays", "Report writing", "Article writing", "Speech writing", "Introduction and conclusion techniques"]
+        },
+        {
+          "id": "eng-all-4", "title": "Oral English", "ss_level": "ALL", "order": 4, "exam_weight": 20,
+          "description": "Phonetics, stress, intonation and spoken English",
+          "subtopics": ["Vowel sounds (monophthongs and diphthongs)", "Consonant sounds", "Word stress", "Sentence stress", "Intonation patterns", "Rhyme and rhythm", "Minimal pairs"]
+        },
+        {
+          "id": "eng-all-5", "title": "Grammar and Usage", "ss_level": "ALL", "order": 5, "exam_weight": 15,
+          "description": "Parts of speech, tenses, concord and sentence structure",
+          "subtopics": ["Parts of speech", "Subject-verb agreement (concord)", "Tenses and aspect", "Reported speech", "Conditionals", "Active and passive voice", "Clauses and phrases"]
+        },
+        {
+          "id": "eng-all-6", "title": "Vocabulary Development", "ss_level": "ALL", "order": 6, "exam_weight": 5,
+          "description": "Word formation, synonyms, antonyms and contextual meaning",
+          "subtopics": ["Word formation (prefixes, suffixes)", "Synonyms and antonyms", "Idioms and proverbs", "Register and tone", "Contextual meanings"]
+        }
+      ]
+    },
+    {
+      "id": "biology",
+      "name": "Biology",
+      "code": "BIO",
+      "category": "science",
+      "description": "Study of living organisms from cellular structure to ecology and genetics.",
+      "topics": [
+        {
+          "id": "bio-ss1-1", "title": "Cell Biology", "ss_level": "SS1", "order": 1, "exam_weight": 12,
+          "description": "Cell structure, organelles and cell processes",
+          "subtopics": ["Cell theory", "Plant vs animal cell structure", "Cell organelles and functions (nucleus, mitochondria, etc.)", "Cell membrane and transport (osmosis, diffusion)", "Cell division: mitosis and meiosis"]
+        },
+        {
+          "id": "bio-ss1-2", "title": "Nutrition", "ss_level": "SS1", "order": 2, "exam_weight": 10,
+          "description": "Autotrophic and heterotrophic nutrition, the digestive system",
+          "subtopics": ["Autotrophic nutrition (photosynthesis)", "Heterotrophic nutrition", "Classes of food (carbohydrates, proteins, fats, vitamins, minerals)", "Human digestive system", "Absorption and assimilation", "Malnutrition and dietary diseases"]
+        },
+        {
+          "id": "bio-ss1-3", "title": "Respiration and Gas Exchange", "ss_level": "SS1", "order": 3, "exam_weight": 8,
+          "description": "Aerobic and anaerobic respiration, the respiratory system",
+          "subtopics": ["Aerobic respiration equation", "Anaerobic respiration", "Human respiratory system (lungs, alveoli)", "Gaseous exchange in organisms", "Breathing mechanism"]
+        },
+        {
+          "id": "bio-ss1-4", "title": "Excretion", "ss_level": "SS1", "order": 4, "exam_weight": 8,
+          "description": "Excretory organs and the removal of metabolic waste",
+          "subtopics": ["Types of excretory products", "Human urinary system (kidneys, nephrons)", "Osmoregulation", "Excretion in plants", "Liver functions in excretion (urea production)"]
+        },
+        {
+          "id": "bio-ss1-5", "title": "Transport System", "ss_level": "SS1", "order": 5, "exam_weight": 8,
+          "description": "Circulatory system in animals and transport in plants",
+          "subtopics": ["Heart structure and function", "Blood composition and functions", "Blood circulation (single and double)", "ABO blood groups", "Transport of water in plants (xylem)", "Transport of food in plants (phloem)"]
+        },
+        {
+          "id": "bio-ss2-1", "title": "Support and Movement", "ss_level": "SS2", "order": 1, "exam_weight": 8,
+          "description": "Skeletal system, muscles and movement in organisms",
+          "subtopics": ["Types of skeleton (endo/exo/hydrostatic)", "Human skeleton structure", "Joints and types of movement", "Muscles and contraction", "Movement in plants (tropisms)"]
+        },
+        {
+          "id": "bio-ss2-2", "title": "Reproduction", "ss_level": "SS2", "order": 2, "exam_weight": 12,
+          "description": "Sexual and asexual reproduction in plants and animals",
+          "subtopics": ["Asexual reproduction (budding, fission, spores)", "Sexual reproduction in flowering plants", "Pollination and fertilisation", "Human reproductive system", "Embryo development and birth", "Sexually transmitted infections"]
+        },
+        {
+          "id": "bio-ss2-3", "title": "Ecology", "ss_level": "SS2", "order": 3, "exam_weight": 10,
+          "description": "Ecosystems, food chains and environmental relationships",
+          "subtopics": ["Ecosystem components (biotic, abiotic)", "Food chains and food webs", "Energy flow and trophic levels", "Nutrient cycles (carbon, nitrogen)", "Population dynamics", "Interspecific relationships (predation, symbiosis)"]
+        },
+        {
+          "id": "bio-ss2-4", "title": "Nervous and Endocrine Systems", "ss_level": "SS2", "order": 4, "exam_weight": 8,
+          "description": "Coordination and control in organisms",
+          "subtopics": ["Neurone structure and types", "Reflex arc", "Central and peripheral nervous system", "The brain and its functions", "Endocrine glands and hormones", "Homeostasis"]
+        },
+        {
+          "id": "bio-ss3-1", "title": "Genetics", "ss_level": "SS3", "order": 1, "exam_weight": 14,
+          "description": "Mendel's laws, inheritance patterns and genetic disorders",
+          "subtopics": ["Mendel's laws (segregation, independent assortment)", "Monohybrid crosses", "Dihybrid crosses", "Sex determination", "Sex-linked traits", "Genetic disorders (sickle cell, albinism)", "DNA structure and function", "Mutations"]
+        },
+        {
+          "id": "bio-ss3-2", "title": "Evolution", "ss_level": "SS3", "order": 2, "exam_weight": 8,
+          "description": "Theories of evolution and evidence",
+          "subtopics": ["Lamarck's theory", "Darwin's theory of natural selection", "Evidence for evolution (fossil record, comparative anatomy)", "Adaptation", "Speciation"]
+        },
+        {
+          "id": "bio-ss3-3", "title": "Conservation and Applied Biology", "ss_level": "SS3", "order": 3, "exam_weight": 8,
+          "description": "Environmental conservation and practical applications of biology",
+          "subtopics": ["Conservation of natural resources", "Deforestation and its effects", "Soil conservation", "Water conservation", "Biotechnology basics", "Agriculture and food production", "Microorganisms in industry"]
+        }
+      ]
+    },
+    {
+      "id": "chemistry",
+      "name": "Chemistry",
+      "code": "CHM",
+      "category": "science",
+      "description": "Study of matter, chemical reactions, the periodic table and organic compounds.",
+      "topics": [
+        {
+          "id": "chm-ss1-1", "title": "Atomic Structure and Chemical Bonding", "ss_level": "SS1", "order": 1, "exam_weight": 12,
+          "description": "Sub-atomic particles, electronic configuration and types of bonding",
+          "subtopics": ["Sub-atomic particles (proton, neutron, electron)", "Atomic number and mass number", "Isotopes", "Electronic configuration", "Ionic bonding", "Covalent bonding", "Metallic bonding", "Shapes of molecules (VSEPR)"]
+        },
+        {
+          "id": "chm-ss1-2", "title": "Separation Techniques", "ss_level": "SS1", "order": 2, "exam_weight": 8,
+          "description": "Methods for separating mixtures",
+          "subtopics": ["Filtration", "Evaporation and crystallisation", "Distillation and fractional distillation", "Chromatography", "Sublimation", "Decantation"]
+        },
+        {
+          "id": "chm-ss1-3", "title": "Acids, Bases and Salts", "ss_level": "SS1", "order": 3, "exam_weight": 10,
+          "description": "Properties, preparation and reactions of acids, bases and salts",
+          "subtopics": ["Properties of acids and bases", "pH scale and indicators", "Neutralisation reactions", "Preparation of salts", "Types of salts (normal, acid, basic)", "Hard and soft water"]
+        },
+        {
+          "id": "chm-ss1-4", "title": "Redox Reactions", "ss_level": "SS1", "order": 4, "exam_weight": 8,
+          "description": "Oxidation, reduction and electrochemistry",
+          "subtopics": ["Oxidation and reduction definitions", "Oxidation states", "Identifying redox reactions", "Oxidising and reducing agents", "Rusting and its prevention"]
+        },
+        {
+          "id": "chm-ss2-1", "title": "The Periodic Table", "ss_level": "SS2", "order": 1, "exam_weight": 12,
+          "description": "Periodic trends, groups and periods",
+          "subtopics": ["Arrangement of elements in the periodic table", "Periodic trends (atomic radius, ionisation energy, electronegativity)", "Group I (alkali metals) properties", "Group VII (halogens) properties", "Group 0 (noble gases)", "Transition metals"]
+        },
+        {
+          "id": "chm-ss2-2", "title": "Electrolysis", "ss_level": "SS2", "order": 2, "exam_weight": 10,
+          "description": "Electrolytic processes, Faraday's laws and industrial applications",
+          "subtopics": ["Electrolytes and non-electrolytes", "Electrolysis of molten compounds", "Electrolysis of aqueous solutions", "Faraday's laws of electrolysis", "Industrial electrolysis (Hall-Heroult, chlor-alkali)"]
+        },
+        {
+          "id": "chm-ss2-3", "title": "Organic Chemistry I", "ss_level": "SS2", "order": 3, "exam_weight": 12,
+          "description": "Hydrocarbons: alkanes, alkenes, alkynes",
+          "subtopics": ["Homologous series and functional groups", "Alkanes: IUPAC naming, properties, reactions", "Alkenes: IUPAC naming, addition reactions, tests", "Alkynes", "Fractional distillation of crude oil", "Cracking", "Isomerism"]
+        },
+        {
+          "id": "chm-ss3-1", "title": "Organic Chemistry II", "ss_level": "SS3", "order": 1, "exam_weight": 14,
+          "description": "Functional groups beyond hydrocarbons: alcohols, aldehydes, acids, esters",
+          "subtopics": ["Alcohols: types, reactions, fermentation", "Aldehydes and ketones", "Carboxylic acids", "Esters and esterification", "Amines and amino acids", "Benzene and aromaticity (why it doesn't decolourise bromine)", "Polymers (addition and condensation)"]
+        },
+        {
+          "id": "chm-ss3-2", "title": "Industrial and Environmental Chemistry", "ss_level": "SS3", "order": 2, "exam_weight": 10,
+          "description": "Industrial processes and pollution chemistry",
+          "subtopics": ["Haber process (ammonia)", "Contact process (sulphuric acid)", "Solvay process (sodium carbonate)", "Blast furnace (iron production)", "Air pollution and greenhouse effect", "Water treatment and purification", "Radioactivity and nuclear reactions"]
+        },
+        {
+          "id": "chm-ss3-3", "title": "Equilibrium and Reaction Rates", "ss_level": "SS3", "order": 3, "exam_weight": 8,
+          "description": "Chemical equilibrium and factors affecting reaction rates",
+          "subtopics": ["Le Chatelier's principle", "Equilibrium constants (Kc, Kp)", "Factors affecting reaction rate", "Catalysts and activation energy", "Arrhenius equation (concept)"]
+        }
+      ]
+    },
+    {
+      "id": "physics",
+      "name": "Physics",
+      "code": "PHY",
+      "category": "science",
+      "description": "Study of matter, energy, forces and waves from mechanics to modern physics.",
+      "topics": [
+        {
+          "id": "phy-ss1-1", "title": "Measurements and Units", "ss_level": "SS1", "order": 1, "exam_weight": 6,
+          "description": "SI units, measurement instruments and experimental methods",
+          "subtopics": ["SI base units", "Derived units", "Measuring instruments (vernier callipers, micrometer screw gauge)", "Errors and accuracy", "Significant figures and standard form"]
+        },
+        {
+          "id": "phy-ss1-2", "title": "Scalars, Vectors and Motion", "ss_level": "SS1", "order": 2, "exam_weight": 12,
+          "description": "Kinematics, equations of motion and projectile motion",
+          "subtopics": ["Scalars vs vectors", "Vector addition and resolution", "Distance vs displacement, speed vs velocity", "Equations of uniform motion", "Graphs of motion (distance-time, velocity-time)", "Projectile motion", "Acceleration due to gravity"]
+        },
+        {
+          "id": "phy-ss1-3", "title": "Forces and Newton's Laws", "ss_level": "SS1", "order": 3, "exam_weight": 10,
+          "description": "Newton's three laws, friction, moments and equilibrium",
+          "subtopics": ["Newton's first law (inertia)", "Newton's second law (F=ma)", "Newton's third law (action-reaction)", "Types of friction and applications", "Moment of a force", "Equilibrium conditions", "Archimedes' principle and flotation"]
+        },
+        {
+          "id": "phy-ss1-4", "title": "Work, Energy and Power", "ss_level": "SS1", "order": 4, "exam_weight": 8,
+          "description": "Energy transformations, conservation of energy and power",
+          "subtopics": ["Work done by a force", "Kinetic and potential energy", "Conservation of energy", "Power and efficiency", "Simple machines (levers, pulleys, inclined plane)", "Mechanical advantage and velocity ratio"]
+        },
+        {
+          "id": "phy-ss2-1", "title": "Waves", "ss_level": "SS2", "order": 1, "exam_weight": 10,
+          "description": "Wave properties, types and behaviour",
+          "subtopics": ["Wave terminology (amplitude, frequency, wavelength, period)", "Transverse and longitudinal waves", "Wave equation (v = fλ)", "Reflection, refraction, diffraction", "Superposition and interference", "Stationary waves"]
+        },
+        {
+          "id": "phy-ss2-2", "title": "Light and Optics", "ss_level": "SS2", "order": 2, "exam_weight": 10,
+          "description": "Reflection, refraction, lenses and optical instruments",
+          "subtopics": ["Laws of reflection", "Plane and curved mirrors (concave, convex)", "Mirror formula and magnification", "Snell's law and refractive index", "Total internal reflection", "Converging and diverging lenses", "Lens formula", "Optical instruments (microscope, telescope)"]
+        },
+        {
+          "id": "phy-ss2-3", "title": "Heat and Temperature", "ss_level": "SS2", "order": 3, "exam_weight": 8,
+          "description": "Thermal expansion, heat transfer and thermodynamics",
+          "subtopics": ["Temperature scales", "Thermal expansion of solids, liquids, gases", "Heat capacity and specific heat capacity", "Latent heat", "Conduction, convection, radiation", "Gas laws (Boyle's, Charles', Pressure)"]
+        },
+        {
+          "id": "phy-ss3-1", "title": "Electricity", "ss_level": "SS3", "order": 1, "exam_weight": 14,
+          "description": "Electric circuits, Ohm's law, and electrical power",
+          "subtopics": ["Electric charge and Coulomb's law", "Electric field and potential", "Ohm's law", "Resistors in series and parallel", "Kirchhoff's laws", "Electrical power and energy", "Capacitors", "Cells and internal resistance"]
+        },
+        {
+          "id": "phy-ss3-2", "title": "Electromagnetism", "ss_level": "SS3", "order": 2, "exam_weight": 10,
+          "description": "Magnetic fields, electromagnetic induction and AC circuits",
+          "subtopics": ["Magnetic field of a current-carrying conductor", "Force on a current in a magnetic field", "Electromagnetic induction (Faraday's law)", "Lenz's law", "AC generators and transformers", "Inductance and capacitance (concept)"]
+        },
+        {
+          "id": "phy-ss3-3", "title": "Modern Physics and Radioactivity", "ss_level": "SS3", "order": 3, "exam_weight": 10,
+          "description": "Atomic models, nuclear reactions and radioactive decay",
+          "subtopics": ["Atomic models (Rutherford, Bohr)", "Photoelectric effect", "X-rays", "Radioactivity (alpha, beta, gamma)", "Nuclear reactions (fission, fusion)", "Half-life calculations", "Applications of radioactivity"]
+        }
+      ]
+    },
+    {
+      "id": "economics",
+      "name": "Economics",
+      "code": "ECO",
+      "category": "commercial",
+      "description": "Principles of micro and macroeconomics, with focus on the Nigerian economy.",
+      "topics": [
+        {
+          "id": "eco-ss1-1", "title": "Introduction to Economics", "ss_level": "SS1", "order": 1, "exam_weight": 6,
+          "description": "Basic economic concepts, scarcity and economic systems",
+          "subtopics": ["Definition and scope of economics", "Scarcity, choice and opportunity cost", "Factors of production", "Economic systems (traditional, command, market, mixed)", "Production possibility frontier"]
+        },
+        {
+          "id": "eco-ss1-2", "title": "Demand and Supply", "ss_level": "SS1", "order": 2, "exam_weight": 14,
+          "description": "Demand and supply curves, elasticity and market equilibrium",
+          "subtopics": ["Law of demand and demand curve", "Factors affecting demand", "Law of supply and supply curve", "Factors affecting supply", "Market equilibrium", "Price elasticity of demand", "Price elasticity of supply", "Income and cross elasticity"]
+        },
+        {
+          "id": "eco-ss1-3", "title": "Theory of Production and Costs", "ss_level": "SS1", "order": 3, "exam_weight": 10,
+          "description": "Production functions, costs and revenue concepts",
+          "subtopics": ["Short run vs long run production", "Law of variable proportions", "Returns to scale", "Fixed and variable costs", "Average and marginal costs", "Revenue concepts (TR, AR, MR)", "Break-even analysis"]
+        },
+        {
+          "id": "eco-ss2-1", "title": "Market Structures", "ss_level": "SS2", "order": 1, "exam_weight": 10,
+          "description": "Perfect competition, monopoly, oligopoly and monopolistic competition",
+          "subtopics": ["Perfect competition characteristics", "Monopoly: sources and price discrimination", "Oligopoly and game theory (basics)", "Monopolistic competition", "Comparison of market structures"]
+        },
+        {
+          "id": "eco-ss2-2", "title": "National Income", "ss_level": "SS2", "order": 2, "exam_weight": 10,
+          "description": "Measuring national income, GDP and economic growth",
+          "subtopics": ["National income concepts (GDP, GNP, NNP, NI)", "Methods of measuring national income", "Problems of measurement in developing countries", "Standard of living and HDI", "Business cycle"]
+        },
+        {
+          "id": "eco-ss2-3", "title": "Money, Banking and Finance", "ss_level": "SS2", "order": 3, "exam_weight": 10,
+          "description": "Functions of money, commercial and central banking",
+          "subtopics": ["Functions of money", "Types of money", "Commercial banks: functions and credit creation", "Central bank functions (CBN)", "Monetary policy tools", "Nigerian financial system"]
+        },
+        {
+          "id": "eco-ss3-1", "title": "International Trade", "ss_level": "SS3", "order": 1, "exam_weight": 10,
+          "description": "Trade theories, balance of payments and trade policy",
+          "subtopics": ["Absolute and comparative advantage", "Reasons for international trade", "Balance of trade and balance of payments", "Terms of trade", "Trade barriers (tariffs, quotas)", "Foreign exchange and exchange rates", "Regional integration (ECOWAS, AU)"]
+        },
+        {
+          "id": "eco-ss3-2", "title": "Development Economics and Nigerian Economy", "ss_level": "SS3", "order": 2, "exam_weight": 12,
+          "description": "Economic development, public finance and Nigerian economic issues",
+          "subtopics": ["Characteristics of developing countries", "Obstacles to development", "Government budgeting and fiscal policy", "Taxation (direct and indirect)", "Public debt", "Nigerian economy: oil sector, agriculture, industrialisation", "Population and economic growth", "Unemployment and inflation"]
+        }
+      ]
+    },
+    {
+      "id": "government",
+      "name": "Government",
+      "code": "GOV",
+      "category": "arts",
+      "description": "Study of political systems, government structures and Nigerian governance.",
+      "topics": [
+        {
+          "id": "gov-ss1-1", "title": "Basic Concepts of Government", "ss_level": "SS1", "order": 1, "exam_weight": 10,
+          "description": "State, sovereignty, power and political authority",
+          "subtopics": ["The state and its elements", "Sovereignty", "Political power and authority", "Legitimacy", "Political culture and socialisation"]
+        },
+        {
+          "id": "gov-ss1-2", "title": "Forms and Systems of Government", "ss_level": "SS1", "order": 2, "exam_weight": 12,
+          "description": "Democracy, monarchy, authoritarianism and federal/unitary systems",
+          "subtopics": ["Democracy: features and types (direct, representative)", "Monarchy and republic", "Authoritarianism and totalitarianism", "Federal vs unitary systems", "Presidential vs parliamentary systems", "Advantages and disadvantages of each"]
+        },
+        {
+          "id": "gov-ss1-3", "title": "Constitution", "ss_level": "SS1", "order": 3, "exam_weight": 10,
+          "description": "Types of constitution, Nigerian constitutional history",
+          "subtopics": ["Written and unwritten constitutions", "Flexible and rigid constitutions", "Nigerian constitutions (1960, 1963, 1979, 1999)", "Fundamental objectives and directive principles", "Constitutional amendment process"]
+        },
+        {
+          "id": "gov-ss2-1", "title": "Arms of Government", "ss_level": "SS2", "order": 1, "exam_weight": 12,
+          "description": "Executive, legislative and judiciary in Nigeria",
+          "subtopics": ["The Executive (President, Governors, powers)", "The Legislature (National Assembly, functions)", "The Judiciary (courts, judicial independence)", "Doctrine of separation of powers", "Checks and balances", "Functions and powers under 1999 Constitution"]
+        },
+        {
+          "id": "gov-ss2-2", "title": "Federalism and Nigerian Government", "ss_level": "SS2", "order": 2, "exam_weight": 10,
+          "description": "Nigerian federalism, local government and intergovernmental relations",
+          "subtopics": ["Principles of federalism", "Fiscal federalism in Nigeria", "State governments", "Local government system", "Revenue allocation", "Problems of Nigerian federalism"]
+        },
+        {
+          "id": "gov-ss2-3", "title": "Political Parties and Electoral System", "ss_level": "SS2", "order": 3, "exam_weight": 8,
+          "description": "Political parties, INEC and electoral processes in Nigeria",
+          "subtopics": ["Functions of political parties", "History of Nigerian political parties", "Electoral systems (first-past-the-post, proportional representation)", "INEC and electoral management", "Election malpractice and its effects"]
+        },
+        {
+          "id": "gov-ss3-1", "title": "International Relations and Organizations", "ss_level": "SS3", "order": 1, "exam_weight": 12,
+          "description": "Nigeria's foreign policy and international organisations",
+          "subtopics": ["Nigeria's foreign policy principles", "ECOWAS: structure and functions", "African Union (AU)", "United Nations (UN): structure, specialized agencies", "Commonwealth of Nations", "Nigeria's role in peacekeeping"]
+        },
+        {
+          "id": "gov-ss3-2", "title": "Human Rights and Citizenship", "ss_level": "SS3", "order": 2, "exam_weight": 8,
+          "description": "Fundamental rights, citizenship and civic responsibilities",
+          "subtopics": ["Fundamental human rights in 1999 Constitution", "Categories of rights (civil, political, economic, social)", "Limitations on rights", "Citizenship (by birth, naturalisation)", "Duties of a citizen", "Rule of law"]
+        }
+      ]
+    },
+    {
+      "id": "commerce",
+      "name": "Commerce",
+      "code": "COM",
+      "category": "commercial",
+      "description": "Study of trade, business activities, banking, insurance and commercial documents.",
+      "topics": [
+        {
+          "id": "com-ss1-1", "title": "Introduction to Commerce and Trade", "ss_level": "SS1", "order": 1, "exam_weight": 10,
+          "description": "Nature of commerce, home trade and its aids",
+          "subtopics": ["Nature and scope of commerce", "Branches of commerce", "Home trade (retail and wholesale)", "Functions of retailers and wholesalers", "Types of retail outlets (department stores, supermarkets, markets)"]
+        },
+        {
+          "id": "com-ss1-2", "title": "Aids to Trade", "ss_level": "SS1", "order": 2, "exam_weight": 12,
+          "description": "Transportation, warehousing, communication, insurance and banking",
+          "subtopics": ["Transport modes (road, rail, sea, air, pipeline)", "Functions of warehousing", "Communication in commerce", "Banking as an aid to trade", "Insurance as an aid to trade", "Advertising and its media"]
+        },
+        {
+          "id": "com-ss2-1", "title": "International Trade", "ss_level": "SS2", "order": 1, "exam_weight": 10,
+          "description": "Imports, exports, balance of trade and trade documents",
+          "subtopics": ["Reasons for international trade", "Imports and exports", "Balance of trade and balance of payments", "Trade barriers", "Documents in foreign trade (bill of lading, letter of credit)", "Visible and invisible trade"]
+        },
+        {
+          "id": "com-ss2-2", "title": "Banking", "ss_level": "SS2", "order": 2, "exam_weight": 10,
+          "description": "Types of banks, banking services and cheques",
+          "subtopics": ["Central Bank of Nigeria (CBN) functions", "Commercial banks: services", "Types of bank accounts (current, savings, fixed deposit)", "Cheques: types and crossing", "Electronic banking (ATM, internet banking)", "Credit and debit cards"]
+        },
+        {
+          "id": "com-ss2-3", "title": "Insurance", "ss_level": "SS2", "order": 3, "exam_weight": 8,
+          "description": "Principles, types and documents of insurance",
+          "subtopics": ["Principles of insurance (insurable interest, indemnity, utmost good faith, subrogation)", "Types of insurance (life, fire, marine, motor, accident)", "Insurance documents (proposal form, policy, cover note)", "National Insurance Corporation of Nigeria (NICON)"]
+        },
+        {
+          "id": "com-ss3-1", "title": "Business Finance and Capital Market", "ss_level": "SS3", "order": 1, "exam_weight": 10,
+          "description": "Sources of business finance, shares and the stock exchange",
+          "subtopics": ["Sources of short, medium and long-term finance", "Shares (ordinary, preference) and debentures", "Nigerian Stock Exchange", "Venture capital and microfinance"]
+        },
+        {
+          "id": "com-ss3-2", "title": "Business Documents", "ss_level": "SS3", "order": 2, "exam_weight": 12,
+          "description": "Commercial documents used in buying and selling",
+          "subtopics": ["Enquiry and quotation", "Order and acknowledgement", "Invoice (pro forma, commercial)", "Debit and credit notes", "Receipt and statement of account", "Bill of exchange"]
+        },
+        {
+          "id": "com-ss3-3", "title": "Company and Business Organisation", "ss_level": "SS3", "order": 3, "exam_weight": 8,
+          "description": "Types of business organisations and company formation",
+          "subtopics": ["Sole proprietorship", "Partnership", "Private and public limited companies", "Cooperative societies", "Public corporations (parastatals)", "Formation of a company (memorandum, articles of association)"]
+        }
+      ]
+    },
+    {
+      "id": "literature_in_english",
+      "name": "Literature in English",
+      "code": "LIT",
+      "category": "arts",
+      "description": "Critical study of prose fiction, drama, poetry and oral literature.",
+      "topics": [
+        {
+          "id": "lit-all-1", "title": "Prose Fiction", "ss_level": "ALL", "order": 1, "exam_weight": 25,
+          "description": "Novel analysis: plot, character, theme, style and setting",
+          "subtopics": ["Plot structure (exposition, rising action, climax, resolution)", "Character types and characterisation methods", "Setting and its functions", "Theme identification and analysis", "Narrative point of view", "Authorial style and language", "African vs Western prose conventions"]
+        },
+        {
+          "id": "lit-all-2", "title": "Drama", "ss_level": "ALL", "order": 2, "exam_weight": 25,
+          "description": "Play analysis: dramatic conventions, conflict, staging and dialogue",
+          "subtopics": ["Dramatic structure (acts and scenes)", "Types of conflict (man vs man, man vs society)", "Dramatic irony and other forms of irony", "Soliloquy, aside and monologue", "Tragic and comic elements", "Staging and performance conventions", "Nigerian drama in context"]
+        },
+        {
+          "id": "lit-all-3", "title": "Poetry", "ss_level": "ALL", "order": 3, "exam_weight": 25,
+          "description": "Analysis of poems: devices, form, tone and meaning",
+          "subtopics": ["Poetic devices (simile, metaphor, alliteration, assonance, personification)", "Types of poems (lyric, narrative, dramatic)", "Rhyme and rhythm", "Tone and mood", "Imagery and symbolism", "African oral poetry", "Close reading and paraphrase"]
+        },
+        {
+          "id": "lit-all-4", "title": "Literary Devices and Oral Literature", "ss_level": "ALL", "order": 4, "exam_weight": 25,
+          "description": "Rhetorical devices and oral literary traditions",
+          "subtopics": ["Figures of speech (extended list)", "Diction and register", "Proverbs and their functions", "Myths, legends and folktales", "Praise songs and dirges", "Riddles and their uses", "Cultural context of oral literature"]
+        }
+      ]
+    }
+  ]
+}
