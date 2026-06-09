@@ -151,6 +151,23 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
         const detail = typeof data === "object" && data !== null ? (data as { detail?: string }).detail : undefined;
         if (status === 401) {
           setError("Please sign in to build a learning path.");
+        } else if (status === 429) {
+          // Parse retry seconds from Retry-After header or detail text
+          const retryAfter = err.response?.headers?.["retry-after"];
+          const seconds = retryAfter
+            ? parseInt(retryAfter, 10)
+            : (() => {
+                const m = (detail || "").match(/(\d+)\s*second/i);
+                return m ? parseInt(m[1], 10) : 0;
+              })();
+          const timeStr = seconds >= 3600
+            ? `about ${Math.ceil(seconds / 3600)} hour${Math.ceil(seconds / 3600) > 1 ? "s" : ""}`
+            : seconds >= 60
+            ? `about ${Math.ceil(seconds / 60)} minute${Math.ceil(seconds / 60) > 1 ? "s" : ""}`
+            : seconds > 0
+            ? `${seconds} seconds`
+            : "a little while";
+          setError(`You've reached your search limit. Try again in ${timeStr}, or upgrade for more searches.`);
         } else if (status === 400) {
           setError(detail || "We couldn't build a path for that topic. Try a more specific search.");
         } else if (status === 404) {
