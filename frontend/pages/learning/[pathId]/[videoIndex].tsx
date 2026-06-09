@@ -5,7 +5,8 @@ import Head from "next/head";
 import Link from "next/link";
 import axios from "axios";
 import VideoPlayer, { VideoPlayerHandle } from "../../../components/Learning/VideoPlayer";
-import ChaptersList from "../../../components/Learning/ChaptersList";
+import ChaptersList, { QuizQuestion } from "../../../components/Learning/ChaptersList";
+import ChapterQuizModal from "../../../components/Learning/ChapterQuizModal";
 import QuizModal from "../../../components/Quiz/QuizModal";
 import ProgressTracker from "../../../components/Learning/ProgressTracker";
 import ConceptSidebar from "../../../components/Learning/ConceptSidebar";
@@ -123,6 +124,7 @@ export default function LearningSessionPage() {
   const playerRef = useRef<VideoPlayerHandle>(null);
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [quizOpen, setQuizOpen] = useState(false);
+  const [chapterQuiz, setChapterQuiz] = useState<{ chunkId: string; chapterTitle: string; questions: QuizQuestion[] } | null>(null);
 
   const accessToken = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -445,6 +447,10 @@ export default function LearningSessionPage() {
                 accessToken={accessToken}
                 currentSeconds={currentSeconds}
                 onSeekTo={(s) => playerRef.current?.seekTo(s)}
+                onChapterComplete={(chunkId, chapterTitle, questions) => {
+                  if (questions.length === 0) return;
+                  setChapterQuiz({ chunkId, chapterTitle, questions });
+                }}
               />
 
               {/* Adaptive quiz prompt (NEW-PACKET-C) */}
@@ -563,6 +569,17 @@ export default function LearningSessionPage() {
           </div>
         </main>
       </div>
+
+      {chapterQuiz && (
+        <ChapterQuizModal
+          chunkId={chapterQuiz.chunkId}
+          chapterTitle={chapterQuiz.chapterTitle}
+          questions={chapterQuiz.questions}
+          accessToken={accessToken}
+          onClose={() => setChapterQuiz(null)}
+          onComplete={() => setChapterQuiz(null)}
+        />
+      )}
 
       <QuizModal
         isOpen={quizOpen}

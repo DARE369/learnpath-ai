@@ -55,7 +55,7 @@ interface Props {
   accessToken: string | null;
   currentSeconds: number;              // live position from the YouTube player
   onSeekTo: (seconds: number) => void; // caller seeks the player
-  onChapterComplete?: (chunkId: string, questions: QuizQuestion[]) => void;
+  onChapterComplete?: (chunkId: string, chapterTitle: string, questions: QuizQuestion[]) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ export default function ChaptersList({
     // Fire when current position has just crossed the chapter boundary
     if (currentSeconds >= prev.end_seconds && activeIdx > 0) {
       notifiedRef.current.add(key);
-      onChapterComplete(prev.id, prev.quiz.questions);
+      onChapterComplete(prev.id, prev.title, prev.quiz.questions);
     }
   }, [currentSeconds, activeIdx, chunks, onChapterComplete]);
 
