@@ -1,6 +1,9 @@
-from pydantic import field_validator, model_validator
+import logging
+from pydantic import field_validator, model_validator, Field, AliasChoices
 from pydantic_settings import BaseSettings
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -15,7 +18,14 @@ class Settings(BaseSettings):
     SQLALCHEMY_ECHO: bool = False
 
     # Security
-    JWT_SECRET: str
+    # Canonical env var is JWT_SECRET. JWT_SECRET_KEY is accepted as an alias to
+    # avoid the historical boot trap where Railway had the value under the other
+    # name. Optional here so we can fail with a clear message in validate_settings
+    # rather than a generic pydantic "field required".
+    JWT_SECRET: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("JWT_SECRET", "JWT_SECRET_KEY"),
+    )
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
     REFRESH_TOKEN_EXPIRATION_DAYS: int = 7
@@ -49,6 +59,18 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
+
+    # Observability (Stage 2) — error monitoring. No-op when unset.
+    SENTRY_DSN: Optional[str] = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
+    # Transactional email (Stage 10) — first provider with a key wins. No-op when unset.
+    RESEND_API_KEY: Optional[str] = None
+    SENDGRID_API_KEY: Optional[str] = None
+    EMAIL_FROM: str = "LearnPath AI <noreply@learnpath.ai>"
+
+    # AI cost guardrails (Stage 6). Per-user daily spend cap in NGN (0 = no cap).
+    AI_USER_DAILY_BUDGET_NGN: float = 50.0
 
     # Self-Building Mechanism (Packet 3.5) — Nightly expansion job
     EXPANSION_SCHEDULER_ENABLED: bool = False
@@ -93,21 +115,50 @@ class Settings(BaseSettings):
         return value
 
     def validate_settings(self):
-        if self.ENVIRONMENT not in ["development", "staging", "production"]:
-            raise ValueError(f"Invalid ENVIRONMENT: {self.ENVIRONMENT}")
+        """Fail fast on misconfiguration, aggregating ALL problems into one clear
+        error instead of failing on the first. Production has stricter required
+        keys; non-fatal concerns are logged as warnings."""
+        errors: list[str] = []
+        warnings: list[str] = []
 
-        if len(self.JWT_SECRET) < 32:
-            raise ValueError("JWT_SECRET must be at least 32 characters")
+        if self.ENVIRONMENT not in ["development", "staging", "production"]:
+            errors.append(
+                f"ENVIRONMENT must be development|staging|production (got {self.ENVIRONMENT!r})"
+            )
+
+        if not self.JWT_SECRET:
+            errors.append(
+                "JWT_SECRET is required (set JWT_SECRET or its alias JWT_SECRET_KEY)"
+            )
+        elif len(self.JWT_SECRET) < 32:
+            errors.append("JWT_SECRET must be at least 32 characters")
 
         if not self.DATABASE_URL:
-            raise ValueError("DATABASE_URL is required")
+            errors.append("DATABASE_URL is required")
 
-        if self.ENVIRONMENT == "production":
+        is_prod = self.ENVIRONMENT == "production"
+        if is_prod:
             if not self.CLAUDE_API_KEY:
-                raise ValueError("CLAUDE_API_KEY required in production")
+                errors.append("CLAUDE_API_KEY is required in production")
             if not self.YOUTUBE_API_KEY:
-                raise ValueError("YOUTUBE_API_KEY required in production")
+                errors.append("YOUTUBE_API_KEY is required in production")
+            # Non-fatal but worth shouting about in prod.
+            if self.DEBUG:
+                warnings.append("DEBUG is true in production — disable it")
+            if "localhost" in (self.FRONTEND_URL or ""):
+                warnings.append(f"FRONTEND_URL points at localhost in production ({self.FRONTEND_URL})")
+            if not self.FLUTTERWAVE_SECRET_KEY:
+                warnings.append("FLUTTERWAVE_SECRET_KEY unset — payments will run in safe/no-op mode")
+            if not self.SENTRY_DSN:
+                warnings.append("SENTRY_DSN unset — backend errors won't be reported")
 
+        for w in warnings:
+            logger.warning("[config] %s", w)
+
+        if errors:
+            raise ValueError(
+                "Invalid configuration:\n  - " + "\n  - ".join(errors)
+            )
         return True
 
 
