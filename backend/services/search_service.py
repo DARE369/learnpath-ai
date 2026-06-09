@@ -160,17 +160,57 @@ class SearchService:
                     )
 
         # ----------------------------------------------------------------
-        # Step 4: Transcript fetch (best-effort) + EQS scoring
+        # Step 3.7: Load user profile (level, learning styles)
+        # Used by EQS to personalise Level Match scoring.
         # ----------------------------------------------------------------
-        # Transcripts are NOT required — youtube-transcript-api gets blocked
-        # from cloud IPs (Railway, etc.). EQS already supports scoring on
-        # title + description alone. We score every candidate; videos with
-        # transcripts get richer signals, but missing transcripts are fine.
+        user_level = ""
+        learning_styles: list = []
+        if user_id and db is not None:
+            try:
+                from models import UserProfile
+                import uuid as _uuid
+                user_uuid = _uuid.UUID(str(user_id))
+                profile = (
+                    db.query(UserProfile)
+                    .filter(UserProfile.user_id == user_uuid)
+                    .first()
+                )
+                if profile:
+                    user_level = profile.current_level or ""
+                    learning_styles = list(profile.learning_styles or [])
+                    logger.info(
+                        f"User profile loaded: level={user_level!r} "
+                        f"styles={learning_styles}"
+                    )
+            except Exception as e:
+                logger.warning(f"UserProfile load failed (non-fatal): {e}")
+
+        # ----------------------------------------------------------------
+        # Step 4: Transcript fetch (best-effort) + video details + EQS scoring
+        # ----------------------------------------------------------------
+        # Transcripts are NOT required — youtube-transcript-api can be blocked
+        # from cloud IPs. EQS supports scoring on title + description alone;
+        # transcripts and view/like counts give richer signals when available.
+        candidates = videos[:10]
+        yt_ids = [v["youtube_id"] for v in candidates]
+
+        # Batch-fetch view count, like count, duration in one YouTube API call
+        video_details: dict = {}
+        try:
+            video_details = await self.youtube.get_videos_details_batch(yt_ids)
+        except Exception as e:
+            logger.warning(f"Batch video details failed (non-fatal): {e}")
+
         scored_videos = []
         transcripts_fetched = 0
-        for video in videos[:10]:
+        for video in candidates:
             yt_id = video["youtube_id"]
             title = video["title"]
+            details = video_details.get(yt_id, {})
+
+            # Merge duration into video dict for downstream consumers
+            if details.get("duration_seconds"):
+                video["duration_seconds"] = details["duration_seconds"]
 
             transcript = None
             try:
@@ -188,9 +228,17 @@ class SearchService:
                     title=title,
                     transcript=transcript,
                     description=video.get("description"),
+                    query=query,
+                    channel_name=video.get("channel_name", ""),
+                    duration_seconds=details.get("duration_seconds", 0),
+                    view_count=details.get("view_count", 0),
+                    like_count=details.get("like_count", 0),
+                    user_level=user_level,
+                    learning_styles=learning_styles,
                 )
                 video["eqs_score"] = score_result.get("score", 0)
                 video["eqs_tier"] = score_result.get("tier", 4)
+                video["eqs_dimensions"] = score_result.get("dimensions", {})
             except ValueError:
                 logger.warning(f"CLAUDE_API_KEY missing — EQS skipped for {yt_id}")
                 video["eqs_score"] = 0
@@ -203,7 +251,8 @@ class SearchService:
 
         logger.info(
             f"Scored {len(scored_videos)} videos "
-            f"({transcripts_fetched} with transcripts)"
+            f"({transcripts_fetched} with transcripts, "
+            f"{len(video_details)} with metadata)"
         )
 
         if not scored_videos:

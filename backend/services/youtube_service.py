@@ -207,6 +207,52 @@ class YouTubeService:
             logger.error(f"Error fetching transcript: {e}")
             return None
 
+    async def get_videos_details_batch(self, youtube_ids: List[str]) -> Dict[str, Dict]:
+        """
+        Fetch contentDetails + statistics for up to 50 videos in one API call.
+        Returns a dict keyed by youtube_id. Missing IDs are silently omitted.
+        """
+        if not self.api_key or not youtube_ids:
+            return {}
+
+        params = {
+            "key": self.api_key,
+            "id": ",".join(youtube_ids[:50]),
+            "part": "contentDetails,statistics",
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.BASE_URL}/videos",
+                    params=params,
+                    timeout=10.0,
+                )
+                response.raise_for_status()
+                data = response.json()
+        except Exception as e:
+            logger.warning(f"Batch video details fetch failed: {e}")
+            return {}
+
+        result: Dict[str, Dict] = {}
+        for item in data.get("items", []):
+            vid = item.get("id", "")
+            if not vid:
+                continue
+            duration_seconds = self._parse_duration(
+                item.get("contentDetails", {}).get("duration", "PT0S")
+            )
+            stats = item.get("statistics", {})
+            result[vid] = {
+                "duration_seconds": duration_seconds,
+                "view_count": int(stats.get("viewCount", 0)),
+                "like_count": int(stats.get("likeCount", 0)),
+                "comment_count": int(stats.get("commentCount", 0)),
+            }
+
+        logger.info(f"Batch details fetched for {len(result)}/{len(youtube_ids)} videos")
+        return result
+
     @staticmethod
     def _parse_duration(duration_str: str) -> int:
         """Parse ISO 8601 duration to seconds. Example: PT1H23M45S -> 5025"""
