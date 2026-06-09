@@ -3,7 +3,7 @@
  * Network-first strategy for API calls, cache-first for static assets
  */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const STATIC_CACHE = `learnpath-static-${CACHE_VERSION}`;
 const API_CACHE = `learnpath-api-${CACHE_VERSION}`;
 const IMAGE_CACHE = `learnpath-images-${CACHE_VERSION}`;
@@ -73,6 +73,22 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+
+  // Intercept any http:// request to the Railway backend and rewrite it to go
+  // through the Vercel HTTPS proxy instead. This handles the case where the
+  // JS bundle was built with NEXT_PUBLIC_API_URL set to http:// — the SW
+  // upgrades it to a safe same-origin HTTPS request before the browser can
+  // trigger a mixed-content block.
+  if (url.protocol === "http:" && url.hostname.includes(".railway.app")) {
+    const proxyUrl = "https://" + self.location.hostname + url.pathname + url.search;
+    return event.respondWith(
+      fetch(new Request(proxyUrl, {
+        method: request.method,
+        headers: request.headers,
+        credentials: request.credentials,
+      }))
+    );
+  }
 
   // API calls: always go to the network (responses are auth'd/user-specific and
   // must not be cached/served stale). No SW caching for the API.
