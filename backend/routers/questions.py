@@ -27,6 +27,10 @@ class EvaluateRequest(BaseModel):
     correct_answer: str = Field(..., min_length=1)
     student_answer: str = Field(..., min_length=1)
     difficulty: str = Field(default="medium")
+    # Optional — when present, the answer is recorded against the concept's
+    # mastery score so /api/progress/concepts reflects real progress.
+    concept_name: str = Field(default="")
+    topic_id: str = Field(default="")
 
 
 class ScheduleRequest(BaseModel):
@@ -64,6 +68,7 @@ async def generate_question(
 async def evaluate_answer(
     payload: EvaluateRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     # Enforce per-day question-evaluation rate limit.
     try:
@@ -88,7 +93,7 @@ async def evaluate_answer(
         logger.warning(f"question rate limit check failed (degrading to allowed): {e}")
 
     try:
-        return await question_service.evaluate_answer(
+        result = await question_service.evaluate_answer(
             question=payload.question,
             correct_answer=payload.correct_answer,
             student_answer=payload.student_answer,
@@ -99,6 +104,24 @@ async def evaluate_answer(
     except Exception as e:
         logger.error(f"Answer evaluation failed: {e}")
         raise HTTPException(status_code=500, detail="Answer evaluation failed")
+
+    # Record against concept mastery when concept_name + topic_id are supplied.
+    if payload.concept_name and payload.topic_id:
+        try:
+            import uuid as _uuid
+            from services.session_service import session_service
+            topic_uuid = _uuid.UUID(payload.topic_id)
+            session_service.update_concept_progress(
+                db=db,
+                user_id=current_user.id,
+                topic_id=topic_uuid,
+                concept_name=payload.concept_name.strip(),
+                correct=bool(result.get("is_correct", False)),
+            )
+        except Exception as e:
+            logger.warning(f"Concept progress update failed (non-fatal): {e}")
+
+    return result
 
 
 @router.post("/schedule")

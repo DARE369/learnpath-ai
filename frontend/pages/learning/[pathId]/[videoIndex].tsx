@@ -510,6 +510,8 @@ export default function LearningSessionPage() {
                       correctAnswer={aiQuestion.correct_answer}
                       difficulty={aiQuestion.difficulty}
                       estimatedTime={aiQuestion.estimated_time_seconds}
+                      conceptName={currentVideo.title}
+                      topicId={decodedPathId}
                       onAnswerSubmit={handleAnswerSubmit}
                       onSkip={() => setShowQuestion(false)}
                     />

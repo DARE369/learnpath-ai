@@ -18,6 +18,8 @@ interface QuestionCardProps {
   correctAnswer: string;
   difficulty: string;
   estimatedTime?: number;
+  conceptName?: string;
+  topicId?: string;
   onAnswerSubmit: (score: number, feedback: string) => void;
   onSkip?: () => void;
 }
@@ -67,6 +69,8 @@ export default function QuestionCard({
   correctAnswer,
   difficulty,
   estimatedTime,
+  conceptName,
+  topicId,
   onAnswerSubmit,
   onSkip,
 }: QuestionCardProps) {
@@ -97,6 +101,8 @@ export default function QuestionCard({
           correct_answer: correctAnswer,
           student_answer: studentAnswer.trim(),
           difficulty,
+          ...(conceptName ? { concept_name: conceptName } : {}),
+          ...(topicId ? { topic_id: topicId } : {}),
         }),
       });
       if (!res.ok) throw new Error("Evaluation failed");
