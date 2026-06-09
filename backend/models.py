@@ -225,6 +225,19 @@ class RevokedToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ProcessedWebhook(Base):
+    """Idempotency log for payment webhooks (Stage 4). Each delivered event is
+    recorded by a dedup key so Flutterwave retries are processed exactly once and
+    we keep an audit trail."""
+    __tablename__ = "processed_webhooks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_key = Column(String, unique=True, nullable=False, index=True)
+    reference = Column(String, index=True)
+    status = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class TopicAlias(Base):
     """
     Semantic dedup map (Packet 3.5).

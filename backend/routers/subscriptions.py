@@ -280,6 +280,25 @@ async def flutterwave_webhook(request: Request, db: Session = Depends(get_db)):
     except PaymentError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # Idempotency: Flutterwave retries deliveries. Record each event by a dedup
+    # key and skip if we've already processed it. confirm_payment is itself
+    # idempotent, but this also stops repeated fail_payment + gives an audit log.
+    from models import ProcessedWebhook
+    event_key = f"{parsed.get('flutterwave_id') or parsed['reference']}:{parsed['status']}"
+    try:
+        if db.query(ProcessedWebhook).filter(ProcessedWebhook.event_key == event_key).first():
+            logger.info(f"Duplicate webhook ignored: {event_key}")
+            return {"status": "ok", "duplicate": True}
+        db.add(ProcessedWebhook(
+            event_key=event_key,
+            reference=parsed["reference"],
+            status=parsed["status"],
+        ))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Webhook dedup record failed (continuing): {e}")
+
     if parsed["status"] == "successful":
         try:
             subscription_service.confirm_payment(
@@ -291,3 +310,44 @@ async def flutterwave_webhook(request: Request, db: Session = Depends(get_db)):
         subscription_service.fail_payment(db, parsed["reference"])
 
     return {"status": "ok"}
+
+
+@payments_router.post("/reconcile")
+async def reconcile_payments(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    older_than_minutes: int = 15,
+):
+    """Admin: re-verify stale 'pending' transactions against Flutterwave to catch
+    payments whose webhook was missed. Confirms/fails them via the same idempotent
+    paths the webhook uses."""
+    if getattr(current_user, "role", "user") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    from datetime import timedelta
+    from models import Transaction
+
+    cutoff = datetime.utcnow() - timedelta(minutes=max(1, older_than_minutes))
+    pending = (
+        db.query(Transaction)
+        .filter(Transaction.status == "pending", Transaction.created_at < cutoff)
+        .limit(100)
+        .all()
+    )
+    result = {"checked": 0, "confirmed": 0, "failed": 0, "still_pending": 0, "errors": 0}
+    for tx in pending:
+        result["checked"] += 1
+        try:
+            v = await payment_service.verify_payment(tx.reference)
+            if v["status"] == "successful":
+                subscription_service.confirm_payment(db, tx.reference, flutterwave_id=v.get("flutterwave_id"))
+                result["confirmed"] += 1
+            elif v["status"] == "failed":
+                subscription_service.fail_payment(db, tx.reference)
+                result["failed"] += 1
+            else:
+                result["still_pending"] += 1
+        except Exception as e:
+            result["errors"] += 1
+            logger.warning(f"Reconcile failed for {tx.reference}: {e}")
+    return result
