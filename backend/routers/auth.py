@@ -15,6 +15,23 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
+REFRESH_COOKIE = "refresh_token"
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    """Single place for refresh-cookie attributes so login/google/refresh stay
+    consistent. httponly + secure + samesite=lax (requests are same-origin via the
+    Next.js rewrite proxy)."""
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=7 * 24 * 60 * 60,
+    )
+
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -95,14 +112,7 @@ async def login(payload: UserLogin, response: Response, db: Session = Depends(ge
         raise HTTPException(status_code=403, detail="Account deactivated")
 
     tokens = auth_service.generate_tokens(str(user.id))
-    response.set_cookie(
-        key="refresh_token",
-        value=tokens["refresh_token"],
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=7 * 24 * 60 * 60,
-    )
+    _set_refresh_cookie(response, tokens["refresh_token"])
     logger.info(f"User logged in: {user.email}")
     return {
         "user": UserResponse.model_validate(user).model_dump(mode="json"),
@@ -119,14 +129,7 @@ async def google_signin(payload: GoogleSignIn, response: Response, db: Session =
         raise HTTPException(status_code=401, detail=str(e))
 
     tokens = auth_service.generate_tokens(str(user.id))
-    response.set_cookie(
-        key="refresh_token",
-        value=tokens["refresh_token"],
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=7 * 24 * 60 * 60,
-    )
+    _set_refresh_cookie(response, tokens["refresh_token"])
     logger.info(f"Google sign-in: {user.email}")
     return {
         "user": UserResponse.model_validate(user).model_dump(mode="json"),
@@ -136,19 +139,75 @@ async def google_signin(payload: GoogleSignIn, response: Response, db: Session =
 
 
 @router.post("/refresh", response_model=dict)
-async def refresh_token(refresh_token: Optional[str] = Cookie(default=None)):
+async def refresh_token(
+    response: Response,
+    refresh_token: Optional[str] = Cookie(default=None),
+    db: Session = Depends(get_db),
+):
+    """Rotating refresh: the old refresh token is revoked (one-time use) and a
+    fresh access+refresh pair is issued. Reusing a rotated token fails — which
+    also blocks replay of a stolen refresh token."""
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token required")
-    new_access_token = auth_service.refresh_access_token(refresh_token)
-    if not new_access_token:
+    rotated = auth_service.rotate_refresh_token(db, refresh_token)
+    if not rotated:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    _set_refresh_cookie(response, rotated["refresh_token"])
+    return {"access_token": rotated["access_token"], "token_type": "bearer"}
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    response.delete_cookie("refresh_token")
+async def logout(response: Response, refresh_token: Optional[str] = Cookie(default=None), db: Session = Depends(get_db)):
+    # Revoke server-side so the refresh token can't be reused after logout.
+    if refresh_token:
+        auth_service.revoke_refresh_token(db, refresh_token)
+    response.delete_cookie(REFRESH_COOKIE, path="/")
     return {"message": "Logged out successfully"}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Start a password reset. Always returns a generic success so the endpoint
+    can't be used to discover which emails are registered."""
+    generic = {"message": "If an account exists for that email, a reset link has been sent."}
+    user = auth_service.get_user_by_email(db, payload.email)
+    # Only password accounts can reset (Google-only accounts have no password).
+    if user and user.password_hash:
+        token = auth_service.create_password_reset_token(str(user.id))
+        try:
+            from services.notification_service import notification_service
+            notification_service.send_password_reset(user.email, token)  # no-op until email keys set
+        except Exception as e:
+            logger.warning(f"reset email send failed (non-fatal): {e}")
+        from config import settings as _s
+        if _s.ENVIRONMENT != "production":
+            logger.info(f"[dev] password reset token for {user.email}: {token}")
+    return generic
+
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user_id = auth_service.consume_password_reset_token(db, payload.token)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+    pw_errors = auth_service.validate_password_strength(payload.new_password)
+    if pw_errors:
+        raise HTTPException(status_code=400, detail=f"Password must contain: {', '.join(pw_errors)}")
+    user = auth_service.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+    auth_service.set_password(db, user, payload.new_password)
+    logger.info(f"Password reset for: {user.email}")
+    return {"message": "Password updated. Please sign in."}
 
 
 @router.get("/me", response_model=UserResponse)

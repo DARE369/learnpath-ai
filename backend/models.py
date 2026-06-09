@@ -212,6 +212,19 @@ class CachedPath(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class RevokedToken(Base):
+    """Denylist for refresh / password-reset token jtis (Stage 3 auth hardening).
+    Logout and refresh-rotation add the old jti here; refresh and reset check it.
+    `expires_at` lets a cleanup pass drop rows once the token would have expired."""
+    __tablename__ = "revoked_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    jti = Column(String, unique=True, nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class TopicAlias(Base):
     """
     Semantic dedup map (Packet 3.5).

@@ -132,7 +132,7 @@ export default function OnboardingPage() {
   // Step control
   const [step, setStep] = useState(0);
 
-  const authHeader = accessToken
+  const authHeader: Record<string, string> = accessToken
     ? { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }
     : { 'Content-Type': 'application/json' };
 

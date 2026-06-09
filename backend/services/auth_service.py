@@ -53,6 +53,20 @@ def create_refresh_token(user_id: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_password_reset_token(user_id: str) -> str:
+    expire = datetime.utcnow() + timedelta(hours=1)
+    payload = {"sub": str(user_id), "exp": expire, "type": "reset", "jti": str(uuid.uuid4())}
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def _exp_dt(payload: Dict) -> datetime:
+    exp = payload.get("exp")
+    try:
+        return datetime.utcfromtimestamp(int(exp)) if exp else datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    except (ValueError, TypeError, OverflowError):
+        return datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+
+
 def decode_token(token: str) -> Optional[Dict]:
     try:
         return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
@@ -188,6 +202,8 @@ class AuthService:
         }
 
     def refresh_access_token(self, refresh_token: str) -> Optional[str]:
+        """Legacy non-rotating refresh (no revocation check). Prefer
+        rotate_refresh_token, which is what the /refresh route now uses."""
         payload = decode_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
             return None
@@ -195,6 +211,78 @@ class AuthService:
         if not user_id:
             return None
         return create_access_token(user_id)
+
+    # ── token revocation / rotation (Stage 3) ────────────────────────────────
+
+    def is_token_revoked(self, db: Session, jti: Optional[str]) -> bool:
+        if not jti:
+            return False
+        from models import RevokedToken
+        return db.query(RevokedToken).filter(RevokedToken.jti == jti).first() is not None
+
+    def revoke_jti(self, db: Session, jti: Optional[str], user_id=None, expires_at=None) -> None:
+        if not jti:
+            return
+        from models import RevokedToken
+        try:
+            if db.query(RevokedToken).filter(RevokedToken.jti == jti).first():
+                return
+            uid = None
+            if user_id:
+                try:
+                    uid = uuid.UUID(str(user_id))
+                except (ValueError, TypeError):
+                    uid = None
+            db.add(RevokedToken(
+                jti=jti,
+                user_id=uid,
+                expires_at=expires_at or (datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)),
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+    def revoke_refresh_token(self, db: Session, refresh_token: str) -> None:
+        """Revoke a refresh token (used on logout)."""
+        payload = decode_token(refresh_token)
+        if payload and payload.get("type") == "refresh":
+            self.revoke_jti(db, payload.get("jti"), payload.get("sub"), _exp_dt(payload))
+
+    def rotate_refresh_token(self, db: Session, refresh_token: str) -> Optional[Dict]:
+        """Validate a refresh token, revoke its jti (one-time use), and mint a
+        fresh access+refresh pair. Returns None if invalid/expired/revoked —
+        which, after a token is reused, also blocks replay of a stolen token."""
+        payload = decode_token(refresh_token)
+        if not payload or payload.get("type") != "refresh":
+            return None
+        user_id = payload.get("sub")
+        jti = payload.get("jti")
+        if not user_id or self.is_token_revoked(db, jti):
+            return None
+        self.revoke_jti(db, jti, user_id, _exp_dt(payload))
+        return {
+            "access_token": create_access_token(user_id),
+            "refresh_token": create_refresh_token(user_id),
+            "user_id": user_id,
+        }
+
+    # ── password reset (Stage 3) ─────────────────────────────────────────────
+
+    def consume_password_reset_token(self, db: Session, token: str) -> Optional[str]:
+        """Validate a one-time reset token and burn it (revoke jti). Returns the
+        user_id or None."""
+        payload = decode_token(token)
+        if not payload or payload.get("type") != "reset":
+            return None
+        jti = payload.get("jti")
+        if self.is_token_revoked(db, jti):
+            return None
+        self.revoke_jti(db, jti, payload.get("sub"), _exp_dt(payload))
+        return payload.get("sub")
+
+    def set_password(self, db: Session, user: User, new_password: str) -> None:
+        user.password_hash = hash_password(new_password)
+        db.commit()
 
     def get_current_user_id(self, token: str) -> Optional[str]:
         payload = decode_token(token)
