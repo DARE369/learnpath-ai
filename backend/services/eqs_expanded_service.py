@@ -137,7 +137,7 @@ class ExpandedScoreResult:
 class EQSExpandedService:
     def __init__(self):
         self.api_key = settings.CLAUDE_API_KEY
-        self.model = "claude-opus-4-7"
+        self.model = "claude-sonnet-4-6"
 
     # ------------------------------------------------------------------
     # Prompt + parse

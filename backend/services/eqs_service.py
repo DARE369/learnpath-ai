@@ -55,7 +55,7 @@ def _parse_assessment(text: str) -> str:
 class EQSService:
     def __init__(self):
         self.api_key = settings.CLAUDE_API_KEY
-        self.model = "claude-opus-4-7"
+        self.model = "claude-sonnet-4-6"
 
     async def score_video(
         self,

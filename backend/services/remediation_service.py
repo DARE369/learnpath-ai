@@ -40,7 +40,7 @@ TIER_1_CHARGE_NGN = 0.10      # per variant
 TIER_2_CHARGE_NGN = 0.15      # per variant
 MAX_VARIANT_TIMEOUT_SEC = 30  # bound per variant search
 
-CLAUDE_MODEL = "claude-opus-4-7"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-1.5-pro"
 
 

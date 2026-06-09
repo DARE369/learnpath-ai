@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ConceptGraphService:
     def __init__(self):
         self.api_key = settings.CLAUDE_API_KEY
-        self.model = "claude-opus-4-7"
+        self.model = "claude-sonnet-4-6"
         self.algorithm_version = "v1"
 
     def build_concept_extraction_prompt(self, summary: str, video_title: str) -> str:

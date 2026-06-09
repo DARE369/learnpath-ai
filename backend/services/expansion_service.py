@@ -38,7 +38,7 @@ from services.cost_tracker import BudgetExceeded, cost_tracker
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = "claude-opus-4-7"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 POPULAR_THRESHOLD = 10            # >10 searches in window = popular
 LOOKBACK_DAYS = 30
 DEDUP_CHARGE_NGN = 0.20

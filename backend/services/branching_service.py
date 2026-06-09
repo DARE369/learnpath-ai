@@ -53,7 +53,7 @@ class InvalidBranchSet(ValueError):
 class ConceptBranchingService:
     def __init__(self):
         self.api_key = settings.CLAUDE_API_KEY
-        self.model = "claude-opus-4-7"
+        self.model = "claude-sonnet-4-6"
 
     def _build_prompt(self, concept_name: str, base_concept_summary: str) -> str:
         return f"""You are an expert curriculum designer.
