@@ -253,6 +253,19 @@ class YouTubeService:
         logger.info(f"Batch details fetched for {len(result)}/{len(youtube_ids)} videos")
         return result
 
+    async def available_youtube_ids(self, youtube_ids: List[str]) -> set:
+        """Return the subset of ids still live & public on YouTube (Stage 12/D14).
+        videos.list omits removed/private/region-blocked videos, so anything not
+        returned is unavailable. Fails OPEN (returns all ids) when the API key is
+        missing or the call errors, so we never wrongly prune on an outage."""
+        ids = [i for i in (youtube_ids or []) if i]
+        if not self.api_key or not ids:
+            return set(ids)
+        details = await self.get_videos_details_batch(ids)
+        if not details:
+            return set(ids)  # fail-open
+        return set(details.keys())
+
     @staticmethod
     def _parse_duration(duration_str: str) -> int:
         """Parse ISO 8601 duration to seconds. Example: PT1H23M45S -> 5025"""

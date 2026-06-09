@@ -308,6 +308,11 @@ class CacheService:
         self.misses = 0
         logger.info("All cache layers cleared")
 
+    def forget_memory(self, topic_id: str) -> None:
+        """Drop only the in-memory L1 copy (keeps the durable DB row + its validity).
+        Use after updating a row's path_json so the next read reloads fresh."""
+        self._topic_cache.pop(topic_id, None)
+
     def get_cached_topics(self) -> List[str]:
         """Return list of non-expired topic_ids in Layer 1."""
         now = datetime.utcnow()

@@ -42,6 +42,61 @@ def get_user_analytics(
 # ── Platform / admin analytics ────────────────────────────────────────────────
 
 
+@router.get("/overview")
+def platform_overview(
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin/super-admin: one-call platform snapshot — users, revenue, activation,
+    health, AI cost fences, and path-library token savings."""
+    from sqlalchemy import func
+    from models import User as UserModel, CachedPath
+    from services.cost_tracker import cost_tracker
+    from services.cache_service import cache_service
+
+    def _safe(fn, default):
+        try:
+            return fn()
+        except Exception as e:
+            logger.warning(f"overview section failed: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            return default
+
+    users_by_role = _safe(
+        lambda: {
+            (r or "student"): int(c)
+            for r, c in db.query(UserModel.role, func.count(UserModel.id)).group_by(UserModel.role).all()
+        },
+        {},
+    )
+    library = _safe(
+        lambda: db.query(
+            func.count(CachedPath.id),
+            func.coalesce(func.sum(CachedPath.times_served), 0),
+        ).filter(CachedPath.valid.is_(True)).first(),
+        (0, 0),
+    )
+
+    return {
+        "users_by_role": users_by_role,
+        "total_users": sum(users_by_role.values()),
+        "platform": _safe(lambda: analytics_service.get_platform_metrics(db), {}),
+        "revenue": _safe(lambda: analytics_service.get_revenue_metrics(db), {}),
+        "activation": _safe(lambda: analytics_service.get_activation_funnel(db, 30), {}),
+        "health": _safe(lambda: analytics_service.get_platform_health(db), {}),
+        "ai_budgets": _safe(lambda: cost_tracker.stats(), {}),
+        "cache": _safe(lambda: cache_service.get_cache_stats(), {}),
+        "path_library": {
+            "stored_paths": int(library[0] or 0),
+            "served_from_library": int(library[1] or 0),
+            "est_generations_saved": int(library[1] or 0),
+        },
+    }
+
+
 @router.get("/activation")
 def get_activation_funnel(
     _admin: User = Depends(require_admin),

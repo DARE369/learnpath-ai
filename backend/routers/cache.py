@@ -66,6 +66,53 @@ async def list_cached_topics():
     }
 
 
+@router.post("/revalidate/{topic_id:path}")
+async def revalidate_cached_path(
+    topic_id: str,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin: re-validate a stored path NOW — prune videos that are blacklisted or
+    no longer available on YouTube (Stage 12/D14). Drops the path (regenerate next
+    time) if too few survive."""
+    from urllib.parse import unquote
+    from models import CachedPath
+    from services.blacklist_service import blacklist_service
+    from services.youtube_service import youtube_service
+
+    MIN_VIDEOS = 3
+    decoded = unquote(topic_id).strip()
+    row = db.query(CachedPath).filter(CachedPath.topic_id == decoded).first()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"No cached path for: {decoded}")
+
+    path = row.path_json or {}
+    videos = path.get("videos") or []
+    yt_ids = [v.get("youtube_id") for v in videos if v.get("youtube_id")]
+    not_blacklisted = set(blacklist_service.filter_blacklisted(db, yt_ids))
+    available = await youtube_service.available_youtube_ids(yt_ids)
+    keep = not_blacklisted & available
+    kept = [v for v in videos if v.get("youtube_id") in keep]
+    pruned = len(videos) - len(kept)
+
+    if len(kept) < MIN_VIDEOS:
+        row.valid = False
+        db.commit()
+        cache_service.invalidate_topic_cache(decoded, db=db)
+        return {"topic_id": decoded, "pruned": pruned, "remaining": len(kept), "invalidated": True}
+
+    path["videos"] = kept
+    path["video_sequence"] = [v.get("video_id") for v in kept if v.get("video_id")]
+    path["video_count"] = len(kept)
+    from datetime import datetime
+    row.path_json = path
+    row.video_count = len(kept)
+    row.last_validated_at = datetime.utcnow()
+    db.commit()
+    cache_service.forget_memory(decoded)  # drop stale L1 copy; DB row stays valid
+    return {"topic_id": decoded, "pruned": pruned, "remaining": len(kept), "invalidated": False}
+
+
 @router.post("/clear")
 async def clear_cache(_admin: User = Depends(require_admin)):
     """

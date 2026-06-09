@@ -108,6 +108,7 @@ const ADMIN: NavGroup[] = [
     label: "Platform admin",
     items: [
       { label: "Overview", href: "/admin", icon: Shield },
+      { label: "Platform", href: "/admin/platform", icon: TrendingUp },
       { label: "Analytics", href: "/admin/analytics", icon: TrendingUp },
       { label: "Customer success", href: "/admin/customer-success", icon: Users },
       { label: "Expansion", href: "/admin/expansion", icon: Layers },
