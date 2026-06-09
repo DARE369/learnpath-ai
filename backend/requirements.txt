@@ -23,7 +23,7 @@ PyJWT==2.8.0
 
 # API & External Services
 requests==2.31.0
-youtube-transcript-api==0.6.1
+youtube-transcript-api==1.2.4
 
 # NEW-PACKET-E: document extraction (text-based PDF, Word, URL) + OCR.
 # OCR system binaries (tesseract-ocr, poppler-utils) are installed via

@@ -9,7 +9,7 @@ from typing import List, Optional, Dict
 
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
 
 from config import settings
 
@@ -170,7 +170,9 @@ class YouTubeService:
         logger.info(f"Fetching transcript for: {youtube_id}")
 
         try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(youtube_id)
+            # 1.x API: instantiate first, then call list()
+            ytt = YouTubeTranscriptApi()
+            transcript_list = ytt.list(youtube_id)
 
             transcript = None
             for lang in languages:
@@ -181,7 +183,7 @@ class YouTubeService:
                 except Exception:
                     pass
 
-            # Fall back to any available transcript
+            # Fall back to any available transcript (auto-generated included)
             if transcript is None:
                 for t in transcript_list:
                     transcript = t
@@ -191,12 +193,14 @@ class YouTubeService:
             if transcript is None:
                 return None
 
+            # 1.x: fetch() returns FetchedTranscript (iterable of FetchedTranscriptSnippet)
+            # Snippets use .text attribute, not ["text"] dict access
             transcript_data = transcript.fetch()
-            transcript_text = "\n".join(item["text"] for item in transcript_data)
+            transcript_text = "\n".join(item.text for item in transcript_data)
             logger.info(f"Transcript fetched: {len(transcript_text)} characters")
             return transcript_text
 
-        except (TranscriptsDisabled, NoTranscriptFound) as e:
+        except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable) as e:
             logger.warning(f"Transcript not available for {youtube_id}: {e}")
             return None
         except Exception as e:

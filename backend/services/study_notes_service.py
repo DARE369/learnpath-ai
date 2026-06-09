@@ -63,10 +63,21 @@ class StudyNotesService:
     def _get_transcript(self, youtube_id: str) -> Optional[str]:
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
-            entries = YouTubeTranscriptApi.get_transcript(youtube_id)
-            return " ".join(e["text"] for e in entries)
-        except Exception as e:
-            logger.warning(f"Transcript fetch failed for {youtube_id}: {e}")
+            # 1.x API: instantiate, then fetch() — class-method get_transcript() was removed
+            ytt = YouTubeTranscriptApi()
+            transcript = ytt.fetch(youtube_id, languages=["en", "en-US"])
+            return " ".join(e.text for e in transcript)
+        except Exception:
+            # Retry with any available language via list()
+            try:
+                from youtube_transcript_api import YouTubeTranscriptApi
+                ytt = YouTubeTranscriptApi()
+                tl = ytt.list(youtube_id)
+                for t in tl:
+                    data = t.fetch()
+                    return " ".join(e.text for e in data)
+            except Exception as e:
+                logger.warning(f"Transcript fetch failed for {youtube_id}: {e}")
             return None
 
     async def _call_claude(self, prompt: str, max_tokens: int = 1800) -> Optional[str]:
