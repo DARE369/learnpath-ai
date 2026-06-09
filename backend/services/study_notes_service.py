@@ -144,9 +144,10 @@ class StudyNotesService:
             raise ValueError("No transcript available for this video")
 
         instruction = _STYLE_PROMPTS[style]
+        from services.prompt_safety import wrap_untrusted
         prompt = (
             f"{instruction}\n\nTitle: {note.source_title}\n\n"
-            f"Content:\n{transcript[:6000]}\n\nReturn only the Markdown notes."
+            f"Content:\n{wrap_untrusted(transcript, max_chars=6000)}\n\nReturn only the Markdown notes."
         )
         content = await self._call_claude(prompt)
         if not content:

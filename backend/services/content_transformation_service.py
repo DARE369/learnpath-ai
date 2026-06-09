@@ -245,9 +245,13 @@ class ContentTransformationService:
         if existing:
             return self._transform_dict(existing)
 
-        text = (upload.extracted_text or "")[:6000]
-        if not text.strip():
+        raw_text = (upload.extracted_text or "")
+        if not raw_text.strip():
             raise ValueError("No extracted text to transform")
+        # Wrap the uploaded content as untrusted DATA so a malicious document can't
+        # hijack the prompt (Stage 7). Downstream _gen_* embed this guarded block.
+        from services.prompt_safety import wrap_untrusted
+        text = wrap_untrusted(raw_text, max_chars=6000)
 
         if ttype == "ai_explanation":
             content, fmt, count = await self._gen_explanation(text), "markdown", 0
