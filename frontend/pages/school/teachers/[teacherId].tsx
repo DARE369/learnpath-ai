@@ -74,7 +74,7 @@ function ReassignModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white">Reassign "{className}"</h3>
+          <h3 className="text-sm font-semibold text-white">Reassign &ldquo;{className}&rdquo;</h3>
           <button onClick={onClose}><X className="h-4 w-4 text-white/30" /></button>
         </div>
         <div className="space-y-3">

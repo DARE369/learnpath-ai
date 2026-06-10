@@ -1894,6 +1894,7 @@ class ClassMetadata(Base):
     archived_at = Column(DateTime, nullable=True)
 
     google_classroom_id = Column(String(255), nullable=True)
+    grade_level = Column(Integer, nullable=True)  # ADMIN-2.3 class management
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

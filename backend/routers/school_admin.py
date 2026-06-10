@@ -1,7 +1,7 @@
 """School admin API router — ADMIN-2.1."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -181,3 +181,105 @@ def dismiss_recommendation(
     return school_admin_service.dismiss_recommendation(
         db, str(current_user.id), school_id, rec_id
     )
+
+
+# ── Class management (ADMIN-2.3) ─────────────────────────────────────────────
+
+class CreateClassRequest(BaseModel):
+    name: str
+    subject: Optional[str] = None
+    description: Optional[str] = None
+    teacher_id: Optional[str] = None
+    grade_level: Optional[int] = None
+    max_students: int = 30
+    student_ids: List[str] = []
+
+
+class UpdateClassRequest(BaseModel):
+    name: Optional[str] = None
+    subject: Optional[str] = None
+    description: Optional[str] = None
+    teacher_id: Optional[str] = None
+    grade_level: Optional[int] = None
+    max_students: Optional[int] = None
+
+
+class DuplicateClassRequest(BaseModel):
+    new_name: Optional[str] = None
+    teacher_id: Optional[str] = None
+    copy_roster: bool = False
+    copy_assignments: bool = False
+
+
+class MergeClassRequest(BaseModel):
+    target_class_id: str
+    conflict_resolution: str = "skip"  # skip | add_anyway
+    archive_source: bool = True
+
+
+@router.get("/{school_id}/classes")
+def list_classes(
+    school_id: str,
+    search: Optional[str] = Query(None),
+    status: str = Query("active"),
+    grade: Optional[int] = Query(None),
+    teacher_id: Optional[str] = Query(None),
+    sort_by: str = Query("name"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return school_admin_service.list_classes(
+        db, str(current_user.id), school_id, search=search, status=status,
+        grade=grade, teacher_id=teacher_id, sort_by=sort_by, page=page, page_size=page_size,
+    )
+
+
+@router.post("/{school_id}/classes")
+def create_class(school_id: str, payload: CreateClassRequest,
+                 current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.create_class(db, str(current_user.id), school_id, payload.model_dump())
+
+
+@router.get("/{school_id}/classes/{class_id}")
+def get_class(school_id: str, class_id: str,
+              current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.get_class_detail(db, str(current_user.id), school_id, class_id)
+
+
+@router.put("/{school_id}/classes/{class_id}")
+def update_class(school_id: str, class_id: str, payload: UpdateClassRequest,
+                 current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.update_class(db, str(current_user.id), school_id, class_id,
+                                             payload.model_dump(exclude_unset=True))
+
+
+@router.post("/{school_id}/classes/{class_id}/duplicate")
+def duplicate_class(school_id: str, class_id: str, payload: DuplicateClassRequest,
+                    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.duplicate_class(db, str(current_user.id), school_id, class_id, payload.model_dump())
+
+
+@router.post("/{school_id}/classes/{class_id}/merge")
+def merge_class(school_id: str, class_id: str, payload: MergeClassRequest,
+                current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.merge_classes(db, str(current_user.id), school_id, class_id, payload.model_dump())
+
+
+@router.post("/{school_id}/classes/{class_id}/archive")
+def archive_class(school_id: str, class_id: str,
+                  current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.set_archived(db, str(current_user.id), school_id, class_id, True)
+
+
+@router.post("/{school_id}/classes/{class_id}/restore")
+def restore_class(school_id: str, class_id: str,
+                  current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.set_archived(db, str(current_user.id), school_id, class_id, False)
+
+
+@router.delete("/{school_id}/classes/{class_id}")
+def delete_class(school_id: str, class_id: str,
+                 current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.delete_class(db, str(current_user.id), school_id, class_id)

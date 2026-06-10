@@ -95,7 +95,12 @@ const TEACHER: NavGroup[] = [
 const SCHOOL_ADMIN: NavGroup[] = [
   {
     label: "School",
-    items: [{ label: "Dashboard", href: "/school/dashboard", icon: School }],
+    items: [
+      { label: "Dashboard", href: "/school/dashboard", icon: School },
+      { label: "Classes", href: "/school/classes", icon: ClipboardList },
+      { label: "Teachers", href: "/school/teachers", icon: GraduationCap },
+      { label: "Students", href: "/school/students", icon: Users },
+    ],
   },
   {
     label: "Account",

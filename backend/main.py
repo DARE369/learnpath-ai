@@ -65,6 +65,8 @@ _SCHEMA_PATCHES = [
     # query depends on this column.
     "ALTER TABLE teachers ADD COLUMN IF NOT EXISTS user_id UUID",
     "CREATE INDEX IF NOT EXISTS idx_teachers_user_id ON teachers(user_id)",
+    # ADMIN-2.3 class management: grade level on class metadata.
+    "ALTER TABLE class_metadata ADD COLUMN IF NOT EXISTS grade_level INTEGER",
     # Performance indexes (Packet 6.2) — auto-applied so no manual migration.
     "CREATE INDEX IF NOT EXISTS idx_users_tier ON users(tier)",
     "CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC)",

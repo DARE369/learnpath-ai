@@ -15,6 +15,7 @@ from models import (
     AtRiskStudentCache,
     Class,
     ClassMembership,
+    ClassMetadata,
     EngagementSnapshot,
     LoginActivity,
     Organization,
@@ -936,6 +937,308 @@ class SchoolAdminService:
         rec.dismissed_at = datetime.utcnow()
         db.commit()
         return {"status": "dismissed"}
+
+    # ── Class management (ADMIN-2.3) ─────────────────────────────────────────
+
+    def _ensure_class_metadata(self, db: Session, class_obj) -> ClassMetadata:
+        meta = db.query(ClassMetadata).filter_by(class_id=class_obj.id).first()
+        if not meta:
+            meta = ClassMetadata(class_id=class_obj.id, teacher_id=class_obj.teacher_id)
+            db.add(meta)
+            db.flush()
+        return meta
+
+    def _require_class(self, db: Session, school_id: str, class_id: str):
+        c = db.query(Class).filter_by(id=uuid.UUID(class_id)).first()
+        if not c or str(c.organization_id) != school_id:
+            raise HTTPException(status_code=404, detail="Class not found")
+        return c
+
+    def _class_row(self, db: Session, c, meta_by_id, counts) -> Dict:
+        from services.teacher_service import _status_for  # noqa
+        meta = meta_by_id.get(c.id)
+        teacher = db.query(Teacher).filter_by(id=c.teacher_id).first() if c.teacher_id else None
+        n = counts.get(c.id, {}).get("n", 0)
+        avg = counts.get(c.id, {}).get("avg", 0)
+        return {
+            "class_id": str(c.id),
+            "name": c.name,
+            "subject": c.subject,
+            "teacher": teacher.name if teacher else "Unassigned",
+            "teacher_id": str(c.teacher_id) if c.teacher_id else None,
+            "grade_level": meta.grade_level if meta else None,
+            "students": n,
+            "max_students": c.max_students or 0,
+            "capacity_pct": round(n / c.max_students * 100) if c.max_students else 0,
+            "status": "archived" if (meta and meta.is_archived) else "active",
+            "avg_score": avg,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+
+    def list_classes(self, db: Session, user_id: str, school_id: str, *, search=None,
+                     status="active", grade=None, teacher_id=None, sort_by="name",
+                     page=1, page_size=50) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        classes = db.query(Class).filter_by(organization_id=uuid.UUID(school_id)).all()
+        class_ids = [c.id for c in classes]
+        metas = {m.class_id: m for m in db.query(ClassMetadata).filter(ClassMetadata.class_id.in_(class_ids)).all()} if class_ids else {}
+
+        # Roster counts + avg score per class.
+        counts: Dict = {}
+        if class_ids:
+            for m in db.query(ClassMembership).filter(
+                ClassMembership.class_id.in_(class_ids), ClassMembership.enrollment_status == "active"
+            ).all():
+                d = counts.setdefault(m.class_id, {"n": 0, "sum": 0})
+                d["n"] += 1
+                d["sum"] += (m.average_score or 0)
+            for cid, d in counts.items():
+                d["avg"] = round(d["sum"] / d["n"], 1) if d["n"] else 0
+
+        rows = [self._class_row(db, c, metas, counts) for c in classes]
+        if status == "active":
+            rows = [r for r in rows if r["status"] == "active"]
+        elif status == "archived":
+            rows = [r for r in rows if r["status"] == "archived"]
+        if search:
+            q = search.strip().lower()
+            rows = [r for r in rows if q in (r["name"] or "").lower() or q in (r["teacher"] or "").lower()]
+        if grade is not None:
+            rows = [r for r in rows if r["grade_level"] == grade]
+        if teacher_id:
+            rows = [r for r in rows if r["teacher_id"] == teacher_id]
+
+        if sort_by == "students":
+            rows.sort(key=lambda r: r["students"], reverse=True)
+        elif sort_by == "avg_score":
+            rows.sort(key=lambda r: r["avg_score"], reverse=True)
+        elif sort_by == "teacher":
+            rows.sort(key=lambda r: (r["teacher"] or "").lower())
+        elif sort_by == "created":
+            rows.sort(key=lambda r: r["created_at"] or "", reverse=True)
+        else:
+            rows.sort(key=lambda r: (r["name"] or "").lower())
+
+        total = len(rows)
+        start = (max(1, page) - 1) * page_size
+        return {"classes": rows[start:start + page_size],
+                "pagination": {"page": page, "page_size": page_size, "total": total,
+                               "pages": max(1, (total + page_size - 1) // page_size)}}
+
+    def get_class_detail(self, db: Session, user_id: str, school_id: str, class_id: str) -> Dict:
+        from services.teacher_service import _status_for, _alert_for
+        self._verify_access(db, user_id, school_id)
+        c = self._require_class(db, school_id, class_id)
+        meta = db.query(ClassMetadata).filter_by(class_id=c.id).first()
+        teacher = db.query(Teacher).filter_by(id=c.teacher_id).first() if c.teacher_id else None
+
+        members = db.query(ClassMembership).filter_by(class_id=c.id, enrollment_status="active").all()
+        sids = [m.student_id for m in members]
+        users = {u.id: u for u in db.query(User).filter(User.id.in_(sids)).all()} if sids else {}
+        roster = []
+        for m in members:
+            u = users.get(m.student_id)
+            roster.append({
+                "student_id": str(m.student_id),
+                "name": (u.full_name if u and u.full_name else (u.email.split("@")[0] if u and u.email else "Student")),
+                "email": u.email if u else None,
+                "score": m.average_score or 0,
+                "status": _status_for(m),
+            })
+        roster.sort(key=lambda r: r["name"].lower())
+
+        # Submission rate across the class's assignments.
+        a_ids = [a.id for a in db.query(TeacherAssignment).filter_by(class_id=c.id).all()]
+        sub_rate = None
+        if a_ids:
+            subs = db.query(AssignmentSubmission).filter(AssignmentSubmission.assignment_id.in_(a_ids)).all()
+            if subs:
+                done = sum(1 for s in subs if s.status in ("submitted", "pending_manual", "graded"))
+                sub_rate = round(done / len(subs) * 100)
+
+        activity = (
+            db.query(SchoolActivityLog)
+            .filter(SchoolActivityLog.school_id == uuid.UUID(school_id),
+                    SchoolActivityLog.resource_id == str(c.id))
+            .order_by(SchoolActivityLog.created_at.desc())
+            .limit(20)
+            .all()
+        )
+        n = len(roster)
+        return {
+            "class_id": str(c.id),
+            "name": c.name,
+            "subject": c.subject,
+            "description": c.description,
+            "teacher": teacher.name if teacher else "Unassigned",
+            "teacher_id": str(c.teacher_id) if c.teacher_id else None,
+            "grade_level": meta.grade_level if meta else None,
+            "status": "archived" if (meta and meta.is_archived) else "active",
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "capacity": {"current": n, "max": c.max_students or 0,
+                         "pct_full": round(n / c.max_students * 100) if c.max_students else 0},
+            "stats": {
+                "students": n,
+                "avg_score": round(sum(r["score"] for r in roster) / n, 1) if n else 0,
+                "submission_rate": sub_rate,
+                "at_risk_count": sum(1 for m in members if _alert_for(m)),
+            },
+            "roster": roster,
+            "activity": [{"action": a.action, "resource_type": a.resource_type,
+                          "changes": a.changes, "at": a.created_at.isoformat()} for a in activity],
+        }
+
+    def create_class(self, db: Session, user_id: str, school_id: str, data: Dict) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        name = (data.get("name") or "").strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Class name is required")
+        teacher_id = data.get("teacher_id")
+        c = Class(
+            organization_id=uuid.UUID(school_id),
+            teacher_id=uuid.UUID(teacher_id) if teacher_id else None,
+            name=name,
+            subject=data.get("subject"),
+            description=data.get("description"),
+            max_students=int(data.get("max_students") or 30),
+        )
+        db.add(c)
+        db.flush()
+        meta = ClassMetadata(class_id=c.id, teacher_id=c.teacher_id, grade_level=data.get("grade_level"))
+        db.add(meta)
+        added = 0
+        for sid in (data.get("student_ids") or []):
+            try:
+                db.add(ClassMembership(class_id=c.id, student_id=uuid.UUID(str(sid)), enrollment_status="active"))
+                added += 1
+            except (ValueError, TypeError):
+                continue
+        c.enrolled_students = added
+        self._log(db, school_id, user_id, "create_class", "class", str(c.id), {"name": name, "students": added})
+        db.commit()
+        return {"status": "created", "class_id": str(c.id), "students_added": added}
+
+    def update_class(self, db: Session, user_id: str, school_id: str, class_id: str, data: Dict) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        c = self._require_class(db, school_id, class_id)
+        meta = self._ensure_class_metadata(db, c)
+        changes: Dict = {}
+        for field in ("name", "subject", "description"):
+            if field in data and data[field] != getattr(c, field):
+                changes[field] = {"old": getattr(c, field), "new": data[field]}
+                setattr(c, field, data[field])
+        if "max_students" in data and data["max_students"] is not None:
+            changes["max_students"] = {"old": c.max_students, "new": data["max_students"]}
+            c.max_students = int(data["max_students"])
+        if "teacher_id" in data:
+            tid = uuid.UUID(data["teacher_id"]) if data["teacher_id"] else None
+            if tid != c.teacher_id:
+                changes["teacher_id"] = {"old": str(c.teacher_id), "new": str(tid)}
+                c.teacher_id = tid
+                meta.teacher_id = tid or meta.teacher_id
+        if "grade_level" in data and data["grade_level"] != meta.grade_level:
+            changes["grade_level"] = {"old": meta.grade_level, "new": data["grade_level"]}
+            meta.grade_level = data["grade_level"]
+        if changes:
+            self._log(db, school_id, user_id, "update_class", "class", str(c.id), changes)
+        db.commit()
+        return {"status": "updated", "changes": len(changes)}
+
+    def duplicate_class(self, db: Session, user_id: str, school_id: str, class_id: str, data: Dict) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        src = self._require_class(db, school_id, class_id)
+        src_meta = db.query(ClassMetadata).filter_by(class_id=src.id).first()
+        new_teacher = data.get("teacher_id")
+        new = Class(
+            organization_id=src.organization_id,
+            teacher_id=uuid.UUID(new_teacher) if new_teacher else src.teacher_id,
+            name=(data.get("new_name") or f"{src.name} (copy)").strip(),
+            subject=src.subject,
+            description=src.description,
+            max_students=src.max_students,
+        )
+        db.add(new)
+        db.flush()
+        db.add(ClassMetadata(class_id=new.id, teacher_id=new.teacher_id,
+                             grade_level=src_meta.grade_level if src_meta else None))
+        students = assignments = 0
+        if data.get("copy_roster"):
+            for m in db.query(ClassMembership).filter_by(class_id=src.id, enrollment_status="active").all():
+                db.add(ClassMembership(class_id=new.id, student_id=m.student_id, enrollment_status="active"))
+                students += 1
+            new.enrolled_students = students
+        if data.get("copy_assignments"):
+            for a in db.query(TeacherAssignment).filter_by(class_id=src.id).all():
+                db.add(TeacherAssignment(
+                    teacher_id=a.teacher_id, class_id=new.id, name=a.name, description=a.description,
+                    assignment_type=a.assignment_type, content_data=a.content_data,
+                    deadline_type=a.deadline_type, assigned_to_type=a.assigned_to_type,
+                ))
+                assignments += 1
+        self._log(db, school_id, user_id, "duplicate_class", "class", str(src.id),
+                  {"new_class_id": str(new.id), "students": students, "assignments": assignments})
+        db.commit()
+        return {"status": "duplicated", "new_class_id": str(new.id),
+                "students_copied": students, "assignments_copied": assignments}
+
+    def merge_classes(self, db: Session, user_id: str, school_id: str, source_id: str, data: Dict) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        src = self._require_class(db, school_id, source_id)
+        target_id = data.get("target_class_id")
+        if not target_id:
+            raise HTTPException(status_code=400, detail="target_class_id required")
+        tgt = self._require_class(db, school_id, target_id)
+        resolution = data.get("conflict_resolution", "skip")  # skip | add_anyway
+
+        existing = {m.student_id for m in db.query(ClassMembership).filter_by(class_id=tgt.id).all()}
+        moved = skipped = 0
+        for m in db.query(ClassMembership).filter_by(class_id=src.id).all():
+            if m.student_id in existing:
+                if resolution == "skip":
+                    skipped += 1
+                    continue
+            else:
+                db.add(ClassMembership(class_id=tgt.id, student_id=m.student_id,
+                                       enrollment_status=m.enrollment_status,
+                                       progress_percent=m.progress_percent, average_score=m.average_score,
+                                       last_active=m.last_active))
+                existing.add(m.student_id)
+                moved += 1
+            db.delete(m)
+        a_count = 0
+        for a in db.query(TeacherAssignment).filter_by(class_id=src.id).all():
+            a.class_id = tgt.id
+            a_count += 1
+        tgt.enrolled_students = db.query(ClassMembership).filter_by(class_id=tgt.id, enrollment_status="active").count()
+        if data.get("archive_source", True):
+            meta = self._ensure_class_metadata(db, src)
+            meta.is_archived = True
+            meta.archived_at = datetime.utcnow()
+        self._log(db, school_id, user_id, "merge_class", "class", str(src.id),
+                  {"target": str(tgt.id), "moved": moved, "skipped": skipped, "assignments": a_count})
+        db.commit()
+        return {"status": "merged", "students_moved": moved, "students_skipped": skipped,
+                "assignments_transferred": a_count, "source_archived": bool(data.get("archive_source", True))}
+
+    def set_archived(self, db: Session, user_id: str, school_id: str, class_id: str, archived: bool) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        c = self._require_class(db, school_id, class_id)
+        meta = self._ensure_class_metadata(db, c)
+        meta.is_archived = archived
+        meta.archived_at = datetime.utcnow() if archived else None
+        self._log(db, school_id, user_id, "archive_class" if archived else "restore_class", "class", str(c.id))
+        db.commit()
+        return {"status": "archived" if archived else "active"}
+
+    def delete_class(self, db: Session, user_id: str, school_id: str, class_id: str) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        c = self._require_class(db, school_id, class_id)
+        db.query(ClassMembership).filter_by(class_id=c.id).delete()
+        db.query(ClassMetadata).filter_by(class_id=c.id).delete()
+        self._log(db, school_id, user_id, "delete_class", "class", str(c.id), {"name": c.name})
+        db.delete(c)
+        db.commit()
+        return {"status": "deleted"}
 
 
 school_admin_service = SchoolAdminService()
