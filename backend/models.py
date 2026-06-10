@@ -1929,4 +1929,320 @@ class AccountDeletionRequest(Base):
     canceled_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
+
+# ── ADMIN-2.1: School Admin Foundation ────────────────────────────────────────
+
+class SchoolProfile(Base):
+    """Extended branding & configuration for a school org (ADMIN-2.1)."""
+    __tablename__ = "school_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, unique=True, index=True)
+
+    logo_url = Column(String(500), nullable=True)
+    banner_color = Column(String(7), nullable=True)
+
+    district_name = Column(String(255), nullable=True)
+    address = Column(String(500), nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(50), nullable=True)
+    zip_code = Column(String(10), nullable=True)
+    phone = Column(String(20), nullable=True)
+    website = Column(String(500), nullable=True)
+
+    timezone = Column(String(100), default="UTC")
+    language = Column(String(10), default="en")
+    academic_year_start = Column(Date, nullable=True)
+    academic_year_end = Column(Date, nullable=True)
+
+    max_teachers = Column(Integer, default=50)
+    max_students = Column(Integer, default=2000)
+    max_storage_gb = Column(Integer, default=100)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SchoolUserRole(Base):
+    """Multi-level access control for school admins/staff (ADMIN-2.1)."""
+    __tablename__ = "school_user_roles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    role_type = Column(String(50), nullable=False)  # principal | admin | support_staff | finance
+    permissions = Column(JSON, default=dict)
+    scope = Column(String(50), default="all")  # all | department | assigned_only
+    scope_details = Column(JSON, default=dict)
+
+    assigned_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "school_id", name="uq_school_user_role"),)
+
+
+class SchoolHealthMetric(Base):
+    """Cached health snapshot for the school dashboard (ADMIN-2.1)."""
+    __tablename__ = "school_health_metrics"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    snapshot_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    total_teachers = Column(Integer, default=0)
+    active_teachers = Column(Integer, default=0)
+    total_students = Column(Integer, default=0)
+    enrolled_students = Column(Integer, default=0)
+    total_classes = Column(Integer, default=0)
+    active_classes = Column(Integer, default=0)
+
+    teachers_active_today = Column(Float, default=0.0)
+    students_active_today = Column(Float, default=0.0)
+    assignments_created_today = Column(Integer, default=0)
+    assignments_submitted_today = Column(Integer, default=0)
+
+    avg_student_score = Column(Float, default=0.0)
+    at_risk_student_count = Column(Integer, default=0)
+
+    storage_used_gb = Column(Float, default=0.0)
+    videos_created = Column(Integer, default=0)
+
+    teacher_growth_pct = Column(Float, default=0.0)
+    student_growth_pct = Column(Float, default=0.0)
+    engagement_trend = Column(Float, default=0.0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SchoolAlert(Base):
+    """Auto-generated threshold alerts for principals (ADMIN-2.1)."""
+    __tablename__ = "school_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    alert_type = Column(String(50), nullable=False, index=True)
+    severity = Column(String(20), nullable=False, index=True)  # critical | high | medium | low
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    context_data = Column(JSON, default=dict)
+    suggested_actions = Column(JSON, default=list)
+
+    status = Column(String(50), default="active", index=True)  # active | muted | resolved
+    muted_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
+
+    auto_resolve_condition = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SchoolActivityLog(Base):
+    """Immutable audit trail for all school admin actions (ADMIN-2.1)."""
+    __tablename__ = "school_activity_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    actor_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    action = Column(String(100), nullable=False, index=True)
+    resource_type = Column(String(50), nullable=True)
+    resource_id = Column(String(255), nullable=True)
+
+    changes = Column(JSON, default=dict)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class TeacherInvitation(Base):
+    """Teacher invite tokens with expiry and status tracking (ADMIN-2.1)."""
+    __tablename__ = "teacher_invitations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    invited_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    email = Column(String(255), nullable=False, index=True)
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+
+    invite_token = Column(String(255), unique=True, nullable=False, index=True)
+    invite_url = Column(String(500), nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+
+    sent_at = Column(DateTime, nullable=True)
+    reminder_sent_at = Column(DateTime, nullable=True)
+    accepted_at = Column(DateTime, nullable=True)
+    accepted_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    status = Column(String(50), default="sent", index=True)  # sent | clicked | accepted | expired
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class StudentBulkUpload(Base):
+    """CSV import job tracking for bulk student enrollment (ADMIN-2.1)."""
+    __tablename__ = "student_bulk_uploads"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    uploaded_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    filename = Column(String(255), nullable=True)
+    file_size_bytes = Column(Integer, nullable=True)
+
+    status = Column(String(50), default="pending", index=True)  # pending | processing | completed | failed
+    total_rows = Column(Integer, default=0)
+    processed_rows = Column(Integer, default=0)
+    successful_rows = Column(Integer, default=0)
+    failed_rows = Column(Integer, default=0)
+
+    error_log = Column(JSON, default=list)
+    created_student_count = Column(Integer, default=0)
+    existing_student_count = Column(Integer, default=0)
+    enrollment_errors = Column(Integer, default=0)
+
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class SchoolOnboarding(Base):
+    """Wizard checklist state for new school setup (ADMIN-2.1)."""
+    __tablename__ = "school_onboarding"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, unique=True, index=True)
+    principal_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    profile_complete = Column(Boolean, default=False)
+    profile_completed_at = Column(DateTime, nullable=True)
+
+    teachers_invited_count = Column(Integer, default=0)
+    teachers_needed = Column(Integer, default=30)
+    teachers_invitations_sent_at = Column(DateTime, nullable=True)
+
+    students_uploaded = Column(Boolean, default=False)
+    students_uploaded_count = Column(Integer, default=0)
+    students_upload_completed_at = Column(DateTime, nullable=True)
+
+    google_classroom_connected = Column(Boolean, default=False)
+    google_classroom_connected_at = Column(DateTime, nullable=True)
+
+    roles_configured = Column(Boolean, default=False)
+    roles_configured_at = Column(DateTime, nullable=True)
+
+    completion_percentage = Column(Integer, default=0)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class EngagementSnapshot(Base):
+    """Daily engagement stats for WoW trend calculations (ADMIN-2.1)."""
+    __tablename__ = "engagement_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    snapshot_date = Column(Date, nullable=False)
+
+    active_teachers = Column(Integer, default=0)
+    active_students = Column(Integer, default=0)
+    assignments_created = Column(Integer, default=0)
+    assignments_submitted = Column(Integer, default=0)
+
+    avg_teacher_logins = Column(Float, default=0.0)
+    avg_student_logins = Column(Float, default=0.0)
+    avg_student_score = Column(Float, default=0.0)
+    at_risk_count = Column(Integer, default=0)
+    storage_gb = Column(Float, default=0.0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (UniqueConstraint("school_id", "snapshot_date", name="uq_engagement_snapshot"),)
+
+
+class AtRiskStudentCache(Base):
+    """Denormalized at-risk student data for fast principal queries (ADMIN-2.1)."""
+    __tablename__ = "at_risk_students_cache"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    current_score = Column(Float, default=0.0)
+    score_trend = Column(Float, default=0.0)
+    last_active = Column(DateTime, nullable=True)
+    days_inactive = Column(Integer, default=0)
+
+    risk_level = Column(String(50), default="medium", index=True)  # low | medium | high | critical
+    risk_score = Column(Integer, default=0)
+
+    risk_factors = Column(JSON, default=dict)
+    suggested_actions = Column(JSON, default=list)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, index=True)
+
+
+class SchoolRecommendation(Base):
+    """Smart suggestions engine for principals (ADMIN-2.1)."""
+    __tablename__ = "school_recommendations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    recommendation_type = Column(String(50), nullable=False)
+    priority = Column(Integer, default=5, index=True)
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    reasoning = Column(Text, nullable=True)
+
+    expected_impact = Column(JSON, default=dict)
+    suggested_action = Column(String(255), nullable=True)
+    action_url = Column(String(500), nullable=True)
+
+    dismissed = Column(Boolean, default=False, index=True)
+    dismissed_at = Column(DateTime, nullable=True)
+    acted_on = Column(Boolean, default=False)
+    acted_on_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class WeeklyDigestSnapshot(Base):
+    """Pre-computed weekly digest for email summaries (ADMIN-2.1)."""
+    __tablename__ = "weekly_digest_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    week_start_date = Column(Date, nullable=False)
+    week_end_date = Column(Date, nullable=False)
+
+    new_teachers_count = Column(Integer, default=0)
+    new_students_count = Column(Integer, default=0)
+    new_classes_count = Column(Integer, default=0)
+
+    teacher_engagement_pct = Column(Float, default=0.0)
+    student_engagement_pct = Column(Float, default=0.0)
+    assignment_completion_rate = Column(Float, default=0.0)
+
+    top_performing_teachers = Column(JSON, default=list)
+    most_active_classes = Column(JSON, default=list)
+
+    new_at_risk_students = Column(Integer, default=0)
+    resolved_alerts_count = Column(Integer, default=0)
+    active_alerts_count = Column(Integer, default=0)
+
+    key_insights = Column(JSON, default=list)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

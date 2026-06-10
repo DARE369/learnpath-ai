@@ -195,6 +195,22 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_transactions_flutterwave_id ON transactions(flutterwave_id)",
     "CREATE INDEX IF NOT EXISTS ix_billing_history_user_id ON billing_history(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_billing_history_billing_date ON billing_history(billing_date)",
+    # ADMIN-2.1: School Admin Foundation
+    "CREATE INDEX IF NOT EXISTS ix_school_profiles_org ON school_profiles(organization_id)",
+    "CREATE INDEX IF NOT EXISTS ix_school_user_roles_school ON school_user_roles(school_id, role_type)",
+    "CREATE INDEX IF NOT EXISTS ix_school_health_school ON school_health_metrics(school_id, snapshot_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_school_alerts_school ON school_alerts(school_id, severity, status)",
+    "CREATE INDEX IF NOT EXISTS ix_school_alerts_created ON school_alerts(created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_school_activity_school ON school_activity_log(school_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_school_activity_actor ON school_activity_log(actor_user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_teacher_invitations_school ON teacher_invitations(school_id, status)",
+    "CREATE INDEX IF NOT EXISTS ix_teacher_invitations_email ON teacher_invitations(email)",
+    "CREATE INDEX IF NOT EXISTS ix_student_bulk_uploads_school ON student_bulk_uploads(school_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_school_onboarding_school ON school_onboarding(school_id)",
+    "CREATE INDEX IF NOT EXISTS ix_engagement_snapshots_school ON engagement_snapshots(school_id, snapshot_date DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_at_risk_cache_school ON at_risk_students_cache(school_id, risk_level)",
+    "CREATE INDEX IF NOT EXISTS ix_school_recs_school ON school_recommendations(school_id, priority DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_weekly_digest_school ON weekly_digest_snapshots(school_id, week_start_date DESC)",
 ]
 
 
@@ -594,6 +610,10 @@ app.include_router(messaging_router.router)
 # ADMIN-1.6: Settings & Profile
 from routers import settings as settings_router
 app.include_router(settings_router.router)
+
+# ADMIN-2.1: School Admin Foundation
+from routers import school_admin as school_admin_router
+app.include_router(school_admin_router.router)
 
 
 if __name__ == "__main__":
