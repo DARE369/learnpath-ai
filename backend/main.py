@@ -211,6 +211,22 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_at_risk_cache_school ON at_risk_students_cache(school_id, risk_level)",
     "CREATE INDEX IF NOT EXISTS ix_school_recs_school ON school_recommendations(school_id, priority DESC)",
     "CREATE INDEX IF NOT EXISTS ix_weekly_digest_school ON weekly_digest_snapshots(school_id, week_start_date DESC)",
+    # ADMIN-2.2: Teacher & Student Management
+    "CREATE INDEX IF NOT EXISTS ix_teacher_school_profiles_school ON teacher_school_profiles(school_id, is_active)",
+    "CREATE INDEX IF NOT EXISTS ix_student_school_profiles_school ON student_school_profiles(school_id, is_active)",
+    "CREATE INDEX IF NOT EXISTS ix_student_school_profiles_grade ON student_school_profiles(school_id, grade_level)",
+    "CREATE INDEX IF NOT EXISTS ix_student_school_profiles_risk ON student_school_profiles(school_id, at_risk_status)",
+    "CREATE INDEX IF NOT EXISTS ix_parent_contacts_student ON parent_contacts(student_id)",
+    "CREATE INDEX IF NOT EXISTS ix_parent_contacts_school ON parent_contacts(school_id)",
+    "CREATE INDEX IF NOT EXISTS ix_teacher_activity_log_teacher ON teacher_activity_log(teacher_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_student_activity_log_student ON student_activity_log(student_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_class_reassignment_class ON class_reassignment_history(class_id, reassigned_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_class_enrollment_audit_student ON class_enrollment_audit(student_id, action_timestamp DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_bulk_mgmt_ops_school ON bulk_management_operations(school_id, created_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_teacher_deactivation_school ON teacher_deactivation_records(school_id, deactivated_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_student_deactivation_school ON student_deactivation_records(school_id, deactivated_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_student_enroll_invites_school ON student_enrollment_invitations(school_id, status)",
+    "CREATE INDEX IF NOT EXISTS ix_parent_comm_log_student ON parent_communication_log(student_id, created_at DESC)",
 ]
 
 
@@ -614,6 +630,10 @@ app.include_router(settings_router.router)
 # ADMIN-2.1: School Admin Foundation
 from routers import school_admin as school_admin_router
 app.include_router(school_admin_router.router)
+
+# ADMIN-2.2: Teacher & Student Management
+from routers import teacher_student_mgmt as ts_mgmt_router
+app.include_router(ts_mgmt_router.router)
 
 
 if __name__ == "__main__":

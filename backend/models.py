@@ -2245,4 +2245,294 @@ class WeeklyDigestSnapshot(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
+
+# ── ADMIN-2.2: Teacher & Student Management ────────────────────────────────
+
+class TeacherSchoolProfile(Base):
+    """Extended teacher info scoped to a school (ADMIN-2.2)."""
+    __tablename__ = "teacher_school_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    hire_date = Column(Date, nullable=True)
+    department = Column(String(255), nullable=True)
+
+    is_active = Column(Boolean, default=True, index=True)
+    is_invited = Column(Boolean, default=False)
+    accepted_invitation_at = Column(DateTime, nullable=True)
+
+    deactivated_at = Column(DateTime, nullable=True)
+    deactivation_reason = Column(String(255), nullable=True)
+
+    total_classes = Column(Integer, default=0)
+    total_students = Column(Integer, default=0)
+    total_assignments_created = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StudentSchoolProfile(Base):
+    """Extended student info scoped to a school (ADMIN-2.2)."""
+    __tablename__ = "student_school_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    enrollment_date = Column(Date, nullable=True)
+    student_id_number = Column(String(50), nullable=True)
+    grade_level = Column(Integer, nullable=True, index=True)
+
+    is_active = Column(Boolean, default=True, index=True)
+    is_enrolled = Column(Boolean, default=False)
+    enrollment_completed_at = Column(DateTime, nullable=True)
+
+    deactivated_at = Column(DateTime, nullable=True)
+    deactivation_reason = Column(String(255), nullable=True)
+
+    total_classes = Column(Integer, default=0)
+    avg_score = Column(Float, default=0.0)
+    at_risk_status = Column(String(50), default="none", index=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ParentContact(Base):
+    """Parent/guardian contact for a student (ADMIN-2.2)."""
+    __tablename__ = "parent_contacts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    parent_name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(20), nullable=True)
+    relationship = Column(String(100), nullable=True)
+
+    can_receive_alerts = Column(Boolean, default=True)
+    preferred_contact_method = Column(String(50), default="email")
+    preferred_language = Column(String(10), default="en")
+
+    is_primary = Column(Boolean, default=False, index=True)
+    email_verified = Column(Boolean, default=False)
+    phone_verified = Column(Boolean, default=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TeacherActivityLog(Base):
+    """Detailed teacher activity events (ADMIN-2.2)."""
+    __tablename__ = "teacher_activity_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    activity_type = Column(String(100), nullable=False, index=True)
+    related_class_id = Column(UUID(as_uuid=True), nullable=True)
+    related_student_id = Column(UUID(as_uuid=True), nullable=True)
+    related_assignment_id = Column(UUID(as_uuid=True), nullable=True)
+
+    description = Column(Text, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class StudentActivityLog(Base):
+    """Detailed student activity events (ADMIN-2.2)."""
+    __tablename__ = "student_activity_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    activity_type = Column(String(100), nullable=False, index=True)
+    related_class_id = Column(UUID(as_uuid=True), nullable=True)
+    related_assignment_id = Column(UUID(as_uuid=True), nullable=True)
+    related_video_id = Column(UUID(as_uuid=True), nullable=True)
+
+    description = Column(Text, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class ClassReassignmentHistory(Base):
+    """Audit trail when a class teacher changes (ADMIN-2.2)."""
+    __tablename__ = "class_reassignment_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    from_teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    to_teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    reassigned_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    reassigned_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    transferred_assignments = Column(Boolean, default=False)
+    transferred_grades = Column(Boolean, default=False)
+    transfer_notes = Column(Text, nullable=True)
+
+    affected_students_count = Column(Integer, default=0)
+    affected_assignments_count = Column(Integer, default=0)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ClassEnrollmentAudit(Base):
+    """Audit log of student enrollment changes (ADMIN-2.2)."""
+    __tablename__ = "class_enrollment_audit"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    action = Column(String(50), nullable=False, index=True)
+    from_class_id = Column(UUID(as_uuid=True), nullable=True)
+    enrolled_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    action_timestamp = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TeacherInvitationDetails(Base):
+    """Email open/click tracking for teacher invitations (ADMIN-2.2)."""
+    __tablename__ = "teacher_invitation_details"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    invitation_id = Column(UUID(as_uuid=True), ForeignKey("teacher_invitations.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    email_opened = Column(Boolean, default=False)
+    email_opened_at = Column(DateTime, nullable=True)
+    invitation_clicked = Column(Boolean, default=False)
+    invitation_clicked_at = Column(DateTime, nullable=True)
+
+    assigned_grade_levels = Column(JSON, default=list)
+    assigned_subject_areas = Column(JSON, default=list)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StudentEnrollmentInvitation(Base):
+    """Individual student enrollment invite tokens (ADMIN-2.2)."""
+    __tablename__ = "student_enrollment_invitations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    email = Column(String(255), nullable=False, index=True)
+    first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+    student_id_number = Column(String(50), nullable=True)
+    grade_level = Column(Integer, nullable=True)
+
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=True)
+
+    invite_token = Column(String(255), unique=True, nullable=False, index=True)
+    invite_url = Column(String(500), nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    opened_at = Column(DateTime, nullable=True)
+    accepted_at = Column(DateTime, nullable=True)
+
+    status = Column(String(50), default="sent", index=True)
+    expires_at = Column(DateTime, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class BulkManagementOperation(Base):
+    """Tracks bulk admin actions (ADMIN-2.2)."""
+    __tablename__ = "bulk_management_operations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    performed_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    operation_type = Column(String(50), nullable=False, index=True)
+    entity_type = Column(String(50), nullable=False)
+
+    total_count = Column(Integer, default=0)
+    successful_count = Column(Integer, default=0)
+    failed_count = Column(Integer, default=0)
+
+    error_log = Column(JSON, default=list)
+
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ParentCommunicationLog(Base):
+    """History of outreach to parents/guardians (ADMIN-2.2)."""
+    __tablename__ = "parent_communication_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    parent_contact_id = Column(UUID(as_uuid=True), ForeignKey("parent_contacts.id"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    communication_type = Column(String(50), nullable=False)
+    subject = Column(String(255), nullable=True)
+    message = Column(Text, nullable=True)
+    sent_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    status = Column(String(50), default="sent")
+    read_at = Column(DateTime, nullable=True)
+    replied_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TeacherDeactivationRecord(Base):
+    """Preserves deactivation context for potential rehiring (ADMIN-2.2)."""
+    __tablename__ = "teacher_deactivation_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    deactivated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deactivated_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    reason = Column(String(255), nullable=True)
+
+    classes_archived = Column(JSON, default=list)
+    assignments_transferred = Column(JSON, default=list)
+
+    can_reactivate = Column(Boolean, default=True)
+    reactivated_at = Column(DateTime, nullable=True)
+    reactivated_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StudentDeactivationRecord(Base):
+    """Preserves deactivation context for students (ADMIN-2.2)."""
+    __tablename__ = "student_deactivation_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+
+    deactivated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deactivated_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    reason = Column(String(255), nullable=True)
+
+    classes_removed_from = Column(JSON, default=list)
+
+    can_reactivate = Column(Boolean, default=True)
+    reactivated_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
