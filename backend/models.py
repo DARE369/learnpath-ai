@@ -1752,3 +1752,181 @@ class NotificationPreference(Base):
     in_app_replies = Column(Boolean, default=True)
 
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ─── ADMIN-1.6: Settings & Profile ────────────────────────────────────────────
+
+class TeacherProfile(Base):
+    """Extended profile info for a teacher user (ADMIN-1.6)."""
+    __tablename__ = "teacher_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    bio = Column(Text, nullable=True)
+    phone = Column(String(30), nullable=True)
+    school_name = Column(String(255), nullable=True)
+
+    # ["K", "1-3", "4-6", "7-8", "9-12", "higher_ed"]
+    grade_levels = Column(JSON, default=list)
+
+    # {"linkedin": "...", "twitter": "@...", "portfolio": "..."}
+    social_links = Column(JSON, default=dict)
+
+    avatar_url = Column(String(500), nullable=True)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TwoFactorAuth(Base):
+    """TOTP-based two-factor auth for a user (ADMIN-1.6)."""
+    __tablename__ = "two_factor_auth"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    secret = Column(String(64), nullable=True)
+    is_enabled = Column(Boolean, default=False, index=True)
+    recovery_codes = Column(JSON, default=list)  # [{code, used}, …]
+
+    enabled_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class UserSession(Base):
+    """Active login session per device (ADMIN-1.6)."""
+    __tablename__ = "user_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    device_name = Column(String(255), nullable=True)
+    device_type = Column(String(50), nullable=True)   # mobile | tablet | desktop
+    os_name = Column(String(100), nullable=True)
+    browser_name = Column(String(100), nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_activity = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
+class LoginActivity(Base):
+    """Audit log of login attempts (ADMIN-1.6)."""
+    __tablename__ = "login_activity"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    ip_address = Column(String(45), nullable=True)
+    device_name = Column(String(255), nullable=True)
+    os_name = Column(String(100), nullable=True)
+    browser_name = Column(String(100), nullable=True)
+
+    status = Column(String(50), nullable=False)      # success | failed
+    failure_reason = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class TeacherPreference(Base):
+    """Display and UX preferences per teacher (ADMIN-1.6)."""
+    __tablename__ = "teacher_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+
+    theme = Column(String(50), default="system")       # light | dark | system
+    language = Column(String(10), default="en")
+    timezone = Column(String(100), default="UTC")
+
+    default_class_view = Column(String(50), default="list")  # list | grid | calendar
+    auto_refresh_interval = Column(Integer, default=0)        # seconds (0 = off)
+    remember_sidebar_state = Column(Boolean, default=True)
+
+    # Notification extras (quiet hours — supplements NotificationPreference)
+    quiet_hours_enabled = Column(Boolean, default=False)
+    quiet_hours_start = Column(String(5), nullable=True)   # "20:00"
+    quiet_hours_end = Column(String(5), nullable=True)     # "08:00"
+
+    # Dashboard alert toggles
+    alert_at_risk = Column(Boolean, default=True)
+    alert_low_submission = Column(Boolean, default=True)
+    alert_system = Column(Boolean, default=True)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Integration(Base):
+    """Third-party OAuth connection per user/provider (ADMIN-1.6)."""
+    __tablename__ = "integrations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    provider = Column(String(50), nullable=False)   # google_classroom | teams | zoom
+
+    access_token = Column(String(1000), nullable=True)
+    refresh_token = Column(String(1000), nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+
+    provider_user_id = Column(String(255), nullable=True)
+    provider_email = Column(String(255), nullable=True)
+    provider_name = Column(String(255), nullable=True)
+
+    auto_sync = Column(Boolean, default=True)
+    last_sync = Column(DateTime, nullable=True)
+    connected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_integration_user_provider"),)
+
+
+class ClassMetadata(Base):
+    """Extended metadata for a class: archive status, external sync IDs (ADMIN-1.6)."""
+    __tablename__ = "class_metadata"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    is_archived = Column(Boolean, default=False, index=True)
+    archived_at = Column(DateTime, nullable=True)
+
+    google_classroom_id = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class DataExportRequest(Base):
+    """GDPR data export request (ADMIN-1.6)."""
+    __tablename__ = "data_export_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    status = Column(String(50), default="pending", index=True)  # pending | processing | completed | failed
+    download_url = Column(String(500), nullable=True)
+
+    requested_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AccountDeletionRequest(Base):
+    """Soft-delete request with 30-day grace period (ADMIN-1.6)."""
+    __tablename__ = "account_deletion_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    requested_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    scheduled_deletion_date = Column(DateTime, nullable=False)  # 30 days out
+
+    status = Column(String(50), default="pending", index=True)  # pending | canceled | completed
+    canceled_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

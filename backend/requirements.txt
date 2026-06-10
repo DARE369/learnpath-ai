@@ -46,6 +46,10 @@ python-dotenv==1.0.0
 # Scheduling (Packet 3.5 — nightly self-expansion job)
 apscheduler==3.10.4
 
+# ADMIN-1.6: 2FA (TOTP) + QR code generation
+pyotp==2.9.0
+qrcode[pil]==7.4.2
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.23.2

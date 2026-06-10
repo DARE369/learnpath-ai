@@ -161,6 +161,19 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_subscriptions_user_id ON subscriptions(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_subscriptions_status ON subscriptions(status)",
     "CREATE INDEX IF NOT EXISTS ix_subscriptions_renewal_date ON subscriptions(renewal_date)",
+    # ADMIN-1.6: Settings & Profile tables
+    "CREATE INDEX IF NOT EXISTS ix_teacher_profiles_user_id ON teacher_profiles(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_two_factor_auth_user_id ON two_factor_auth(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_user_sessions_user_id ON user_sessions(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_user_sessions_expires_at ON user_sessions(expires_at)",
+    "CREATE INDEX IF NOT EXISTS ix_login_activity_user_id ON login_activity(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_login_activity_created_at ON login_activity(created_at)",
+    "CREATE INDEX IF NOT EXISTS ix_teacher_preferences_user_id ON teacher_preferences(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_integrations_user_id ON integrations(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_class_metadata_class_id ON class_metadata(class_id)",
+    "CREATE INDEX IF NOT EXISTS ix_class_metadata_teacher_id ON class_metadata(teacher_id)",
+    "CREATE INDEX IF NOT EXISTS ix_data_export_requests_user_id ON data_export_requests(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_account_deletion_requests_user_id ON account_deletion_requests(user_id)",
     # ADMIN-1.5: Messaging & Communication tables
     "CREATE INDEX IF NOT EXISTS ix_conversations_teacher_id ON conversations(teacher_id)",
     "CREATE INDEX IF NOT EXISTS ix_conversations_updated_at ON conversations(updated_at DESC)",
@@ -577,6 +590,10 @@ app.include_router(tutor_router.router, prefix="/api/tutor", tags=["tutor"])
 # ADMIN-1.5: Messaging & Communication
 from routers import messaging as messaging_router
 app.include_router(messaging_router.router)
+
+# ADMIN-1.6: Settings & Profile
+from routers import settings as settings_router
+app.include_router(settings_router.router)
 
 
 if __name__ == "__main__":
