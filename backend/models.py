@@ -1616,3 +1616,139 @@ class DiagnosticResult(Base):
     weak_topic_ids = Column(ARRAY(String), default=list)
 
     taken_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ─── ADMIN-1.5: Messaging & Communication ─────────────────────────────────────
+
+class Conversation(Base):
+    """A 1-on-1 or group message thread initiated by a teacher (ADMIN-1.5)."""
+    __tablename__ = "conversations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    conversation_type = Column(String, nullable=False)  # direct | group
+    conversation_name = Column(String, nullable=False)  # student name or group label
+
+    # Serialised list of all participant user UUIDs (teacher + students)
+    participant_ids = Column(ARRAY(String), default=list)
+
+    # Group metadata — NULL for direct conversations
+    group_type = Column(String, nullable=True)      # at_risk | advanced | custom
+    group_criteria = Column(JSON, nullable=True)    # {risk_level, topic, class_id, …}
+
+    retention_days = Column(Integer, nullable=True)  # 30/60/90 or NULL = never delete
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Message(Base):
+    """A single message inside a Conversation (ADMIN-1.5)."""
+    __tablename__ = "messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    sender_role = Column(String)  # teacher | student
+
+    content = Column(Text, nullable=False)
+    links = Column(JSON, default=list)  # [{url, title}, …]
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class MessageReadReceipt(Base):
+    """Tracks whether each recipient has read a specific message (ADMIN-1.5)."""
+    __tablename__ = "message_read_receipts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    is_read = Column(Boolean, default=False, index=True)
+    read_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_msg_read_user"),)
+
+
+class TypingIndicator(Base):
+    """Ephemeral typing status for a conversation (expires_at drives cleanup, ADMIN-1.5)."""
+    __tablename__ = "typing_indicators"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    is_typing = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+
+    __table_args__ = (UniqueConstraint("conversation_id", "user_id", name="uq_typing_conv_user"),)
+
+
+class Announcement(Base):
+    """Class-wide broadcast from a teacher — students cannot reply (ADMIN-1.5)."""
+    __tablename__ = "announcements"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=False, index=True)
+
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    links = Column(JSON, default=list)
+
+    scheduled_for = Column(DateTime, nullable=True)  # NULL = send now
+    sent_at = Column(DateTime, nullable=True)
+    status = Column(String, default="sent", index=True)  # draft | scheduled | sent
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AnnouncementRead(Base):
+    """Per-student read/acknowledgement for an Announcement (ADMIN-1.5)."""
+    __tablename__ = "announcement_reads"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    announcement_id = Column(UUID(as_uuid=True), ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+
+    is_read = Column(Boolean, default=False, index=True)
+    read_at = Column(DateTime, nullable=True)
+
+    acknowledged = Column(Boolean, default=False)
+    acknowledged_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (UniqueConstraint("announcement_id", "student_id", name="uq_ann_read_student"),)
+
+
+class NotificationPreference(Base):
+    """Per-user notification channel settings (ADMIN-1.5)."""
+    __tablename__ = "notification_preferences"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True, index=True)
+
+    # Email
+    email_enabled = Column(Boolean, default=True)
+    email_direct_messages = Column(Boolean, default=True)
+    email_group_messages = Column(Boolean, default=True)
+    email_announcements = Column(Boolean, default=True)
+    email_replies = Column(Boolean, default=True)
+    email_frequency = Column(String, default="immediate")  # immediate | daily_digest
+
+    # In-app
+    in_app_enabled = Column(Boolean, default=True)
+    in_app_direct_messages = Column(Boolean, default=True)
+    in_app_group_messages = Column(Boolean, default=True)
+    in_app_announcements = Column(Boolean, default=True)
+    in_app_replies = Column(Boolean, default=True)
+
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

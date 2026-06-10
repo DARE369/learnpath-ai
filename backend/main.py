@@ -161,6 +161,19 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_subscriptions_user_id ON subscriptions(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_subscriptions_status ON subscriptions(status)",
     "CREATE INDEX IF NOT EXISTS ix_subscriptions_renewal_date ON subscriptions(renewal_date)",
+    # ADMIN-1.5: Messaging & Communication tables
+    "CREATE INDEX IF NOT EXISTS ix_conversations_teacher_id ON conversations(teacher_id)",
+    "CREATE INDEX IF NOT EXISTS ix_conversations_updated_at ON conversations(updated_at DESC)",
+    "CREATE INDEX IF NOT EXISTS ix_messages_conversation_id ON messages(conversation_id)",
+    "CREATE INDEX IF NOT EXISTS ix_messages_created_at ON messages(created_at)",
+    "CREATE INDEX IF NOT EXISTS ix_message_read_receipts_message_id ON message_read_receipts(message_id)",
+    "CREATE INDEX IF NOT EXISTS ix_message_read_receipts_user_id ON message_read_receipts(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_typing_indicators_conv_expires ON typing_indicators(conversation_id, expires_at)",
+    "CREATE INDEX IF NOT EXISTS ix_announcements_teacher_id ON announcements(teacher_id)",
+    "CREATE INDEX IF NOT EXISTS ix_announcements_class_id ON announcements(class_id)",
+    "CREATE INDEX IF NOT EXISTS ix_announcement_reads_ann_id ON announcement_reads(announcement_id)",
+    "CREATE INDEX IF NOT EXISTS ix_announcement_reads_student_id ON announcement_reads(student_id)",
+    "CREATE INDEX IF NOT EXISTS ix_notification_prefs_user_id ON notification_preferences(user_id)",
     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS flutterwave_id VARCHAR",
     "CREATE INDEX IF NOT EXISTS ix_transactions_user_id ON transactions(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_transactions_reference ON transactions(reference)",
@@ -560,6 +573,10 @@ app.include_router(curriculum_router.router, prefix="/api/curriculum", tags=["cu
 # PHASE 1: AI Tutor (Lexi)
 from routers import tutor as tutor_router
 app.include_router(tutor_router.router, prefix="/api/tutor", tags=["tutor"])
+
+# ADMIN-1.5: Messaging & Communication
+from routers import messaging as messaging_router
+app.include_router(messaging_router.router)
 
 
 if __name__ == "__main__":
