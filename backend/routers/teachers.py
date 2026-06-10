@@ -12,6 +12,7 @@ from models import User, Teacher, Class, ClassMembership, Organization
 from routers.auth import get_current_user
 from services.teacher_service import TeacherService
 from services.assignment_service import AssignmentService
+from services.teacher_analytics_service import TeacherAnalyticsService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -232,6 +233,42 @@ async def get_student_profile(
     except Exception as e:
         logger.exception(f"get_student_profile failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to load student profile")
+
+
+# ── ADMIN-1.4: class analytics ────────────────────────────────────────────────
+
+
+@router.get("/classes/{class_id}/analytics", tags=["teachers"])
+async def class_analytics(
+    class_id: str,
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    view: str = Query("absolute"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Live class analytics for a date range. Owner-only."""
+    from datetime import datetime, timedelta
+    teacher = _teacher_or_403(current_user, db)
+
+    def _parse(s, default):
+        if not s:
+            return default
+        try:
+            d = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+            return d.replace(tzinfo=None) if d.tzinfo else d
+        except (ValueError, TypeError):
+            return default
+
+    to_dt = _parse(date_to, datetime.utcnow())
+    from_dt = _parse(date_from, to_dt - timedelta(weeks=8))
+    try:
+        return TeacherAnalyticsService(db).get_class_analytics(teacher, class_id, from_dt, to_dt, view)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Not your class")
+    except Exception as e:
+        logger.exception(f"class_analytics failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load analytics")
 
 
 # ── ADMIN-1.3: assignments (teacher side) ─────────────────────────────────────

@@ -82,6 +82,7 @@ const TEACHER: NavGroup[] = [
     items: [
       { label: "Dashboard", href: "/teacher/dashboard", icon: LayoutDashboard },
       { label: "Assignments", href: "/teacher/assignments", icon: ClipboardList },
+      { label: "Analytics", href: "/teacher/analytics", icon: TrendingUp },
       { label: "At-risk students", href: "/teacher/at-risk", icon: AlertTriangle },
     ],
   },

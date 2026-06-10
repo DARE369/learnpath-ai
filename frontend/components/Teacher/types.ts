@@ -159,6 +159,39 @@ export const SUBMISSION_TONE: Record<string, "success" | "warning" | "error" | "
   assigned: "neutral",
 };
 
+// ── ADMIN-1.4: class analytics ────────────────────────────────────────────────
+
+export interface ClassAnalytics {
+  class_id: string;
+  class_name: string;
+  date_range: { from: string; to: string };
+  view: string;
+  student_count: number;
+  score_breakdown: { topic: string; score: number }[];
+  score_trends: { topic: string; current: number; previous: number | null; trend: number | null }[];
+  distribution: { at_risk: number; developing: number; proficient: number; advanced: number };
+  weekly_trend: { week: string; avg_score: number }[];
+  engagement: {
+    active_this_week: number;
+    total_students: number;
+    assignment_submission_percent: number | null;
+    video_completion_percent: number | null;
+    avg_logins_per_week: number | null;
+  };
+  forecast: { current_completion: number; estimated_date: string | null; confidence: number; note: string | null };
+  at_risk: {
+    student_id: string;
+    student_name: string;
+    current_score: number;
+    predicted_score: number;
+    trend_per_session: number;
+    risk_level: string;
+    reason: string;
+  }[];
+  recommendations: { topic: string; current_score: number }[];
+  comparison: { classes?: { class_id: string; class_name: string; avg_score: number; avg_progress: number; is_current: boolean }[] };
+}
+
 export function timeAgo(iso: string | null): string {
   if (!iso) return "Never";
   const diff = Date.now() - new Date(iso).getTime();

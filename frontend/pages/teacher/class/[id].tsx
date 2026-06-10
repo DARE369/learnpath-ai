@@ -154,6 +154,7 @@ export default function ClassDetailPage() {
                       Export roster (CSV)
                     </Button>
                     <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Send class message</Button>
+                    <Button fullWidth size="sm" variant="secondary" href={`/teacher/analytics/${classId}`}>View analytics</Button>
                     <Button fullWidth size="sm" variant="secondary" href={`/teacher/assignments?class=${classId}`}>Assign homework</Button>
                     <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Generate report</Button>
                   </div>
