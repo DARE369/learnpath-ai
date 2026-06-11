@@ -1015,3 +1015,124 @@ DB ping health check (60 s cache).
 
 ### DELETE /api/analytics/cache
 Admin: flush the in-memory analytics cache immediately.
+
+---
+
+## School Admin - Class Management (ADMIN-2.3)
+
+All routes require Bearer token and school-admin access to `{school_id}`.
+Base prefix: `/api/school-admin/{school_id}/classes`
+
+### GET /api/school-admin/{school_id}/classes
+List all classes with filtering, sorting, and pagination.
+
+**Query params:** `search` (string), `status` (active|archived|all, default active),
+`grade` (int), `teacher_id` (UUID), `sort_by` (name|students|avg_score|teacher|created),
+`page` (default 1), `page_size` (default 50, max 200)
+
+**Response 200:**
+```json
+{
+  "classes": [
+    { "class_id": "uuid", "name": "Math 101", "subject": "Mathematics",
+      "teacher": "Ms. Johnson", "teacher_id": "uuid", "grade_level": 9,
+      "students": 28, "max_students": 30, "capacity_pct": 93,
+      "status": "active", "avg_score": 78.0, "created_at": "2025-01-15T00:00:00" }
+  ],
+  "pagination": { "page": 1, "page_size": 50, "total": 16, "pages": 1 }
+}
+```
+
+### POST /api/school-admin/{school_id}/classes
+Create a new class.
+
+**Body:**
+```json
+{ "name": "Chemistry 101", "subject": "Chemistry", "description": null,
+  "teacher_id": "uuid", "grade_level": 10, "max_students": 30,
+  "student_ids": ["uuid1", "uuid2"] }
+```
+**Response 200:** `{ "status": "created", "class_id": "uuid", "students_added": 2 }`
+
+### GET /api/school-admin/{school_id}/classes/{class_id}
+Get full class detail including roster, stats, and activity.
+
+**Response 200:**
+```json
+{ "class_id": "uuid", "name": "Math 101", "subject": "Mathematics",
+  "description": null, "teacher": "Ms. Johnson", "teacher_id": "uuid",
+  "grade_level": 9, "status": "active", "created_at": "2025-01-15T00:00:00",
+  "capacity": { "current": 28, "max": 30, "pct_full": 93 },
+  "stats": { "students": 28, "avg_score": 78.0, "submission_rate": 89,
+             "at_risk_count": 3 },
+  "roster": [{ "student_id": "uuid", "name": "Ahmad Hassan",
+               "email": "ahmad@school.edu", "score": 78, "status": "active" }],
+  "activity": [{ "action": "create_class", "resource_type": "class",
+                 "changes": {}, "at": "2025-01-15T09:00:00" }]
+}
+```
+
+### PUT /api/school-admin/{school_id}/classes/{class_id}
+Update class settings.
+
+**Body (all fields optional):**
+```json
+{ "name": "Math 101", "subject": "Mathematics", "description": "...",
+  "teacher_id": "uuid", "grade_level": 9, "max_students": 30 }
+```
+**Response 200:** `{ "status": "updated", "changes": 2 }`
+
+### POST /api/school-admin/{school_id}/classes/{class_id}/duplicate
+Duplicate a class (optionally with roster and/or assignments).
+
+**Body:**
+```json
+{ "new_name": "Math 101 Spring", "teacher_id": null,
+  "copy_roster": true, "copy_assignments": false }
+```
+**Response 200:**
+```json
+{ "status": "duplicated", "new_class_id": "uuid",
+  "students_copied": 28, "assignments_copied": 0 }
+```
+
+### POST /api/school-admin/{school_id}/classes/{class_id}/merge
+Merge a source class into a target class.
+
+**Body:**
+```json
+{ "target_class_id": "uuid", "conflict_resolution": "skip",
+  "archive_source": true }
+```
+`conflict_resolution`: `skip` (default) — skip students already in target;
+`add_anyway` — move them anyway.
+
+**Response 200:**
+```json
+{ "status": "merged", "students_moved": 25, "students_skipped": 3,
+  "assignments_transferred": 12, "source_archived": true }
+```
+
+### POST /api/school-admin/{school_id}/classes/{class_id}/archive
+Archive a class (hidden from active list, data preserved).
+**Response 200:** `{ "status": "archived" }`
+
+### POST /api/school-admin/{school_id}/classes/{class_id}/restore
+Restore an archived class.
+**Response 200:** `{ "status": "active" }`
+
+### DELETE /api/school-admin/{school_id}/classes/{class_id}
+Permanently delete class and all memberships.
+**Response 200:** `{ "status": "deleted" }`
+
+### POST /api/school-admin/{school_id}/classes/{class_id}/roster/add
+Add students to an existing class. Skips students already enrolled.
+
+**Body:** `{ "student_ids": ["uuid1", "uuid2"] }`
+**Response 200:** `{ "status": "ok", "added": 2, "skipped": 0 }`
+
+### POST /api/school-admin/{school_id}/classes/{class_id}/roster/remove
+Remove students from a class.
+
+**Body:** `{ "student_ids": ["uuid1", "uuid2"] }`
+**Response 200:** `{ "status": "ok", "removed": 2 }`

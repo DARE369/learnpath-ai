@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { Plus, Search, Download, ArrowUpRight, Archive, RotateCcw, Trash2, School } from "lucide-react";
+import { Plus, Search, Download, ArrowUpRight, Archive, RotateCcw, Trash2, School, Pencil, Copy } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { Card, Button, Skeleton, Badge, EmptyState } from "../../../components/ui";
-import { ClassFormModal, TeacherOption } from "../../../components/School/ClassModals";
+import { ClassFormModal, DuplicateModal, TeacherOption } from "../../../components/School/ClassModals";
 
 interface ClassRow {
   class_id: string; name: string; subject: string | null; teacher: string;
-  grade_level: number | null; students: number; max_students: number;
+  teacher_id: string | null; grade_level: number | null; students: number; max_students: number;
   capacity_pct: number; status: string; avg_score: number; created_at: string | null;
 }
 
@@ -26,6 +26,8 @@ export default function SchoolClassesPage() {
   const [status, setStatus] = useState("active");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
+  const [editingClass, setEditingClass] = useState<ClassRow | null>(null);
+  const [duplicatingClass, setDuplicatingClass] = useState<ClassRow | null>(null);
 
   useEffect(() => {
     const sid = typeof window !== "undefined"
@@ -151,13 +153,18 @@ export default function SchoolClassesPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button size="sm" variant="secondary" href={`/school/classes/${r.class_id}`} rightIcon={<ArrowUpRight className="h-3.5 w-3.5" />}>View</Button>
-                        {r.status === "archived" ? (
+                        {r.status !== "archived" && (
+                          <>
+                            <button onClick={() => setEditingClass(r)} aria-label="Edit" title="Edit" className="rounded-lg p-2 text-white/40 hover:bg-surface-elevated hover:text-white"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => setDuplicatingClass(r)} aria-label="Duplicate" title="Duplicate" className="rounded-lg p-2 text-white/40 hover:bg-surface-elevated hover:text-white"><Copy className="h-4 w-4" /></button>
+                            <button onClick={() => act(r.class_id, "archive")} aria-label="Archive" title="Archive" className="rounded-lg p-2 text-white/40 hover:bg-surface-elevated hover:text-white"><Archive className="h-4 w-4" /></button>
+                          </>
+                        )}
+                        {r.status === "archived" && (
                           <>
                             <button onClick={() => act(r.class_id, "restore")} aria-label="Restore" title="Restore" className="rounded-lg p-2 text-white/40 hover:bg-surface-elevated hover:text-white"><RotateCcw className="h-4 w-4" /></button>
                             <button onClick={() => act(r.class_id, "delete")} aria-label="Delete" title="Delete" className="rounded-lg p-2 text-white/40 hover:bg-error-muted hover:text-error"><Trash2 className="h-4 w-4" /></button>
                           </>
-                        ) : (
-                          <button onClick={() => act(r.class_id, "archive")} aria-label="Archive" title="Archive" className="rounded-lg p-2 text-white/40 hover:bg-surface-elevated hover:text-white"><Archive className="h-4 w-4" /></button>
                         )}
                       </div>
                     </td>
@@ -172,6 +179,17 @@ export default function SchoolClassesPage() {
       {creating && schoolId && (
         <ClassFormModal schoolId={schoolId} token={token} teachers={teachers}
           onClose={() => setCreating(false)} onDone={() => { setCreating(false); fetchClasses(schoolId); }} />
+      )}
+      {editingClass && schoolId && (
+        <ClassFormModal schoolId={schoolId} token={token} teachers={teachers}
+          classId={editingClass.class_id}
+          initial={{ name: editingClass.name, subject: editingClass.subject, teacher_id: editingClass.teacher_id, grade_level: editingClass.grade_level, max_students: editingClass.max_students }}
+          onClose={() => setEditingClass(null)} onDone={() => { setEditingClass(null); fetchClasses(schoolId); }} />
+      )}
+      {duplicatingClass && schoolId && (
+        <DuplicateModal schoolId={schoolId} token={token} classId={duplicatingClass.class_id}
+          sourceName={duplicatingClass.name} teachers={teachers}
+          onClose={() => setDuplicatingClass(null)} onDone={() => { setDuplicatingClass(null); fetchClasses(schoolId); }} />
       )}
     </>
   );

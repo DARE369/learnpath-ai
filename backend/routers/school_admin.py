@@ -217,6 +217,10 @@ class MergeClassRequest(BaseModel):
     archive_source: bool = True
 
 
+class RosterUpdateRequest(BaseModel):
+    student_ids: List[str]
+
+
 @router.get("/{school_id}/classes")
 def list_classes(
     school_id: str,
@@ -283,3 +287,19 @@ def restore_class(school_id: str, class_id: str,
 def delete_class(school_id: str, class_id: str,
                  current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return school_admin_service.delete_class(db, str(current_user.id), school_id, class_id)
+
+
+@router.post("/{school_id}/classes/{class_id}/roster/add")
+def add_to_roster(school_id: str, class_id: str, payload: RosterUpdateRequest,
+                  current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.add_to_roster(
+        db, str(current_user.id), school_id, class_id, payload.student_ids
+    )
+
+
+@router.post("/{school_id}/classes/{class_id}/roster/remove")
+def remove_from_roster(school_id: str, class_id: str, payload: RosterUpdateRequest,
+                       current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return school_admin_service.remove_from_roster(
+        db, str(current_user.id), school_id, class_id, payload.student_ids
+    )

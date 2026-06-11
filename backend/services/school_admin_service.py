@@ -1240,5 +1240,53 @@ class SchoolAdminService:
         db.commit()
         return {"status": "deleted"}
 
+    def add_to_roster(self, db: Session, user_id: str, school_id: str, class_id: str,
+                      student_ids: List[str]) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        c = self._require_class(db, school_id, class_id)
+        added = skipped = 0
+        for raw_id in student_ids:
+            try:
+                sid = uuid.UUID(str(raw_id))
+            except (ValueError, AttributeError):
+                continue
+            exists = db.query(ClassMembership).filter_by(class_id=c.id, student_id=sid).first()
+            if exists:
+                if exists.enrollment_status != "active":
+                    exists.enrollment_status = "active"
+                    added += 1
+                else:
+                    skipped += 1
+                continue
+            db.add(ClassMembership(class_id=c.id, student_id=sid, enrollment_status="active"))
+            added += 1
+        c.enrolled_students = db.query(ClassMembership).filter_by(
+            class_id=c.id, enrollment_status="active"
+        ).count()
+        self._log(db, school_id, user_id, "roster_add", "class", str(c.id),
+                  {"added": added, "skipped": skipped})
+        db.commit()
+        return {"status": "ok", "added": added, "skipped": skipped}
+
+    def remove_from_roster(self, db: Session, user_id: str, school_id: str, class_id: str,
+                           student_ids: List[str]) -> Dict:
+        self._verify_access(db, user_id, school_id)
+        c = self._require_class(db, school_id, class_id)
+        removed = 0
+        for raw_id in student_ids:
+            try:
+                sid = uuid.UUID(str(raw_id))
+            except (ValueError, AttributeError):
+                continue
+            rows = db.query(ClassMembership).filter_by(class_id=c.id, student_id=sid).delete()
+            removed += rows
+        c.enrolled_students = db.query(ClassMembership).filter_by(
+            class_id=c.id, enrollment_status="active"
+        ).count()
+        self._log(db, school_id, user_id, "roster_remove", "class", str(c.id),
+                  {"removed": removed})
+        db.commit()
+        return {"status": "ok", "removed": removed}
+
 
 school_admin_service = SchoolAdminService()

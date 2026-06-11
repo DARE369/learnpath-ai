@@ -1,18 +1,22 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { ArrowLeft, Pencil, Copy, GitMerge, Archive, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Copy, GitMerge, Archive, RotateCcw, Trash2, UserMinus } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { Card, Button, Skeleton, Badge, SectionHeader, EmptyState } from "../../../components/ui";
 import { ClassFormModal, DuplicateModal, MergeModal, TeacherOption, ClassOption } from "../../../components/School/ClassModals";
 import { STATUS_TONE, STATUS_LABEL, timeAgo } from "../../../components/Teacher/types";
+
+interface RosterStudent {
+  student_id: string; name: string; email: string | null; score: number; status: string;
+}
 
 interface Detail {
   class_id: string; name: string; subject: string | null; description: string | null;
   teacher: string; teacher_id: string | null; grade_level: number | null; status: string;
   capacity: { current: number; max: number; pct_full: number };
   stats: { students: number; avg_score: number; submission_rate: number | null; at_risk_count: number };
-  roster: { student_id: string; name: string; email: string | null; score: number; status: string }[];
+  roster: RosterStudent[];
   activity: { action: string; resource_type: string | null; at: string }[];
 }
 
@@ -30,6 +34,8 @@ export default function SchoolClassDetailPage() {
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [modal, setModal] = useState<null | "edit" | "duplicate" | "merge">(null);
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [removingStudents, setRemovingStudents] = useState(false);
 
   useEffect(() => {
     const sid = typeof window !== "undefined"
@@ -74,6 +80,33 @@ export default function SchoolClassDetailPage() {
     router.push("/school/classes");
   }
 
+  async function removeSelected() {
+    if (!schoolId || selectedStudents.size === 0) return;
+    if (!confirm(`Remove ${selectedStudents.size} student${selectedStudents.size > 1 ? "s" : ""} from this class?`)) return;
+    setRemovingStudents(true);
+    await fetch(`/api/school-admin/${schoolId}/classes/${classId}/roster/remove`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ student_ids: Array.from(selectedStudents) }),
+    });
+    setSelectedStudents(new Set());
+    setRemovingStudents(false);
+    load();
+  }
+
+  function toggleStudent(id: string) {
+    setSelectedStudents((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  function toggleAllStudents() {
+    if (!d) return;
+    if (selectedStudents.size === d.roster.length) {
+      setSelectedStudents(new Set());
+    } else {
+      setSelectedStudents(new Set(d.roster.map((s) => s.student_id)));
+    }
+  }
+
   return (
     <>
       <Head><title>{d?.name || "Class"} — LearnPath for Schools</title></Head>
@@ -108,12 +141,30 @@ export default function SchoolClassDetailPage() {
                 </div>
 
                 <Card padding="none">
-                  <div className="px-4 pt-4"><SectionHeader title="Roster" subtitle={`${d.roster.length} students`} /></div>
+                  <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                    <SectionHeader title="Roster" subtitle={`${d.roster.length} students`} />
+                    {selectedStudents.size > 0 && (
+                      <Button size="sm" variant="danger" loading={removingStudents}
+                        onClick={removeSelected} leftIcon={<UserMinus className="h-3.5 w-3.5" />}>
+                        Remove {selectedStudents.size}
+                      </Button>
+                    )}
+                  </div>
                   {d.roster.length === 0 ? <p className="px-4 pb-4 text-sm text-white/40">No students enrolled.</p> : (
                     <ul className="divide-y divide-border">
+                      <li className="flex items-center gap-3 px-4 py-2 text-xs text-white/40">
+                        <input type="checkbox"
+                          checked={selectedStudents.size === d.roster.length && d.roster.length > 0}
+                          onChange={toggleAllStudents}
+                          className="h-4 w-4 rounded border-white/20 bg-surface text-accent" />
+                        <span>Select all</span>
+                      </li>
                       {d.roster.map((s) => (
-                        <li key={s.student_id} className="flex items-center justify-between px-4 py-3">
-                          <div className="min-w-0">
+                        <li key={s.student_id} className="flex items-center gap-3 px-4 py-3">
+                          <input type="checkbox" checked={selectedStudents.has(s.student_id)}
+                            onChange={() => toggleStudent(s.student_id)}
+                            className="h-4 w-4 rounded border-white/20 bg-surface text-accent" />
+                          <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-white">{s.name}</p>
                             {s.email && <p className="text-xs text-white/40">{s.email}</p>}
                           </div>

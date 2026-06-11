@@ -40,6 +40,9 @@
 ### B2B & Institutional (Stage 5)
 - **[B2B API](PACKET_5_0_B2B_API.md)** - Complete B2B SaaS API documentation for schools and institutions (Packet 5.0)
 
+### School Admin (ADMIN series)
+- **[Class Management](PACKET_ADMIN_2_3_CLASS_MANAGEMENT.md)** - Class CRUD, roster management, duplicate/merge/archive (ADMIN-2.3)
+
 ## Database
 
 - **[Database Schema](DATABASE_SCHEMA.md)** - Table definitions and relationships
