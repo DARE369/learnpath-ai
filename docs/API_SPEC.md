@@ -1136,3 +1136,194 @@ Remove students from a class.
 
 **Body:** `{ "student_ids": ["uuid1", "uuid2"] }`
 **Response 200:** `{ "status": "ok", "removed": 2 }`
+
+---
+
+## School Billing — ADMIN-2.4
+*All charges are mocked. No real payment integration.*
+
+All endpoints require Bearer token and school admin / principal access.
+
+### GET /api/school-admin/{school_id}/billing/plans
+Returns all active billing plans from the catalogue.
+
+**Response 200:**
+```json
+[
+  {
+    "plan_id": "uuid",
+    "plan_slug": "pro",
+    "plan_name": "Pro",
+    "description": "...",
+    "monthly_price": 499.0,
+    "annual_price": 4990.0,
+    "features": {
+      "max_teachers": 50, "max_students": 2000, "max_classes": 100,
+      "storage_gb": 100, "max_api_calls": 1000000,
+      "sso": false, "advanced_analytics": true, "support": "email"
+    }
+  }
+]
+```
+
+### GET /api/school-admin/{school_id}/billing/overview
+Current subscription, usage stats, 90-day forecast, recommended plan, and last 3 invoices.
+
+**Response 200:**
+```json
+{
+  "subscription": {
+    "subscription_id": "uuid",
+    "plan_name": "Pro",
+    "plan_slug": "pro",
+    "monthly_price": 499.0,
+    "billing_cycle": "monthly",
+    "status": "active",
+    "auto_renew": true,
+    "renews_at": "2026-07-01T00:00:00",
+    "days_until_renewal": 20,
+    "billing_contact": "Principal Smith"
+  },
+  "usage": {
+    "teachers":   { "used": 12, "limit": 50,  "pct": 24 },
+    "students":   { "used": 450, "limit": 2000, "pct": 22 },
+    "classes":    { "used": 20, "limit": 100, "pct": 20 },
+    "storage_gb": { "used": 5.5, "limit": 100, "pct": 5 },
+    "api_calls":  { "used": 12000, "limit": 1000000, "pct": 1 }
+  },
+  "forecast": [
+    {
+      "metric": "students", "current": 450, "projected_90d": 521,
+      "limit": 2000, "days_until_limit": 9999, "severity": "warning"
+    }
+  ],
+  "recommended_plan": null,
+  "recent_invoices": [
+    { "invoice_id": "uuid", "invoice_number": "INV-2026-05-0001",
+      "invoice_date": "2026-05-01", "total": 499.0, "status": "paid" }
+  ]
+}
+```
+
+### GET /api/school-admin/{school_id}/billing/plan-comparison
+All plans annotated with `is_current`, `additional_monthly`, and `limit_warnings`.
+
+**Response 200:**
+```json
+{
+  "plans": [
+    {
+      "plan_slug": "starter",
+      "is_current": false,
+      "additional_monthly": -400.0,
+      "limit_warnings": { "teachers": false, "students": false, "classes": false, "storage": false }
+    }
+  ],
+  "current_usage": { ... }
+}
+```
+
+### POST /api/school-admin/{school_id}/billing/upgrade
+Switch to a different plan. Generates a proration invoice.
+
+**Body:**
+```json
+{ "plan_slug": "enterprise", "billing_cycle": "monthly" }
+```
+`billing_cycle`: `monthly` (default) or `annual`
+
+**Response 200:**
+```json
+{
+  "status": "upgraded",
+  "plan_name": "Enterprise",
+  "billing_cycle": "monthly",
+  "monthly_price": 999.0,
+  "proration_charge": 167.33,
+  "proration_invoice_number": "INV-2026-06-0002",
+  "renews_at": "2026-07-01T00:00:00"
+}
+```
+
+### GET /api/school-admin/{school_id}/billing/invoices
+Paginated invoice history.
+
+**Query params:** `page` (default 1), `page_size` (default 20, max 100)
+
+**Response 200:**
+```json
+{
+  "invoices": [
+    {
+      "invoice_id": "uuid",
+      "invoice_number": "INV-2026-05-0001",
+      "invoice_date": "2026-05-01",
+      "total": 499.0,
+      "status": "paid",
+      "email_sent_to": null
+    }
+  ],
+  "pagination": { "page": 1, "page_size": 20, "total": 12, "pages": 1 }
+}
+```
+
+### GET /api/school-admin/{school_id}/billing/invoices/{invoice_id}
+Full invoice detail including line items.
+
+**Response 200:**
+```json
+{
+  "invoice_id": "uuid",
+  "invoice_number": "INV-2026-05-0001",
+  "invoice_date": "2026-05-01",
+  "billing_period_start": "2026-05-01",
+  "billing_period_end": "2026-05-31",
+  "subtotal": 499.0,
+  "tax": 0.0,
+  "tax_rate": 0.0,
+  "total": 499.0,
+  "status": "paid",
+  "paid_at": "2026-05-01T00:00:00",
+  "email_sent_to": null,
+  "notes": null,
+  "line_items": [
+    { "description": "Pro Plan — May 2026", "quantity": 1, "unit_price": 499.0, "total": 499.0 }
+  ],
+  "school_name": "Greenfield Academy",
+  "billing_contact": "Principal Smith",
+  "billing_email": "admin@greenfield.edu"
+}
+```
+
+### POST /api/school-admin/{school_id}/billing/invoices/{invoice_id}/email
+Mark invoice as emailed. No real email is sent (mocked).
+Falls back to `subscription.billing_contact_email` if `to_email` is omitted.
+
+**Body:**
+```json
+{ "to_email": "finance@school.edu" }
+```
+`to_email` is optional; omit to use the billing contact on file.
+
+**Response 200:**
+```json
+{ "status": "sent", "to": "finance@school.edu", "invoice_number": "INV-2026-05-0001" }
+```
+
+**400** if no email address is available.
+
+### PUT /api/school-admin/{school_id}/billing/settings
+Upsert billing contact information.
+
+**Body:**
+```json
+{
+  "billing_contact_name": "Jane Smith",
+  "billing_contact_email": "jane@school.edu",
+  "billing_contact_phone": "+2348000000000",
+  "billing_address": "123 School Rd, Lagos",
+  "send_invoice_emails": true,
+  "alert_at_pct_usage": 80
+}
+```
+All fields optional. Returns `{ "status": "updated", "settings": { ... } }`.

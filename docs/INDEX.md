@@ -42,6 +42,7 @@
 
 ### School Admin (ADMIN series)
 - **[Class Management](PACKET_ADMIN_2_3_CLASS_MANAGEMENT.md)** - Class CRUD, roster management, duplicate/merge/archive (ADMIN-2.3)
+- **[Financial & Billing](PACKET_ADMIN_2_4_BILLING.md)** - Plan overview, usage tracking, 90-day forecast, upgrade, invoice history (ADMIN-2.4)
 
 ## Database
 

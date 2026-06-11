@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, String, Integer, Float, Boolean,
-    DateTime, Date, Text, ForeignKey, JSON, UniqueConstraint,
+    DateTime, Date, Text, ForeignKey, JSON, UniqueConstraint, Numeric,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
@@ -2537,3 +2537,93 @@ class StudentDeactivationRecord(Base):
     reactivated_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ── School Billing (ADMIN-2.4) ─────────────────────────────────────────────
+
+
+class SchoolBillingPlan(Base):
+    """Available subscription tiers for schools (Starter / Pro / Enterprise)."""
+    __tablename__ = "school_billing_plans"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    plan_slug = Column(String(50), unique=True, nullable=False)   # starter | pro | enterprise
+    plan_name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    monthly_price = Column(Numeric(10, 2), nullable=False)
+    annual_price = Column(Numeric(10, 2), nullable=False)
+    features = Column(JSON, nullable=False, default=dict)
+    is_active = Column(Boolean, default=True, nullable=False)
+    display_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SchoolBillingSubscription(Base):
+    """Active subscription for a school (one per school)."""
+    __tablename__ = "school_billing_subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, unique=True, index=True)
+    plan_id = Column(UUID(as_uuid=True), ForeignKey("school_billing_plans.id"), nullable=False)
+    plan_name = Column(String(100), nullable=False)
+    monthly_price = Column(Numeric(10, 2), nullable=False)
+    billing_cycle = Column(String(20), default="monthly")  # monthly | annual
+    status = Column(String(30), default="active")           # active | cancelled | suspended
+    auto_renew = Column(Boolean, default=True)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    renews_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
+
+    # Denormalised limits for quick access
+    max_teachers = Column(Integer, default=50)
+    max_students = Column(Integer, default=2000)
+    max_classes = Column(Integer, default=100)
+    max_storage_gb = Column(Numeric(10, 2), default=100)
+    max_api_calls = Column(Integer, default=1_000_000)
+
+    billing_contact_email = Column(String(255), nullable=True)
+    billing_contact_name = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SchoolBillingInvoice(Base):
+    """Monthly invoice record for a school subscription."""
+    __tablename__ = "school_billing_invoices"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    subscription_id = Column(UUID(as_uuid=True), ForeignKey("school_billing_subscriptions.id"), nullable=True)
+    invoice_number = Column(String(50), unique=True, nullable=False)   # INV-2025-01-001
+    invoice_date = Column(Date, nullable=False)
+    billing_period_start = Column(Date, nullable=True)
+    billing_period_end = Column(Date, nullable=True)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+    tax = Column(Numeric(10, 2), default=0)
+    tax_rate = Column(Numeric(5, 2), default=0)
+    total = Column(Numeric(10, 2), nullable=False)
+    status = Column(String(30), default="paid")    # paid | pending | failed | refunded
+    line_items = Column(JSON, default=list)
+    paid_at = Column(DateTime, nullable=True)
+    email_sent_to = Column(String(255), nullable=True)
+    email_sent_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class SchoolBillingSettings(Base):
+    """Billing contact and notification preferences for a school."""
+    __tablename__ = "school_billing_settings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, unique=True, index=True)
+    billing_contact_name = Column(String(255), nullable=True)
+    billing_contact_email = Column(String(255), nullable=True)
+    billing_contact_phone = Column(String(30), nullable=True)
+    additional_invoice_emails = Column(JSON, default=list)
+    send_invoice_emails = Column(Boolean, default=True)
+    alert_at_pct_usage = Column(Integer, default=80)
+    billing_address = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

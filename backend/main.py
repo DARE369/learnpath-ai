@@ -637,6 +637,10 @@ app.include_router(school_admin_router.router)
 from routers import teacher_student_mgmt as ts_mgmt_router
 app.include_router(ts_mgmt_router.router)
 
+# ADMIN-2.4: School Billing
+from routers import billing as billing_router
+app.include_router(billing_router.router)
+
 
 if __name__ == "__main__":
     import uvicorn
