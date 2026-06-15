@@ -70,6 +70,9 @@ class Video(Base):
     duration_seconds = Column(Integer)
     transcript_cached = Column(Boolean, default=False)
     transcript = Column(Text)
+    transcript_timestamps = Column(JSON)           # [{text, start, duration}, ...]
+    transcript_unavailable = Column(Boolean, default=False)
+    transcript_fetched_at = Column(DateTime)
     published_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

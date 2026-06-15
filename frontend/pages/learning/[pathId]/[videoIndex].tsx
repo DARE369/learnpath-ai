@@ -5,7 +5,7 @@ import Head from "next/head";
 import Link from "next/link";
 import axios from "axios";
 import VideoPlayer, { VideoPlayerHandle } from "../../../components/Learning/VideoPlayer";
-import ChaptersList, { QuizQuestion } from "../../../components/Learning/ChaptersList";
+import ChaptersList, { Chunk, QuizQuestion } from "../../../components/Learning/ChaptersList";
 import ChapterQuizModal from "../../../components/Learning/ChapterQuizModal";
 import AITutorPanel from "../../../components/Learning/AITutorPanel";
 import QuizModal from "../../../components/Quiz/QuizModal";
@@ -126,6 +126,12 @@ export default function LearningSessionPage() {
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [quizOpen, setQuizOpen] = useState(false);
   const [chapterQuiz, setChapterQuiz] = useState<{ chunkId: string; chapterTitle: string; questions: QuizQuestion[] } | null>(null);
+  // Chunks are lifted here so VideoPlayer can receive boundaries for pause-at-end.
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+  const activeChunkIdx = useMemo(
+    () => chunks.findIndex((c) => currentSeconds >= c.start_seconds && currentSeconds < c.end_seconds),
+    [chunks, currentSeconds],
+  );
 
   const accessToken = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -267,6 +273,40 @@ export default function LearningSessionPage() {
     [videoIndex, pathId, router, videos.length],
   );
 
+  // Fired by VideoPlayer when it pauses at a chunk boundary.
+  const handleChunkComplete = useCallback((chunkIdx: number) => {
+    const chunk = chunks[chunkIdx];
+    if (!chunk) return;
+    const validQs = chunk.quiz.questions.filter((q) => q.question_text && q.options?.length > 0);
+    if (!validQs.length) {
+      // No valid questions — advance automatically
+      const next = chunks[chunkIdx + 1];
+      if (next) {
+        playerRef.current?.seekTo(next.start_seconds);
+        playerRef.current?.play();
+      } else {
+        handleVideoComplete();
+      }
+      return;
+    }
+    setChapterQuiz({ chunkId: chunk.id, chapterTitle: chunk.title, questions: chunk.quiz.questions });
+  }, [chunks, handleVideoComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fired by ChapterQuizModal "Next chapter" button.
+  const handleChapterQuizComplete = useCallback((scorePercent: number) => {
+    void scorePercent;
+    const completedIdx = chunks.findIndex((c) => c.id === chapterQuiz?.chunkId);
+    setChapterQuiz(null);
+    const nextIdx = completedIdx + 1;
+    if (nextIdx < chunks.length) {
+      const next = chunks[nextIdx];
+      playerRef.current?.seekTo(next.start_seconds);
+      playerRef.current?.play();
+    } else {
+      handleVideoComplete();
+    }
+  }, [chunks, chapterQuiz, handleVideoComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleNavigate = (idx: number) => {
     router.push(`/learning/${pathId}/${idx}`);
   };
@@ -401,6 +441,9 @@ export default function LearningSessionPage() {
                 youtubeId={currentVideo.youtubeId}
                 onProgress={handleProgress}
                 onComplete={handleVideoComplete}
+                chunks={chunks}
+                activeChunkIndex={activeChunkIdx}
+                onChunkComplete={handleChunkComplete}
               />
 
               {/* Video metadata */}
@@ -449,11 +492,11 @@ export default function LearningSessionPage() {
                 youtubeId={currentVideo.youtubeId}
                 accessToken={accessToken}
                 currentSeconds={currentSeconds}
-                onSeekTo={(s) => playerRef.current?.seekTo(s)}
-                onChapterComplete={(chunkId, chapterTitle, questions) => {
-                  if (questions.length === 0) return;
-                  setChapterQuiz({ chunkId, chapterTitle, questions });
+                onSeekTo={(s) => {
+                  playerRef.current?.seekTo(s);
+                  playerRef.current?.play();
                 }}
+                onChunksLoaded={setChunks}
               />
 
               {/* Adaptive quiz prompt (NEW-PACKET-C) */}
@@ -581,8 +624,11 @@ export default function LearningSessionPage() {
           chapterTitle={chapterQuiz.chapterTitle}
           questions={chapterQuiz.questions}
           accessToken={accessToken}
-          onClose={() => setChapterQuiz(null)}
-          onComplete={() => setChapterQuiz(null)}
+          onClose={() => {
+            setChapterQuiz(null);
+            playerRef.current?.play(); // resume if user skips quiz
+          }}
+          onComplete={handleChapterQuizComplete}
         />
       )}
 

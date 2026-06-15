@@ -7,17 +7,30 @@ declare global {
   }
 }
 
+interface ChunkBoundary {
+  chunk_number: number;
+  start_seconds: number;
+  end_seconds: number;
+}
+
 interface VideoPlayerProps {
   youtubeId: string;
   initialPosition?: number;
   onProgress?: (pct: number, positionSeconds: number, watchTimeSeconds: number) => void;
   onComplete?: () => void;
   onReady?: (duration: number) => void;
+  // Chunk-based pause: when the player reaches end_seconds of the active chunk,
+  // it pauses automatically and fires onChunkComplete(activeChunkIndex).
+  chunks?: ChunkBoundary[];
+  activeChunkIndex?: number;
+  onChunkComplete?: (chunkIndex: number) => void;
 }
 
-// Imperative handle so a parent (e.g. the chapters list) can seek the player.
+// Imperative handle so a parent can seek, play, or pause the player.
 export interface VideoPlayerHandle {
   seekTo: (seconds: number) => void;
+  play: () => void;
+  pause: () => void;
 }
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -37,6 +50,9 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   onProgress,
   onComplete,
   onReady,
+  chunks,
+  activeChunkIndex,
+  onChunkComplete,
 }: VideoPlayerProps, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -44,6 +60,14 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const watchStartRef = useRef<number>(0);
   const totalWatchRef = useRef<number>(0);
   const completedRef = useRef(false);
+
+  // Refs for chunk boundary checking — kept in sync with props so the polling
+  // closure always reads the latest values without being recreated.
+  const chunksRef = useRef<ChunkBoundary[]>([]);
+  const activeChunkIdxRef = useRef(-1);
+  const onChunkCompleteRef = useRef<((idx: number) => void) | undefined>(undefined);
+  // Track which chunk index we last paused for to prevent re-firing.
+  const chunkFiredRef = useRef(-1);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -59,6 +83,17 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const [playerReady, setPlayerReady] = useState(false);
   const [seeking, setSeeking] = useState(false);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep chunk refs in sync with props (no closure re-creation needed).
+  useEffect(() => { chunksRef.current = chunks ?? []; }, [chunks]);
+  useEffect(() => {
+    activeChunkIdxRef.current = activeChunkIndex ?? -1;
+    // Allow re-firing when the parent advances to a new chunk.
+    if ((activeChunkIndex ?? -1) !== chunkFiredRef.current) {
+      // Only reset if we're moving forward, not on initial -1.
+    }
+  }, [activeChunkIndex]);
+  useEffect(() => { onChunkCompleteRef.current = onChunkComplete; }, [onChunkComplete]);
 
   const startProgressPoll = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -85,6 +120,18 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       if (pct >= 90 && !completedRef.current) {
         completedRef.current = true;
         onComplete?.();
+      }
+
+      // Chunk boundary check: pause at end_seconds of the active chunk.
+      const ci = activeChunkIdxRef.current;
+      const chs = chunksRef.current;
+      if (ci >= 0 && ci < chs.length && ci !== chunkFiredRef.current) {
+        const ch = chs[ci];
+        if (ch.end_seconds > 0 && t >= ch.end_seconds - 0.5) {
+          chunkFiredRef.current = ci;
+          player.pauseVideo(); // triggers onStateChange:PAUSED → stops poll
+          onChunkCompleteRef.current?.(ci);
+        }
       }
     }, 1000);
   }, [onProgress, onComplete]);
@@ -215,7 +262,11 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
     setCurrentTime(seconds);
   };
 
-  useImperativeHandle(ref, () => ({ seekTo }), [duration]);
+  useImperativeHandle(ref, () => ({
+    seekTo,
+    play: () => playerRef.current?.playVideo(),
+    pause: () => playerRef.current?.pauseVideo(),
+  }), [duration]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();

@@ -55,6 +55,7 @@ interface Props {
   accessToken: string | null;
   currentSeconds: number;              // live position from the YouTube player
   onSeekTo: (seconds: number) => void; // caller seeks the player
+  onChunksLoaded?: (chunks: Chunk[]) => void; // fires once when chunks are fetched
   onChapterComplete?: (chunkId: string, chapterTitle: string, questions: QuizQuestion[]) => void;
 }
 
@@ -73,6 +74,7 @@ export default function ChaptersList({
   accessToken,
   currentSeconds,
   onSeekTo,
+  onChunksLoaded,
   onChapterComplete,
 }: Props) {
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -80,7 +82,6 @@ export default function ChaptersList({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
-  const notifiedRef = useRef<Set<string>>(new Set());
 
   const authHeaders: Record<string, string> = accessToken
     ? { Authorization: `Bearer ${accessToken}` }
@@ -97,6 +98,7 @@ export default function ChaptersList({
       const data = await res.json();
       if (data.chunks?.length) {
         setChunks(data.chunks);
+        onChunksLoaded?.(data.chunks);
         if (triggeredByGenerate) setGenerating(false);
       } else if (data.status === 'chunking_started') {
         // Poll every 5 s while chunking runs in background
@@ -119,19 +121,8 @@ export default function ChaptersList({
     c => currentSeconds >= c.start_seconds && currentSeconds < c.end_seconds
   );
 
-  // ── Notify parent when a chapter ends ─────────────────────────────────────
-  useEffect(() => {
-    if (!onChapterComplete || activeIdx < 0) return;
-    const prev = chunks[activeIdx - 1];
-    if (!prev) return;
-    const key = `${prev.id}:end`;
-    if (notifiedRef.current.has(key)) return;
-    // Fire when current position has just crossed the chapter boundary
-    if (currentSeconds >= prev.end_seconds && activeIdx > 0) {
-      notifiedRef.current.add(key);
-      onChapterComplete(prev.id, prev.title, prev.quiz.questions);
-    }
-  }, [currentSeconds, activeIdx, chunks, onChapterComplete]);
+  // Chapter-end detection is handled in VideoPlayer (pause-at-end logic).
+  // The onChapterComplete prop is kept for legacy callers but no longer fired here.
 
   // ── Save watch progress for the active chunk ──────────────────────────────
   const lastSavedRef = useRef<Record<string, number>>({});

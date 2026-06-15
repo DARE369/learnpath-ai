@@ -80,19 +80,31 @@ class VideoChunkingService:
 
     def chunk_video(self, db: Session, youtube_id: str, video_db_id: str) -> Dict:
         """Full pipeline: transcript → Claude → chunks → quizzes."""
-        # 1. Get transcript
-        transcript = self._get_transcript(youtube_id)
-        if not transcript:
+        # 1. Get transcript with real timestamps via TranscriptManager
+        result = self._get_transcript_result(db, youtube_id)
+        if not result:
             return {"status": "error", "detail": "Could not retrieve transcript for this video"}
 
-        # 2. Estimate duration from transcript word count (~150 wpm)
-        word_count = len(transcript.split())
-        est_duration = max(120, int(word_count / 150 * 60))
+        transcript = result.text
 
-        # 3. Call Claude for chapter segmentation
-        chapters_raw = self._call_claude(transcript, est_duration)
+        # 2. Prefer actual duration from DB; fall back to word-count estimate
+        from models import Video
+        video_row = db.query(Video).filter(Video.youtube_id == youtube_id).first()
+        est_duration = (
+            video_row.duration_seconds
+            if video_row and video_row.duration_seconds
+            else max(120, int(len(transcript.split()) / 150 * 60))
+        )
+
+        # 3. Try timestamped segmentation first, fall back to text-only
+        chapters_raw = None
+        if result.timestamped_lines:
+            chapters_raw = self._call_claude_with_timestamps(
+                result.timestamped_lines, est_duration
+            )
         if not chapters_raw:
-            # Fall back: create 2 equal-split chapters without AI
+            chapters_raw = self._call_claude(transcript, est_duration)
+        if not chapters_raw:
             chapters_raw = self._fallback_split(est_duration)
 
         # 4. Validate + persist chunks
@@ -142,28 +154,18 @@ class VideoChunkingService:
         return {"status": "ready", "chunks": [self._chunk_dict(c, db) for c in chunks]}
 
     # ------------------------------------------------------------------
-    # Transcript retrieval
+    # Transcript retrieval (centralised via TranscriptManager)
     # ------------------------------------------------------------------
 
+    def _get_transcript_result(self, db: Session, youtube_id: str):
+        """Return TranscriptResult (with timestamps) or None."""
+        from services.transcript_manager import transcript_manager
+        return transcript_manager.get_transcript(db, youtube_id)
+
     def _get_transcript(self, youtube_id: str) -> Optional[str]:
-        try:
-            from youtube_transcript_api import YouTubeTranscriptApi
-            # 1.x API: instantiate, then fetch() — class-method get_transcript() was removed
-            ytt = YouTubeTranscriptApi()
-            transcript = ytt.fetch(youtube_id, languages=["en", "en-US"])
-            return " ".join(e.text for e in transcript)
-        except Exception:
-            # Retry with any available language via list()
-            try:
-                from youtube_transcript_api import YouTubeTranscriptApi
-                ytt = YouTubeTranscriptApi()
-                tl = ytt.list(youtube_id)
-                for t in tl:
-                    data = t.fetch()
-                    return " ".join(e.text for e in data)
-            except Exception as e:
-                logger.warning(f"Transcript fetch failed for {youtube_id}: {e}")
-            return None
+        """Legacy text-only fetch — used as fallback in chunk_video."""
+        from services.transcript_manager import transcript_manager
+        return transcript_manager.get_transcript_text(youtube_id)
 
     # ------------------------------------------------------------------
     # Claude segmentation
@@ -206,6 +208,112 @@ class VideoChunkingService:
         except Exception as e:
             logger.warning(f"Claude chunking failed: {e}")
         return None
+
+    # ------------------------------------------------------------------
+    # Timestamped Claude segmentation (preferred path)
+    # ------------------------------------------------------------------
+
+    def _call_claude_with_timestamps(
+        self, timestamped_lines: List[Dict], duration_seconds: int
+    ) -> Optional[List[Dict]]:
+        """
+        Send timestamped transcript lines to Claude and ask it to return
+        chapter boundaries as line indices.  Maps indices back to real seconds.
+        """
+        try:
+            from config import settings
+            if not settings.CLAUDE_API_KEY:
+                return None
+            import anthropic
+
+            n = _ideal_chapter_count(duration_seconds)
+            lines_to_use = timestamped_lines[:300]  # cap to avoid token limit
+            total = len(lines_to_use)
+
+            formatted = []
+            for i, ln in enumerate(lines_to_use):
+                m = int(ln["start"] // 60)
+                s = int(ln["start"] % 60)
+                formatted.append(f"[{i}] [{m:02d}:{s:02d}] {ln['text']}")
+
+            transcript_block = "\n".join(formatted)
+            target_secs = duration_seconds // n
+
+            prompt = (
+                f"Segment this educational video transcript into exactly {n} chapters.\n\n"
+                f"VIDEO DURATION: {_secs_to_ts(duration_seconds)}\n"
+                f"TOTAL LINES: {total}\n\n"
+                f"TRANSCRIPT (line index [N] and real timestamp [MM:SS]):\n"
+                f"{transcript_block}\n\n"
+                f"RULES:\n"
+                f"1. Chapter 1 must start at line 0. Last chapter must end at line {total - 1}.\n"
+                f"2. start_line_index of chapter N+1 must equal end_line_index + 1 of chapter N.\n"
+                f"3. Find natural topic boundaries — never mid-sentence.\n"
+                f"4. Target ~{_secs_to_ts(target_secs)} per chapter.\n\n"
+                f"Return ONLY this JSON array, no markdown:\n"
+                f'[{{"chapter_number":1,"title":"...","learning_objective":"After this you will understand...","start_line_index":0,"end_line_index":25,"key_concepts":["c1","c2"],"summary":"..."}}]'
+            )
+
+            client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
+            msg = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = msg.content[0].text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+            m = re.search(r"\[.*\]", text, re.DOTALL)
+            if m:
+                chapters_raw = json.loads(m.group())
+                return self._map_line_indices_to_timestamps(chapters_raw, lines_to_use, duration_seconds)
+        except Exception as e:
+            logger.warning(f"Claude timestamp chunking failed: {e}")
+        return None
+
+    def _map_line_indices_to_timestamps(
+        self,
+        chapters_raw: List[Dict],
+        timestamped_lines: List[Dict],
+        video_duration: int,
+    ) -> List[Dict]:
+        """Convert Claude's line index references to real start/end seconds."""
+        max_idx = len(timestamped_lines) - 1
+        chapters: List[Dict] = []
+        for ch in chapters_raw:
+            si = max(0, min(ch.get("start_line_index", 0), max_idx))
+            ei = max(si, min(ch.get("end_line_index", max_idx), max_idx))
+            start_s = round(timestamped_lines[si]["start"])
+            end_s = round(
+                timestamped_lines[ei]["start"] + timestamped_lines[ei].get("duration", 0)
+            )
+            chapters.append({
+                "chapter_number": ch.get("chapter_number", len(chapters) + 1),
+                "title": ch.get("title", f"Chapter {len(chapters) + 1}"),
+                "learning_objective": ch.get("learning_objective", ""),
+                "start_timestamp": _secs_to_ts(start_s),
+                "end_timestamp": _secs_to_ts(end_s),
+                "start_seconds": start_s,
+                "end_seconds": end_s,
+                "key_concepts": ch.get("key_concepts", []),
+                "summary": ch.get("summary", ""),
+            })
+
+        # Clamp boundaries
+        if chapters:
+            chapters[0]["start_seconds"] = 0
+            chapters[0]["start_timestamp"] = "0:00"
+            if abs(chapters[-1]["end_seconds"] - video_duration) > 10:
+                chapters[-1]["end_seconds"] = video_duration
+                chapters[-1]["end_timestamp"] = _secs_to_ts(video_duration)
+
+        logger.info(f"Mapped {len(chapters)} chapters with real timestamps")
+        for ch in chapters:
+            logger.debug(
+                f"  Ch{ch['chapter_number']}: {ch['title']} "
+                f"({ch['start_seconds']}s–{ch['end_seconds']}s)"
+            )
+        return chapters
 
     # ------------------------------------------------------------------
     # Fallback split (no AI)
