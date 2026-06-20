@@ -22,6 +22,7 @@ from database import get_db
 from routers.auth import get_current_user
 from models import User, Video, VideoChunk
 from services.video_chunking_service import video_chunking_service
+from services.transcript_manager import transcript_manager
 
 router = APIRouter(prefix="/api/chunks", tags=["video-chunks"])
 logger = logging.getLogger(__name__)
@@ -36,6 +37,33 @@ def _get_or_create_video(db: Session, youtube_id: str) -> Video:
         db.commit()
         db.refresh(video)
     return video
+
+
+@router.get("/{youtube_id}/transcript")
+def get_transcript(
+    youtube_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    QA endpoint — returns the raw transcript for a YouTube video.
+    Shows what the chunking service uses as input.
+    source: 'cache' (already stored in DB) or 'youtube' (fetched live).
+    """
+    result = transcript_manager.get_transcript(db, youtube_id)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No transcript available — video may lack captions or be blocked.",
+        )
+    return {
+        "youtube_id": youtube_id,
+        "source": result.source,
+        "line_count": len(result.timestamped_lines),
+        "char_count": len(result.text),
+        "preview": result.text[:500],
+        "lines": result.timestamped_lines[:30],  # first 30 lines w/ timestamps
+    }
 
 
 @router.post("/{youtube_id}/generate", status_code=status.HTTP_202_ACCEPTED)
