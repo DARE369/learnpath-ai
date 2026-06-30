@@ -82,7 +82,7 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 
 
 @router.post("/signup", response_model=dict, status_code=201)
-async def signup(payload: UserCreate, db: Session = Depends(get_db)):
+async def signup(payload: UserCreate, response: Response, db: Session = Depends(get_db)):
     try:
         user = auth_service.create_user(
             db,
@@ -95,11 +95,11 @@ async def signup(payload: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
     tokens = auth_service.generate_tokens(str(user.id))
+    _set_refresh_cookie(response, tokens["refresh_token"])
     logger.info(f"New user registered: {user.email}")
     return {
         "user": UserResponse.model_validate(user).model_dump(mode="json"),
         "access_token": tokens["access_token"],
-        "refresh_token": tokens["refresh_token"],
         "token_type": "bearer",
     }
 

@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    async (email: string, password: string, remember = false) => {
+    async (email: string, password: string, remember = true) => {
       const res = await axios.post("/api/auth/login", {
         email: email.trim().toLowerCase(),
         password,
