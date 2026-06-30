@@ -95,9 +95,10 @@ function Shell({ Component, pageProps }: AppProps) {
 
     // Onboarding gate applies to students only (teachers/school admins have their
     // own workspace and skip the learner questionnaire).
-    if (user && isStudentRole(user.role) && !user.onboardingCompleted && router.pathname !== "/onboarding") {
-      router.replace("/onboarding");
-    }
+    // TEMPORARILY DISABLED — uncomment to re-enable onboarding redirect.
+    // if (user && isStudentRole(user.role) && !user.onboardingCompleted && router.pathname !== "/onboarding") {
+    //   router.replace("/onboarding");
+    // }
   }, [loading, needsAuth, user, router, blockedFromArea, areaRedirect]);
 
   if ((needsAuth && !user) || blockedFromArea) {
