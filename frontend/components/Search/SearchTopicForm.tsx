@@ -63,6 +63,7 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
   const { accessToken } = useAuth();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isCachedBuild, setIsCachedBuild] = useState(false);
   const [stageIndex, setStageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BuiltPath | null>(null);
@@ -132,6 +133,7 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
     setError(null);
     setResult(null);
     setConfirmInfo(null);
+    setIsCachedBuild(false);
     setLoading(true);
     const stopRotating = rotateStages();
 
@@ -251,7 +253,25 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
     if (typeof q === "string" && q && autorun === "1" && autorunFiredRef.current !== q) {
       autorunFiredRef.current = q;
       setQuery(q);
-      void runSearch(q);
+      // Quick cache check: if this path is already built, navigate directly
+      // without showing the "Searching YouTube" loading state.
+      (async () => {
+        try {
+          const res = await axios.get("/api/search/lookup", {
+            params: { q },
+            headers: authHeader,
+          });
+          const d = res.data || {};
+          if (d.from_cache && d.topic_id) {
+            openTopic(d.topic_id);
+            return;
+          }
+          // Path exists in some form but needs a quick backend fetch — flag it
+          // so the loading banner shows a lighter message instead of "30-60 seconds".
+          if (d.exists) setIsCachedBuild(true);
+        } catch { /* lookup failed — fall through to full search */ }
+        void runSearch(q);
+      })();
     }
   }, [router.isReady, router.query]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -401,10 +421,14 @@ export default function SearchTopicForm({ onBuilt }: SearchTopicFormProps) {
         <div className="p-6 rounded-2xl bg-surface-elevated border border-border">
           <div className="flex items-center gap-3 mb-2">
             <Spinner />
-            <p className="text-white font-medium text-sm">{STAGE_MESSAGES[stageIndex]}</p>
+            <p className="text-white font-medium text-sm">
+              {isCachedBuild ? "Loading your saved path…" : STAGE_MESSAGES[stageIndex]}
+            </p>
           </div>
           <p className="text-xs text-white/40">
-            This can take 30–60 seconds the first time. Cached topics return instantly next time.
+            {isCachedBuild
+              ? "This path was already built — should only take a few seconds."
+              : "This can take 30–60 seconds the first time. Cached topics return instantly next time."}
           </p>
         </div>
       )}
