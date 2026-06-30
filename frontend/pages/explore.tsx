@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import axios from "axios";
 import { CATALOG, Difficulty } from "../utils/catalog";
 import SearchTopicForm from "../components/Search/SearchTopicForm";
+import { useAuth } from "../hooks/useAuth";
 
 const DIFFICULTY_FILTERS: { value: "all" | Difficulty; label: string }[] = [
   { value: "all", label: "All levels" },
@@ -24,9 +26,41 @@ function formatDuration(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
+interface HistoryItem {
+  query: string;
+  topic_id: string;
+  video_count: number;
+  available: boolean;
+  last_explored_at: string | null;
+}
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
 export default function ExplorePage() {
+  const { accessToken } = useAuth();
   const [query, setQuery] = useState("");
   const [difficulty, setDifficulty] = useState<"all" | Difficulty>("all");
+  const [myPaths, setMyPaths] = useState<HistoryItem[]>([]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    axios
+      .get<{ history: HistoryItem[] }>("/api/search/history", {
+        params: { limit: 12 },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      .then((res) => setMyPaths((res.data?.history ?? []).filter((h) => h.available)))
+      .catch(() => { /* non-fatal */ });
+  }, [accessToken]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -62,6 +96,43 @@ export default function ExplorePage() {
         <section className="mb-12">
           <SearchTopicForm />
         </section>
+
+        {/* User's saved paths */}
+        {myPaths.length > 0 && (
+          <section className="mb-12 pt-6 border-t border-border">
+            <h2 className="text-xl font-semibold text-white mb-1">Your paths</h2>
+            <p className="text-sm text-white/40 mb-5">Pick up where you left off.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myPaths.map((path) => (
+                <Link
+                  key={path.topic_id}
+                  href={`/learning/${encodeURIComponent(path.topic_id)}/0`}
+                  className="group flex flex-col gap-3 p-5 rounded-2xl bg-surface-elevated border border-border hover:border-accent/30 hover:bg-surface-hover transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-white leading-snug group-hover:text-accent-light transition-colors capitalize">
+                      {path.query}
+                    </h3>
+                    <svg className="w-4 h-4 text-white/20 flex-shrink-0 group-hover:text-accent/60 transition-colors mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-white/35">
+                    {path.video_count > 0 && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                        {path.video_count} videos
+                      </span>
+                    )}
+                    {path.last_explored_at && (
+                      <span>{timeAgo(path.last_explored_at)}</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Featured catalog header */}
         <div className="mb-6 pt-6 border-t border-border">

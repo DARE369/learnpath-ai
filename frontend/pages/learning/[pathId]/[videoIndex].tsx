@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Target, BookOpen } from "lucide-react";
+import { Target, BookOpen, Check } from "lucide-react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -107,9 +107,11 @@ export default function LearningSessionPage() {
 
   const [builtVideos, setBuiltVideos] = useState<PathVideo[] | null>(null);
   const [builtTopicName, setBuiltTopicName] = useState<string>("");
+  const [pathLoading, setPathLoading] = useState(true);
+  const [pathLoadError, setPathLoadError] = useState(false);
 
   const videoIndex = Number(videoIndexParam ?? 0);
-  const videos: PathVideo[] = builtVideos ?? DEMO_VIDEOS;
+  const videos: PathVideo[] = builtVideos ?? [];
   const currentVideo = videos[videoIndex] ?? videos[0];
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -143,11 +145,10 @@ export default function LearningSessionPage() {
     [accessToken],
   );
 
-  // Load the actual built path so the page shows the user's real search,
-  // not the demo ML videos. Priority:
+  // Load the actual built path. Priority:
   //  1. sessionStorage stash from SearchTopicForm (instant)
   //  2. GET /api/search/path/{topic_id} (cache lookup, no rebuild)
-  //  3. Fall back to DEMO_VIDEOS (only when neither yielded anything)
+  //  3. Error state — no silent fallback to demo content.
   useEffect(() => {
     if (!router.isReady || !decodedPathId) return;
     let cancelled = false;
@@ -160,6 +161,7 @@ export default function LearningSessionPage() {
         if (parsed?.learning_path?.length) {
           setBuiltVideos(parsed.learning_path.map(pathVideoFromApi));
           setBuiltTopicName(parsed.topic_name || decodedPathId);
+          setPathLoading(false);
           return;
         }
       }
@@ -175,10 +177,13 @@ export default function LearningSessionPage() {
         if (res.data?.learning_path?.length) {
           setBuiltVideos(res.data.learning_path.map(pathVideoFromApi));
           setBuiltTopicName(res.data.topic_name || decodedPathId);
+        } else {
+          setPathLoadError(true);
         }
       } catch {
-        // 404 (no cached path) or 401 — fall back to DEMO_VIDEOS for now.
-        // Catalog course IDs (e.g. "photosynthesis-101") also land here.
+        if (!cancelled) setPathLoadError(true);
+      } finally {
+        if (!cancelled) setPathLoading(false);
       }
     })();
 
@@ -391,6 +396,41 @@ export default function LearningSessionPage() {
   const hasNext = videoIndex < videos.length - 1;
   const hasPrev = videoIndex > 0;
 
+  if (pathLoading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/50 text-sm">Loading your path…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pathLoadError || videos.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-14 h-14 rounded-2xl bg-surface-elevated border border-border flex items-center justify-center mx-auto mb-5">
+            <svg className="w-7 h-7 text-white/30" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h2 className="text-white font-semibold text-lg mb-2">Path not found</h2>
+          <p className="text-white/50 text-sm mb-6">
+            This learning path could not be loaded. It may have expired or never been built.
+          </p>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity"
+          >
+            Back to Explore
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Head>
@@ -416,6 +456,28 @@ export default function LearningSessionPage() {
               <span className="text-white/70 truncate font-medium">{currentVideo.title}</span>
             </div>
             <div className="flex-1" />
+            {chunks.length > 0 && (
+              <div className="hidden sm:flex items-center gap-2.5">
+                <span className="text-xs text-white/30 tabular-nums">
+                  Chapter {Math.max(activeChunkIdx, 0) + 1} of {chunks.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  {chunks.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i < activeChunkIdx
+                          ? "w-1.5 bg-success"
+                          : i === activeChunkIdx
+                          ? "w-4 bg-accent"
+                          : "w-1.5 bg-white/15"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="w-px h-4 bg-white/10" />
+              </div>
+            )}
             <span className="text-xs text-white/30 tabular-nums hidden sm:block">
               {videoIndex + 1} / {videos.length}
             </span>
@@ -433,9 +495,9 @@ export default function LearningSessionPage() {
 
         {/* Main content */}
         <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-6">
-          <div className={`grid gap-6 ${sidebarOpen ? "lg:grid-cols-[1fr_340px]" : "grid-cols-1"}`}>
+          <div className={`grid gap-6 ${sidebarOpen ? "lg:grid-cols-[13fr_7fr]" : "grid-cols-1"}`}>
             {/* Left column: player + question */}
-            <div className="flex flex-col gap-5 min-w-0">
+            <div className="flex flex-col gap-4 min-w-0">
               <VideoPlayer
                 ref={playerRef}
                 youtubeId={currentVideo.youtubeId}
@@ -445,6 +507,36 @@ export default function LearningSessionPage() {
                 activeChunkIndex={activeChunkIdx}
                 onChunkComplete={handleChunkComplete}
               />
+
+              {/* Mobile chapter quick-nav (horizontal scroll) */}
+              {chunks.length > 0 && (
+                <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                  {chunks.map((c, i) => {
+                    const isDone = i < activeChunkIdx;
+                    const isActive = i === activeChunkIdx;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          playerRef.current?.seekTo(c.start_seconds);
+                          playerRef.current?.play();
+                        }}
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                          isActive
+                            ? "bg-accent text-white"
+                            : isDone
+                            ? "bg-success-muted text-success"
+                            : "bg-white/5 text-white/40 hover:bg-white/10"
+                        }`}
+                      >
+                        {isDone ? <Check className="h-3 w-3" /> : <span>{c.chunk_number}</span>}
+                        {c.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Video metadata */}
               <div className="flex items-start justify-between gap-4">
@@ -500,7 +592,7 @@ export default function LearningSessionPage() {
               />
 
               {/* Adaptive quiz prompt (NEW-PACKET-C) */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-4">
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="min-w-0">
                   <p className="text-white font-medium">Test your knowledge</p>
                   <p className="text-white/50 text-sm">
@@ -509,14 +601,14 @@ export default function LearningSessionPage() {
                 </div>
                 <button
                   onClick={() => setQuizOpen(true)}
-                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
                 >
                   <Target className="h-4 w-4" /> Start quiz
                 </button>
               </div>
 
               {/* Study notes prompt (NEW-PACKET-D) */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="min-w-0">
                   <p className="text-white font-medium">Study notes</p>
                   <p className="text-white/50 text-sm">
@@ -525,7 +617,7 @@ export default function LearningSessionPage() {
                 </div>
                 <Link
                   href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`}
-                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl border border-white/15 text-white text-sm font-medium hover:bg-white/10 transition-colors"
                 >
                   <BookOpen className="h-4 w-4" /> Generate notes
                 </Link>
