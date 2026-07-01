@@ -161,9 +161,13 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
       // throwaway child so our React-owned containerRef is never detached.
       containerRef.current.innerHTML = "";
       const mountNode = document.createElement("div");
+      // Pre-size the mount node so the replaced iframe fills the container.
+      mountNode.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
       containerRef.current.appendChild(mountNode);
 
       playerRef.current = new window.YT.Player(mountNode, {
+        width: "100%",
+        height: "100%",
         videoId: youtubeId,
         host: "https://www.youtube.com",
         playerVars: {
