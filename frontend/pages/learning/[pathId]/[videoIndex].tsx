@@ -350,48 +350,60 @@ export default function LearningSessionPage() {
     return () => { cancelled = true; };
   }, [accessToken, authHeader]);
 
-  // Derive concepts from the built path if we have one — every video object
-  // from the API has a "concepts" string[] field. Aggregate, dedupe, merge
-  // with real mastery data from /api/progress/concepts. Falls back to the
-  // curated DEMO_CONCEPTS for catalog/demo paths.
+  // Derive concepts from the chunks' key_concepts (transcript-grounded, accurate).
+  // Falls back to path-builder concepts while chunks haven't loaded yet, and
+  // to DEMO_CONCEPTS for demo paths with no data at all.
   const derivedConcepts = useMemo(() => {
-    if (!builtVideos) return DEMO_CONCEPTS;
-    const seen = new Set<string>();
-    const list: { name: string; status: "mastered" | "learning" | "not_started"; mastery: number }[] = [];
-    builtVideos.forEach((_, i) => {
-      // builtVideos doesn't carry concepts directly; we need to pull from the
-      // raw stashed path. Read it once here.
-      const raw = typeof window !== "undefined" ? sessionStorage.getItem(`builtPath:${decodedPathId}`) : null;
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as BuiltPathLite;
-        const concepts = (parsed.learning_path?.[i] as { concepts?: string[] } | undefined)?.concepts || [];
-        concepts.forEach((c) => {
+    // Primary: aggregate key_concepts from all chunks for this video
+    if (chunks.length > 0) {
+      const seen = new Set<string>();
+      const list: { name: string; status: "mastered" | "learning" | "not_started"; mastery: number }[] = [];
+      chunks.forEach((chunk) => {
+        (chunk.key_concepts || []).forEach((c) => {
           if (seen.has(c)) return;
           seen.add(c);
           const real = conceptMastery[c.toLowerCase()];
-          let status: "mastered" | "learning" | "not_started";
-          let mastery: number;
           if (real) {
-            // Real mastery wins over heuristic
-            status = real.status === "mastered"
-              ? "mastered"
-              : real.mastery > 0
-                ? "learning"
-                : "not_started";
-            mastery = real.mastery;
+            list.push({
+              name: c,
+              status: real.status === "mastered" ? "mastered" : real.mastery > 0 ? "learning" : "not_started",
+              mastery: real.mastery,
+            });
           } else {
-            // No real mastery data yet — show 0 until the backend records progress.
-            // "learning" status signals the user is actively on this concept.
-            status = i === videoIndex ? "learning" : "not_started";
-            mastery = 0;
+            // No recorded progress yet — user is actively watching, so "learning"
+            list.push({ name: c, status: "learning", mastery: 0 });
           }
-          list.push({ name: c, status, mastery });
         });
-      } catch { /* malformed stash — ignore */ }
-    });
-    return list.length > 0 ? list : DEMO_CONCEPTS;
-  }, [builtVideos, decodedPathId, videoIndex, conceptMastery]);
+      });
+      if (list.length > 0) return list;
+    }
+
+    // Fallback while chunks haven't loaded: use path-builder concepts for this video
+    if (builtVideos) {
+      const raw = typeof window !== "undefined" ? sessionStorage.getItem(`builtPath:${decodedPathId}`) : null;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as BuiltPathLite;
+          const concepts = (parsed.learning_path?.[videoIndex] as { concepts?: string[] } | undefined)?.concepts || [];
+          const seen = new Set<string>();
+          const list: { name: string; status: "mastered" | "learning" | "not_started"; mastery: number }[] = [];
+          concepts.forEach((c) => {
+            if (seen.has(c)) return;
+            seen.add(c);
+            const real = conceptMastery[c.toLowerCase()];
+            list.push({
+              name: c,
+              status: real ? (real.status === "mastered" ? "mastered" : real.mastery > 0 ? "learning" : "not_started") : "learning",
+              mastery: real?.mastery ?? 0,
+            });
+          });
+          if (list.length > 0) return list;
+        } catch { /* malformed stash — ignore */ }
+      }
+    }
+
+    return DEMO_CONCEPTS;
+  }, [chunks, conceptMastery, builtVideos, decodedPathId, videoIndex]);
 
   const hasNext = videoIndex < videos.length - 1;
   const hasPrev = videoIndex > 0;
