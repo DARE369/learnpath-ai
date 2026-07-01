@@ -175,22 +175,22 @@ class TranscriptManager:
           - yt-dlp and openai packages
           - ffmpeg system binary (for audio conversion; added to nixpacks.toml)
 
-        Cost: ~$0.006 / minute of audio (Whisper-1 pricing, July 2025).
-        Time: ~60-120 s for a 10-minute video.
+        Cost: free tier via Groq (generous rate limits; no credit card required).
+        Time: ~60-120 s for a 10-minute video (dominated by audio download).
         """
         from config import settings
 
-        if not settings.OPENAI_API_KEY:
+        if not settings.GROQ_API_KEY:
             logger.warning(
-                "OPENAI_API_KEY not set — Whisper fallback unavailable for %s", youtube_id
+                "GROQ_API_KEY not set — Whisper fallback unavailable for %s", youtube_id
             )
             return None
 
         try:
             import yt_dlp
-            from openai import OpenAI
+            from groq import Groq
         except ImportError as e:
-            logger.error(f"Whisper fallback: missing package ({e}). Add yt-dlp and openai to requirements.txt.")
+            logger.error(f"Whisper fallback: missing package ({e}). Add yt-dlp and groq to requirements.txt.")
             return None
 
         logger.info(f"Whisper: starting audio download for {youtube_id}")
@@ -256,10 +256,10 @@ class TranscriptManager:
                     )
                     return None
 
-                client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                client = Groq(api_key=settings.GROQ_API_KEY)
                 with open(audio_path, "rb") as f:
                     response = client.audio.transcriptions.create(
-                        model="whisper-1",
+                        model="whisper-large-v3-turbo",
                         file=f,
                         response_format="verbose_json",
                         timestamp_granularities=["segment"],
