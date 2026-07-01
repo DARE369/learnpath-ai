@@ -107,7 +107,7 @@ export default function TopicsChart({ data, isLoading }: TopicsChartProps) {
               content={({ active, payload }) => (
                 <ChartTooltip
                   active={active}
-                  payload={payload as TooltipPayload[]}
+                  payload={payload as unknown as TooltipPayload[]}
                   total={total}
                 />
               )}
