@@ -449,7 +449,9 @@ export default function LearningSessionPage() {
             </Link>
             <div className="w-px h-4 bg-white/10" />
             <div className="flex items-center gap-2 text-sm min-w-0">
-              <span className="text-white/30 truncate hidden sm:block">{builtTopicName || "Learning Path"}</span>
+              <span className="text-white/30 truncate hidden sm:block">
+                {(builtTopicName || "Learning Path").slice(0, 60) || "Learning Path"}
+              </span>
               <svg className="w-3 h-3 text-white/20 flex-shrink-0 hidden sm:block" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>

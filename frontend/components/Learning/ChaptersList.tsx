@@ -94,7 +94,15 @@ export default function ChaptersList({
     setError('');
     try {
       const res = await fetch(`/api/chunks/${youtubeId}`, { headers: authHeaders });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // Try to surface the server's detail message (e.g. "video lacks captions")
+        let detail = 'Could not load chapters';
+        try {
+          const body = await res.json();
+          if (body?.detail) detail = body.detail;
+        } catch { /* ignore parse error */ }
+        throw new Error(detail);
+      }
       const data = await res.json();
       if (data.chunks?.length) {
         setChunks(data.chunks);
@@ -105,7 +113,7 @@ export default function ChaptersList({
         setTimeout(() => fetchChunks(true), 5000);
       }
     } catch (e: any) {
-      setError('Could not load chapters');
+      setError(e?.message || 'Could not load chapters');
       setGenerating(false);
     } finally {
       setLoading(false);
