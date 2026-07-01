@@ -82,6 +82,8 @@ export default function ChaptersList({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
+  // True when the server returns 422 — video has no captions; retrying won't help.
+  const [noTranscript, setNoTranscript] = useState(false);
 
   const authHeaders: Record<string, string> = accessToken
     ? { Authorization: `Bearer ${accessToken}` }
@@ -95,7 +97,8 @@ export default function ChaptersList({
     try {
       const res = await fetch(`/api/chunks/${youtubeId}`, { headers: authHeaders });
       if (!res.ok) {
-        // Try to surface the server's detail message (e.g. "video lacks captions")
+        // 422 = permanent failure (no captions/transcript) — don't offer retry.
+        if (res.status === 422) setNoTranscript(true);
         let detail = 'Could not load chapters';
         try {
           const body = await res.json();
@@ -190,20 +193,32 @@ export default function ChaptersList({
         <p className="text-xs text-white/40 leading-relaxed">
           Break this video into bite-sized chapters with AI-generated summaries and quizzes.
         </p>
-        {error && <p className="text-xs text-red-400">{error}</p>}
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={generating}
-          className="w-full rounded-lg bg-accent/90 py-2.5 text-xs font-semibold text-white hover:bg-accent disabled:opacity-50 transition-colors"
-        >
-          {generating ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-              Generating chapters…
-            </span>
-          ) : <span className="inline-flex items-center justify-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Generate Chapters</span>}
-        </button>
+        {error && (
+          <p className="text-xs text-red-400">{error}</p>
+        )}
+        {noTranscript ? (
+          <p className="text-xs text-white/30 italic">
+            Chapters aren&apos;t available for this video — it may not have captions enabled on YouTube.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="w-full rounded-lg bg-accent/90 py-2.5 text-xs font-semibold text-white hover:bg-accent disabled:opacity-50 transition-colors"
+          >
+            {generating ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                Generating chapters…
+              </span>
+            ) : (
+              <span className="inline-flex items-center justify-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> Generate Chapters
+              </span>
+            )}
+          </button>
+        )}
       </div>
     );
   }
