@@ -104,8 +104,8 @@ def get_chunks(
 ):
     """Return all chunks (with quizzes) for a video.
 
-    If no chunks exist yet, triggers synchronous chunking so the caller
-    doesn't need a separate generate step (convenient for the first load).
+    Returns immediately — never blocks for chunking.
+    Use POST /generate to trigger chunking, then poll this endpoint.
     """
     video = _get_or_create_video(db, youtube_id)
     chunks = (
@@ -123,16 +123,12 @@ def get_chunks(
             "chunks": [video_chunking_service._chunk_dict(c, db) for c in chunks],
         }
 
-    # Not yet chunked — run synchronously (blocking, ~10-30s) and return result
-    try:
-        result = video_chunking_service.chunk_video(db, youtube_id, str(video.id))
-        return {"youtube_id": youtube_id, **result}
-    except Exception as e:
-        logger.exception(f"Synchronous chunking failed for {youtube_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Could not generate chapters — the video may lack captions or transcripts.",
-        )
+    return {
+        "youtube_id": youtube_id,
+        "status": "not_started",
+        "chunk_count": 0,
+        "chunks": [],
+    }
 
 
 @router.get("/detail/{chunk_id}")

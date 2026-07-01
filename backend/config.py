@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     YOUTUBE_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
     GOOGLE_GEMINI_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None   # Used for Whisper transcript fallback
 
     # Google OAuth
     GOOGLE_CLIENT_ID: Optional[str] = None

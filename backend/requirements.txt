@@ -24,6 +24,8 @@ PyJWT==2.8.0
 # API & External Services
 requests==2.31.0
 youtube-transcript-api==1.2.4
+yt-dlp>=2024.3.10          # Audio extraction for Whisper transcript fallback
+openai>=1.30.0             # Whisper transcription API
 
 # NEW-PACKET-E: document extraction (text-based PDF, Word, URL) + OCR.
 # OCR system binaries (tesseract-ocr, poppler-utils) are installed via

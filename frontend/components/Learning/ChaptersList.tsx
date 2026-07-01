@@ -82,8 +82,10 @@ export default function ChaptersList({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
-  // True when the server returns 422 — video has no captions; retrying won't help.
+  // True when all transcript sources (YouTube + Whisper) failed; retrying won't help.
   const [noTranscript, setNoTranscript] = useState(false);
+  // Tracks how many times we've polled while waiting for background chunking.
+  const pollCountRef = useRef(0);
 
   const authHeaders: Record<string, string> = accessToken
     ? { Authorization: `Bearer ${accessToken}` }
@@ -108,12 +110,24 @@ export default function ChaptersList({
       }
       const data = await res.json();
       if (data.chunks?.length) {
+        pollCountRef.current = 0;
         setChunks(data.chunks);
         onChunksLoaded?.(data.chunks);
         if (triggeredByGenerate) setGenerating(false);
-      } else if (data.status === 'chunking_started') {
-        // Poll every 5 s while chunking runs in background
+      } else if (data.status === 'chunking_started' || (triggeredByGenerate && data.status === 'not_started')) {
+        // Poll while chunking runs in background; Whisper can take ~90s for a long video
+        pollCountRef.current += 1;
+        if (pollCountRef.current >= 40) {
+          // ~3.5 minutes exceeded — both YouTube captions and Whisper likely failed
+          pollCountRef.current = 0;
+          setGenerating(false);
+          setNoTranscript(true);
+          return;
+        }
         setTimeout(() => fetchChunks(true), 5000);
+      } else if (data.status === 'not_started') {
+        // No chunks yet and not mid-generation — show Generate button
+        setGenerating(false);
       }
     } catch (e: any) {
       setError(e?.message || 'Could not load chapters');
@@ -155,6 +169,8 @@ export default function ChaptersList({
   const handleGenerate = async () => {
     setGenerating(true);
     setError('');
+    setNoTranscript(false);
+    pollCountRef.current = 0;
     try {
       await fetch(`/api/chunks/${youtubeId}/generate`, {
         method: 'POST',
@@ -198,7 +214,7 @@ export default function ChaptersList({
         )}
         {noTranscript ? (
           <p className="text-xs text-white/30 italic">
-            Chapters aren&apos;t available for this video — it may not have captions enabled on YouTube.
+            Couldn&apos;t generate chapters for this video — no captions or audio transcript could be obtained. Try a different video.
           </p>
         ) : (
           <button
