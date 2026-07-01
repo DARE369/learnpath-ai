@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from models import (
     PathSession, QuizSession, ConceptMastery, UserProfile,
-    UserStreak, UserAchievement,
+    UserStreak, UserAchievement, UserProgress, Topic, Video,
 )
 
 logger = logging.getLogger(__name__)
@@ -249,6 +249,106 @@ class DashboardService:
             "achievements": self._achievements(db, user_id, streak, week),
             "buddy": None,  # buddy system not implemented yet
         }
+
+
+    # ── new dashboard sections ─────────────────────────────────────────────--
+
+    def get_recommendations(self, db: Session, user_id) -> List[Dict]:
+        """Up to 6 in-progress topics as course recommendation cards."""
+        rows = (
+            db.query(UserProgress, Topic)
+            .join(Topic, UserProgress.topic_id == Topic.id, isouter=True)
+            .filter(
+                UserProgress.user_id == user_id,
+                UserProgress.completion_percentage < 100,
+            )
+            .order_by(UserProgress.last_activity_at.desc().nullslast())
+            .limit(6)
+            .all()
+        )
+
+        # Resolve the latest path_id per topic so the card can deep-link.
+        path_ids: Dict[str, str] = {}
+        for up, _ in rows:
+            ps = (
+                db.query(PathSession.path_id)
+                .filter(
+                    PathSession.user_id == user_id,
+                    PathSession.topic_id == up.topic_id,
+                    PathSession.path_id.isnot(None),
+                )
+                .order_by(PathSession.started_at.desc())
+                .first()
+            )
+            if ps and ps.path_id:
+                path_ids[str(up.topic_id)] = ps.path_id
+
+        result = []
+        for up, topic in rows:
+            name = (topic.name if topic else None) or str(up.topic_id)
+            pct = up.completion_percentage or 0
+            result.append({
+                "id": str(up.topic_id),
+                "title": name,
+                "subtitle": f"{pct}% complete",
+                "progress": pct,
+                "matchScore": None,
+                "pathId": path_ids.get(str(up.topic_id)),
+            })
+        return result
+
+    def get_activity(self, db: Session, user_id, limit: int = 20, offset: int = 0) -> List[Dict]:
+        """Paginated activity items derived from PathSession records."""
+        rows = (
+            db.query(PathSession, Video)
+            .join(Video, PathSession.video_id == Video.id, isouter=True)
+            .filter(PathSession.user_id == user_id)
+            .order_by(PathSession.started_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        items = []
+        for ps, vid in rows:
+            title = (vid.title if vid else None) or f"Video {(ps.video_index or 0) + 1}"
+            if ps.video_watched:
+                act_type = "video_watched"
+            elif (ps.video_index or 0) == 0:
+                act_type = "course_started"
+            else:
+                act_type = "video_watched"
+            ts = ps.started_at.isoformat() if ps.started_at else datetime.utcnow().isoformat()
+            items.append({
+                "id": str(ps.id),
+                "type": act_type,
+                "title": title,
+                "subtitle": None,
+                "timestamp": ts,
+                "pathId": ps.path_id,
+                "videoIndex": ps.video_index,
+            })
+        return items
+
+    def get_topics_progress(self, db: Session, user_id) -> Dict:
+        """Completed / in-progress / not-started counts for the TopicsChart donut."""
+        completed = (
+            db.query(func.count(UserProgress.id))
+            .filter(
+                UserProgress.user_id == user_id,
+                UserProgress.completion_percentage >= 100,
+            )
+            .scalar() or 0
+        )
+        in_progress = (
+            db.query(func.count(UserProgress.id))
+            .filter(
+                UserProgress.user_id == user_id,
+                UserProgress.completion_percentage > 0,
+                UserProgress.completion_percentage < 100,
+            )
+            .scalar() or 0
+        )
+        return {"completed": completed, "inProgress": in_progress, "notStarted": 0}
 
 
 dashboard_service = DashboardService()

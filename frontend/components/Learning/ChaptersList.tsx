@@ -282,17 +282,24 @@ export default function ChaptersList({
         })}
       </div>
 
-      {/* Key concepts for active chapter */}
-      {activeIdx >= 0 && chunks[activeIdx]?.key_concepts?.length > 0 && (
-        <div className="px-4 pb-3 pt-2 border-t border-white/[0.06]">
-          <p className="text-xs text-white/30 mb-1.5 uppercase tracking-wider">Key concepts</p>
-          <div className="flex flex-wrap gap-1.5">
-            {chunks[activeIdx].key_concepts.map((c) => (
-              <span key={c} className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-xs text-white/60">
-                {c}
-              </span>
-            ))}
-          </div>
+      {/* Learning objective + key concepts for active chapter */}
+      {activeIdx >= 0 && (chunks[activeIdx]?.learning_objective || chunks[activeIdx]?.key_concepts?.length > 0) && (
+        <div className="px-4 pb-3 pt-2 border-t border-white/[0.06] space-y-2">
+          {chunks[activeIdx]?.learning_objective && (
+            <p className="text-xs text-white/50 leading-relaxed">{chunks[activeIdx].learning_objective}</p>
+          )}
+          {chunks[activeIdx]?.key_concepts?.length > 0 && (
+            <div>
+              <p className="text-xs text-white/30 mb-1.5 uppercase tracking-wider">Key concepts</p>
+              <div className="flex flex-wrap gap-1.5">
+                {chunks[activeIdx].key_concepts.map((c) => (
+                  <span key={c} className="rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-xs text-white/60">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

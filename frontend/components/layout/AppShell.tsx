@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { cn } from "../ui/cn";
+import { ErrorBoundary } from "../ErrorBoundary";
 
 const COLLAPSE_KEY = "lp_sidebar_collapsed";
 
@@ -37,6 +38,14 @@ export default function AppShell({ role, children }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-background text-white">
+      {/* Skip-to-content link — hidden until focused by keyboard */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-xl focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       <Sidebar
         role={role}
         collapsed={collapsed}
@@ -46,7 +55,9 @@ export default function AppShell({ role, children }: AppShellProps) {
       />
       <div className={cn("flex min-h-screen flex-col transition-[padding] md:pl-sidebar", collapsed && "md:pl-sidebar-collapsed")}>
         <Topbar onOpenMobile={() => setMobileOpen(true)} />
-        <main className="flex-1">{children}</main>
+        <main id="main-content" className="flex-1">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   );

@@ -90,10 +90,12 @@ self.addEventListener("fetch", (event) => {
     );
   }
 
-  // API calls: always go to the network (responses are auth'd/user-specific and
-  // must not be cached/served stale). No SW caching for the API.
+  // API calls (same-origin /api/...): do NOT intercept — let the browser send
+  // these directly through Next.js's server-side proxy rewrite to Railway.
+  // Calling respondWith(fetch) here would chain the SW into the request and
+  // cause "promise rejected" FetchEvent errors when the upstream fails.
   if (url.pathname.startsWith("/api/")) {
-    return event.respondWith(fetch(request));
+    return;
   }
 
   // Images: Cache-first

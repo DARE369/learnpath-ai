@@ -33,6 +33,8 @@ const PROTECTED_PREFIXES = [
   "/paths",
   "/exams",
   "/buddies",
+  "/achievements",
+  "/activity",
   "/admin",
   "/teacher",
   "/school",
@@ -65,9 +67,21 @@ function roleAreaRedirect(pathname: string, role?: string): string | null {
   return null;
 }
 
+// Auth pages that logged-in users should be bounced away from (Rule 2).
+const AUTH_PAGES = [
+  "/auth/login",
+  "/auth/signup",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+];
+
+function isAuthPage(pathname: string): boolean {
+  return AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 function Shell({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, sessionExpired } = useAuth();
 
   const showChrome = !hidesChrome(router.pathname);
   const needsAuth = isProtectedPath(router.pathname);
@@ -79,11 +93,25 @@ function Shell({ Component, pageProps }: AppProps) {
   useEffect(() => {
     if (loading) return;
 
+    // Rule 1: unauthenticated → login, with expiry delay when session expired.
     if (needsAuth && !user) {
       const next = typeof window !== "undefined"
         ? window.location.pathname + window.location.search
         : router.asPath;
+      if (sessionExpired) {
+        // Show the expiry screen for 3 s, then redirect.
+        const t = setTimeout(() => {
+          router.replace(`/auth/login?next=${encodeURIComponent(next)}`);
+        }, 3000);
+        return () => clearTimeout(t);
+      }
       router.replace(`/auth/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
+
+    // Rule 2: authenticated user visits auth pages → bounce to their home.
+    if (!loading && user && isAuthPage(router.pathname)) {
+      router.replace(homeForRole(user.role));
       return;
     }
 
@@ -99,14 +127,24 @@ function Shell({ Component, pageProps }: AppProps) {
     // if (user && isStudentRole(user.role) && !user.onboardingCompleted && router.pathname !== "/onboarding") {
     //   router.replace("/onboarding");
     // }
-  }, [loading, needsAuth, user, router, blockedFromArea, areaRedirect]);
+  }, [loading, needsAuth, user, router, blockedFromArea, areaRedirect, sessionExpired]);
 
   if ((needsAuth && !user) || blockedFromArea) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/50 text-sm">Loading…</p>
+          {sessionExpired ? (
+            <>
+              <div className="text-4xl mb-4">⏱️</div>
+              <p className="text-white font-semibold mb-1">Session expired</p>
+              <p className="text-white/50 text-sm">Redirecting to sign in…</p>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-white/50 text-sm">Loading…</p>
+            </>
+          )}
         </div>
       </div>
     );

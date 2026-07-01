@@ -15,6 +15,7 @@ interface AuthContextValue {
   accessToken: string | null;
   isLoggedIn: boolean;
   loading: boolean;
+  sessionExpired: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
   signup: (email: string, password: string, fullName?: string, role?: string) => Promise<void>;
   loginWithGoogleToken: (googleAccessToken: string, remember?: boolean) => Promise<void>;
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
   // refs so the global axios interceptor always reads the latest values
   // without being torn down and re-installed on every render
   const tokenRef = useRef<string | null>(null);
@@ -114,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             u = await fetchMe(newToken);
           }
         } catch {
-          /* no valid refresh cookie — genuinely logged out */
+          // No valid refresh cookie. If we had a stored token it means the
+          // session genuinely expired (vs. a first visit with no session).
+          if (stored) setSessionExpired(true);
         }
       }
 
@@ -145,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string, remember = true) => {
+      setSessionExpired(false);
       const res = await axios.post("/api/auth/login", {
         email: email.trim().toLowerCase(),
         password,
@@ -159,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(
     async (email: string, password: string, fullName?: string, role?: string) => {
+      setSessionExpired(false);
       const res = await axios.post("/api/auth/signup", {
         email: email.trim().toLowerCase(),
         password,
@@ -176,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogleToken = useCallback(
     async (googleAccessToken: string, remember = false) => {
+      setSessionExpired(false);
       const res = await axios.post("/api/auth/google", {
         access_token: googleAccessToken,
       });
@@ -239,11 +246,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         original._retried = true;
         const newToken = await tryRefresh();
         if (!newToken) {
-          // Refresh failed — clear local state. Don't force-navigate here;
-          // the next protected page render will handle the redirect.
+          // Refresh failed — session has truly expired.
           clearStoredToken();
           setAccessToken(null);
           setUser(null);
+          setSessionExpired(true);
           return Promise.reject(error);
         }
         original.headers = original.headers || {};
@@ -262,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accessToken,
     isLoggedIn: Boolean(user && accessToken),
     loading,
+    sessionExpired,
     login,
     signup,
     loginWithGoogleToken,
