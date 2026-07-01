@@ -33,6 +33,16 @@ function readStoredToken(): string | null {
   return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
 }
 
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // Give a 30-second buffer so we don't use a token that'll expire mid-request
+    return typeof payload.exp === "number" && payload.exp * 1000 < Date.now() + 30_000;
+  } catch {
+    return true;
+  }
+}
+
 function persistToken(token: string, remember: boolean) {
   if (typeof window === "undefined") return;
   if (remember) {
@@ -91,16 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       let u: AuthUser | null = null;
 
-      // 1) If we have a stored access token, try it first.
-      if (stored) {
+      // 1) If we have a stored access token and it isn't obviously expired, try it.
+      //    Skipping an expired token here avoids a guaranteed 401 console error
+      //    before falling through to the refresh flow anyway.
+      if (stored && !isTokenExpired(stored)) {
         setAccessToken(stored);
         u = await fetchMe(stored);
       }
 
-      // 2) No stored token (cold load, new tab, browser restart) OR it was
-      //    rejected: fall back to the httpOnly refresh cookie. This is the key
-      //    fix — previously we gave up here and forced a re-login even though a
-      //    valid 7-day refresh cookie still existed.
+      // 2) No stored token, token was expired, or /me rejected it:
+      //    fall back to the httpOnly refresh cookie.
       if (!u) {
         try {
           const refreshRes = await axios.post("/api/auth/refresh");
