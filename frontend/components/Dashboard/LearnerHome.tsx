@@ -123,7 +123,15 @@ export default function LearnerHome() {
   }, []);
 
   if (loading) return <Skeleton className="h-48 w-full" />;
-  if (!data) return null;
+  // Dashboard API unavailable (503/network) — render a minimal shell so the
+  // rest of the page stays visible rather than silently disappearing.
+  if (!data) {
+    return (
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-6 py-8 text-center">
+        <p className="text-sm text-white/30">Dashboard data unavailable — try refreshing.</p>
+      </div>
+    );
+  }
 
   const streak = data.streak.current;
   const tier = getStreakTier(streak);

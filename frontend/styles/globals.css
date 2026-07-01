@@ -58,6 +58,15 @@
     padding: 0;
   }
 
+  /* Force YouTube iframes to always fill their video-wrapper container */
+  .video-wrapper iframe {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+  }
+
   /* WCAG AA focus indicator — 2px solid accent, 2px offset */
   :focus-visible {
     outline: 2px solid rgb(var(--accent));

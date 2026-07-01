@@ -180,7 +180,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           enablejsapi: 1,
           // Must match the page origin or the API floods the console with
           // "target origin does not match recipient window's origin".
-          origin: typeof window !== "undefined" ? window.location.origin : undefined,
+          origin: typeof window !== "undefined" ? window.location.origin : "https://learnpath-ai-eight.vercel.app",
         },
         events: {
                   onReady: (e: any) => {

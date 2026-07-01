@@ -124,11 +124,15 @@ def get_chunks(
         }
 
     # Not yet chunked — run synchronously (blocking, ~10-30s) and return result
-    result = video_chunking_service.chunk_video(db, youtube_id, str(video.id))
-    return {
-        "youtube_id": youtube_id,
-        **result,
-    }
+    try:
+        result = video_chunking_service.chunk_video(db, youtube_id, str(video.id))
+        return {"youtube_id": youtube_id, **result}
+    except Exception as e:
+        logger.exception(f"Synchronous chunking failed for {youtube_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not generate chapters — the video may lack captions or transcripts.",
+        )
 
 
 @router.get("/detail/{chunk_id}")
