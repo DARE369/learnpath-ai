@@ -1,143 +1,169 @@
-import React from "react";
-import { useRouter } from "next/router";
-import Link from "next/link";
+import React, { useState } from "react";
 import Head from "next/head";
-import LoginForm from "../../components/Auth/LoginForm";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import axios from "axios";
+import dynamic from "next/dynamic";
+import { useAuth } from "../../hooks/useAuth";
+import AuthSplitLayout from "../../ui-v2/AuthSplitLayout";
+import { TextField, FormError, ThresholdRing } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
+
+const GoogleButton = dynamic(() => import("../../components/Auth/GoogleButton"), {
+  ssr: false,
+  loading: () => <div style={{ height: 42, width: "100%", borderRadius: 7, border: "1px solid #CFCBC0" }} />,
+});
+
+const GOOGLE_BUTTON_CLASSNAME =
+  "flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-[#CFCBC0] bg-white hover:bg-[#F7F5F0] transition-colors text-sm font-semibold text-[#14171F] disabled:opacity-50 disabled:cursor-not-allowed w-full";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
 
-  function handleSuccess() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [pwVisible, setPwVisible] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function goNext() {
     const next = typeof router.query.next === "string" ? router.query.next : "/dashboard";
     router.push(next);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login(email, password, keepSignedIn);
+      goNext();
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const detail = err.response?.data?.detail;
+        if (err.response?.status === 401) setError("Incorrect email or password");
+        else if (err.response?.status === 403) setError(detail || "Account deactivated. Contact support.");
+        else setError(detail || "Something went wrong. Please try again.");
+      } else {
+        setError("Network error. Check your connection.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
     <>
       <Head>
         <title>Sign in — LearnPath AI</title>
-        <meta name="description" content="Sign in to your LearnPath AI account" />
       </Head>
 
-      <div className="min-h-screen bg-background flex">
-        {/* Left panel — branding */}
-        <div className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 overflow-hidden">
-          {/* Background glow */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse at 30% 40%, rgba(99,102,241,0.18) 0%, transparent 65%), radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.12) 0%, transparent 55%)",
-            }}
-          />
-          {/* Subtle grid */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
-            }}
-          />
-
-          {/* Logo */}
-          <div className="relative z-10">
-            <Link href="/" className="flex items-center gap-2.5 group w-fit">
-              <div className="w-9 h-9 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-sm">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-              </div>
-              <span className="text-white font-semibold text-lg tracking-tight">LearnPath AI</span>
+      <AuthSplitLayout
+        brandPanel={
+          <>
+            <Link href="/" style={{ textDecoration: "none", fontFamily: font.display, fontWeight: 600, fontSize: 20, color: color.chromeText }}>
+              LearnPath
             </Link>
-          </div>
-
-          {/* Hero copy */}
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-muted border border-accent/20 mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-slow" />
-              <span className="text-accent-light text-xs font-medium">AI-powered learning paths</span>
-            </div>
-
-            <h1 className="text-4xl xl:text-5xl font-bold text-white leading-[1.15] tracking-tight mb-5">
-              Master anything,
-              <br />
-              <span className="bg-gradient-accent bg-clip-text text-transparent">faster than ever</span>
-            </h1>
-
-            <p className="text-white/50 text-lg leading-relaxed max-w-sm">
-              LearnPath AI curates the best YouTube content and builds your personalised learning path — all powered by Claude.
-            </p>
-
-            {/* Social proof */}
-            <div className="mt-10 flex items-center gap-4">
-              <div className="flex -space-x-2.5">
-                {["#6366f1", "#8b5cf6", "#06b6d4", "#10b981"].map((color, i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full border-2 border-background flex items-center justify-center text-xs font-semibold text-white"
-                    style={{ background: color }}
-                  >
-                    {["A", "B", "C", "D"][i]}
-                  </div>
-                ))}
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <ThresholdRing pct={74} threshold={70} size={92} dark />
               </div>
-              <p className="text-white/40 text-sm">
-                <span className="text-white font-medium">2,400+</span> learners already inside
-              </p>
+              <div style={{ fontFamily: font.mono, fontSize: 10.5, letterSpacing: "0.07em", textTransform: "uppercase", color: "#C8792A", marginBottom: 10 }}>
+                How mastery is scored
+              </div>
+              <div style={{ fontSize: 15, lineHeight: 1.6, color: "#D9D5C9", maxWidth: 340 }}>
+                Every score in LearnPath is measured against a pass line, not just a magnitude — 70% and above reads as ready, below reads as a gap to close.
+              </div>
             </div>
-          </div>
+            <div style={{ fontSize: 12, color: "#5C6478" }}>© LearnPath AI · early access</div>
+          </>
+        }
+      >
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 26, margin: "0 0 8px" }}>Welcome back</h1>
+        <p style={{ fontSize: 13.5, color: color.textFaint, margin: "0 0 28px" }}>Sign in to pick up exactly where you left off.</p>
 
-          {/* Feature pills */}
-          <div className="relative z-10 flex flex-wrap gap-2">
-            {[
-              "EQS Quality Scoring",
-              "Concept Graphs",
-              "Auto Learning Paths",
-              "Claude AI Powered",
-            ].map((feat) => (
-              <span
-                key={feat}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated border border-border text-white/50 text-xs"
+        {error && <FormError>{error}</FormError>}
+
+        <div style={{ marginBottom: 18 }}>
+          <GoogleButton onSuccess={goNext} rememberMe={keepSignedIn} label="Continue with Google" buttonClassName={GOOGLE_BUTTON_CLASSNAME} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+          <div style={{ flex: 1, height: 1, background: color.border }} />
+          <div style={{ fontSize: 11.5, color: color.textFainter }}>or with email</div>
+          <div style={{ flex: 1, height: 1, background: color.border }} />
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div style={{ marginBottom: 14 }}>
+            <TextField
+              label="Email"
+              type="email"
+              autoComplete="email"
+              placeholder="student@school.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
+            />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600 }}>Password</div>
+              <Link href="/auth/forgot-password" style={{ textDecoration: "none", fontSize: 12, fontWeight: 500, color: "#2B3A67" }}>
+                Forgot password?
+              </Link>
+            </div>
+            <div style={{ position: "relative" }}>
+              <input
+                type={pwVisible ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+                style={{ width: "100%", padding: "10px 40px 10px 12px", fontSize: 14, fontFamily: font.body, border: "1px solid #CFCBC0", borderRadius: 6, background: "#fff", outline: "none", color: color.ink }}
+              />
+              <button
+                type="button"
+                onClick={() => setPwVisible((v) => !v)}
+                style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 11.5, color: color.textFaint, fontWeight: 600, padding: "4px 6px" }}
               >
-                {feat}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Right panel — form */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-10">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-sm">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-              </div>
-              <span className="text-white font-semibold text-lg tracking-tight">LearnPath AI</span>
-            </Link>
-          </div>
-
-          <div className="w-full max-w-[400px]">
-            {/* Header */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-white mb-1.5 tracking-tight">Welcome back</h2>
-              <p className="text-white/45 text-sm">Sign in to continue your learning journey</p>
-            </div>
-
-            {/* Card */}
-            <div className="auth-card">
-              <LoginForm onSuccess={handleSuccess} />
+                {pwVisible ? "Hide" : "Show"}
+              </button>
             </div>
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: color.inkSoft, marginBottom: 22, cursor: "pointer" }}>
+            <input type="checkbox" checked={keepSignedIn} onChange={(e) => setKeepSignedIn(e.target.checked)} style={{ width: 15, height: 15 }} />
+            Keep me signed in
+          </label>
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              width: "100%",
+              padding: "11px 16px",
+              fontSize: 14.5,
+              fontWeight: 600,
+              borderRadius: 7,
+              border: "none",
+              background: submitting ? "#B7BDD1" : "#2B3A67",
+              color: submitting ? "#E4E7F0" : "#fff",
+              cursor: submitting ? "not-allowed" : "pointer",
+            }}
+          >
+            {submitting ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <div style={{ fontSize: 13, color: color.textFaint, textAlign: "center", marginTop: 22 }}>
+          Don&rsquo;t have an account?{" "}
+          <Link href="/auth/signup" style={{ textDecoration: "none", fontWeight: 600, color: "#2B3A67" }}>
+            Create one
+          </Link>
         </div>
-      </div>
+      </AuthSplitLayout>
     </>
   );
 }

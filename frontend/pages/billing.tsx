@@ -1,103 +1,64 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import axios from "axios";
-import FeatureMatrix from "../components/Billing/FeatureMatrix";
-import {
-  CreditCard,
-  Check,
-  AlertCircle,
-  Calendar,
-  TrendingUp,
-  Zap,
-  Shield,
-  Loader2,
-} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import FeatureMatrix from "../components/Billing/FeatureMatrix";
+import UsageAlert from "../components/Billing/UsageAlert";
+import type { UsageData } from "../components/Billing/UsageCard";
+import { Card } from "../ui-v2/primitives";
+import { color, font } from "../ui-v2/tokens";
 
 const NAIRA = "₦";
 const UNLIMITED = 999999;
-
-interface PlanUsage {
-  videos: number;
-  hours: number;
-  questions: number;
-}
-
-interface CurrentPlan {
-  subscription_id: string | null;
-  plan_type: string;
-  plan_name: string;
-  billing_cycle: string;
-  renewal_date: string | null;
-  price_paid: number;
-  currency: string;
-  status: string;
-  auto_renew: boolean;
-  pending_plan_type: string | null;
-  features: string[];
-  limits: {
-    videos_per_month: number;
-    hours_per_month: number;
-    questions_per_day: number;
-    concepts_per_topic: number;
-  };
-  usage: { videos_watched: number; hours_learned: number; questions_today: number };
-  usage_percentage: PlanUsage;
-}
-
-interface CatalogPlan {
-  plan_type: string;
-  name: string;
-  price: number;
-  currency: string;
-  yearly_price: number;
-  videos_per_month: number;
-  hours_per_month: number;
-  questions_per_day: number;
-  features: string[];
-}
-
-interface BillingRow {
-  id: string;
-  date: string | null;
-  amount: number;
-  plan: string;
-  description: string;
-  status: string;
-}
-
 const PLAN_RANK: Record<string, number> = { free: 0, pro: 1, premium: 2 };
 
-function fmtLimit(n: number): string {
-  return n >= UNLIMITED ? "Unlimited" : String(n);
+interface PlanUsage { videos: number; hours: number; questions: number; }
+interface CurrentPlan {
+  subscription_id: string | null; plan_type: string; plan_name: string; billing_cycle: string; renewal_date: string | null;
+  price_paid: number; currency: string; status: string; auto_renew: boolean; pending_plan_type: string | null; features: string[];
+  limits: { videos_per_month: number; hours_per_month: number; questions_per_day: number; concepts_per_topic: number };
+  usage: { videos_watched: number; hours_learned: number; questions_today: number }; usage_percentage: PlanUsage;
 }
+interface CatalogPlan { plan_type: string; name: string; price: number; currency: string; yearly_price: number; videos_per_month: number; hours_per_month: number; questions_per_day: number; features: string[]; }
+interface BillingRow { id: string; date: string | null; amount: number; plan: string; description: string; status: string; }
 
-function fmtMoney(n: number): string {
-  return `${NAIRA}${n.toLocaleString()}`;
-}
+function fmtLimit(n: number): string { return n >= UNLIMITED ? "Unlimited" : String(n); }
+function fmtMoney(n: number): string { return `${NAIRA}${n.toLocaleString()}`; }
+function fmtDate(iso: string | null): string { if (!iso) return "—"; return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+function toUsageData(plan: CurrentPlan): UsageData {
+  const remaining = (used: number, limit: number) => (limit >= UNLIMITED ? UNLIMITED : Math.max(0, limit - used));
+  return {
+    plan_type: plan.plan_type,
+    videos_watched: plan.usage.videos_watched,
+    videos_limit: plan.limits.videos_per_month,
+    videos_percentage: plan.usage_percentage.videos,
+    videos_remaining: remaining(plan.usage.videos_watched, plan.limits.videos_per_month),
+    hours_learned: plan.usage.hours_learned,
+    hours_limit: plan.limits.hours_per_month,
+    hours_percentage: plan.usage_percentage.hours,
+    hours_remaining: remaining(plan.usage.hours_learned, plan.limits.hours_per_month),
+    questions_today: plan.usage.questions_today,
+    questions_day_limit: plan.limits.questions_per_day,
+    questions_percentage: plan.usage_percentage.questions,
+    questions_remaining: remaining(plan.usage.questions_today, plan.limits.questions_per_day),
+    month: "",
+    reset_date: plan.renewal_date ?? "",
+  };
 }
 
 function UsageMeter({ label, used, limit, pct }: { label: string; used: number; limit: number; pct: number }) {
   const unlimited = limit >= UNLIMITED;
   const danger = pct >= 90;
   return (
-    <div className="bg-surface-elevated border border-border rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-white/60">{label}</span>
-        <span className="text-sm font-medium text-white">
-          {used} <span className="text-white/30">/ {unlimited ? "∞" : limit}</span>
-        </span>
+    <div style={{ background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: color.textFaint }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{used} <span style={{ color: color.textFaint }}>/ {unlimited ? "∞" : limit}</span></span>
       </div>
-      <div className="h-2 rounded-full bg-surface-hover overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${danger ? "bg-error" : "bg-gradient-accent"}`}
-          style={{ width: `${unlimited ? 4 : Math.min(100, pct)}%` }}
-        />
+      <div style={{ height: 6, borderRadius: 100, background: color.surfaceElevated, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${unlimited ? 4 : Math.min(100, pct)}%`, borderRadius: 100, background: danger ? color.danger.fg : "#2B3A67" }} />
       </div>
     </div>
   );
@@ -106,6 +67,7 @@ function UsageMeter({ label, used, limit, pct }: { label: string; used: number; 
 export default function BillingPage() {
   const router = useRouter();
   const { accessToken } = useAuth();
+  const [stage, setStage] = useState<"overview" | "checkout" | "success">("overview");
 
   const [plan, setPlan] = useState<CurrentPlan | null>(null);
   const [catalog, setCatalog] = useState<CatalogPlan[]>([]);
@@ -138,23 +100,16 @@ export default function BillingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
-  // Reconcile a Flutterwave redirect (?status=...&tx_ref=...) on return.
   useEffect(() => {
     if (!router.isReady || !accessToken) return;
     const { status, tx_ref } = router.query as { status?: string; tx_ref?: string };
-    if (!status) {
-      load();
-      return;
-    }
+    if (!status) { load(); return; }
     (async () => {
       if (tx_ref && status !== "cancelled") {
         try {
           const res = await axios.get(`/api/payments/verify/${tx_ref}`, { headers: authHeader });
-          if (res.data.status === "successful") {
-            setBanner({ type: "success", message: "Payment successful — your plan is now active." });
-          } else {
-            setBanner({ type: "error", message: "Payment is still processing. We'll update your plan once confirmed." });
-          }
+          if (res.data.status === "successful") setBanner({ type: "success", message: "Payment successful — your plan is now active." });
+          else setBanner({ type: "error", message: "Payment is still processing. We'll update your plan once confirmed." });
         } catch {
           setBanner({ type: "error", message: "We couldn't verify your payment. Contact support if you were charged." });
         }
@@ -167,6 +122,28 @@ export default function BillingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, accessToken]);
 
+  // Checkout stage state
+  const [selectedPlan, setSelectedPlan] = useState<CatalogPlan | null>(null);
+  const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
+
+  // Deep-link support: /billing?plan=pro&cycle=yearly (used by the /payment
+  // redirect, and by any other link that wants to jump straight to checkout).
+  useEffect(() => {
+    if (!router.isReady || catalog.length === 0) return;
+    const { plan: planQuery, cycle: cycleQuery } = router.query as { plan?: string; cycle?: string };
+    if (!planQuery) return;
+    const found = catalog.find((p) => p.plan_type === planQuery);
+    if (found && found.plan_type !== "free") {
+      setSelectedPlan(found);
+      setCycle(cycleQuery === "yearly" ? "yearly" : "monthly");
+      setStage("checkout");
+    }
+    router.replace("/billing", undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, catalog]);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+
   async function handleSelectPlan(target: CatalogPlan) {
     if (!plan) return;
     const currentRank = PLAN_RANK[plan.plan_type] ?? 0;
@@ -174,17 +151,15 @@ export default function BillingPage() {
     if (targetRank === currentRank) return;
 
     if (targetRank > currentRank) {
-      router.push(`/payment?plan=${target.plan_type}&cycle=${plan.billing_cycle}`);
+      setSelectedPlan(target);
+      setCycle(plan.billing_cycle === "yearly" ? "yearly" : "monthly");
+      setCheckoutError(null);
+      setStage("checkout");
       return;
     }
-    // Downgrade
     setBusy(target.plan_type);
     try {
-      await axios.post(
-        "/api/subscriptions/downgrade",
-        { new_plan: target.plan_type },
-        { headers: authHeader },
-      );
+      await axios.post("/api/subscriptions/downgrade", { new_plan: target.plan_type }, { headers: authHeader });
       setBanner({ type: "success", message: `Downgrade to ${target.name} scheduled for your next renewal.` });
       await load();
     } catch (err: unknown) {
@@ -209,216 +184,160 @@ export default function BillingPage() {
     }
   }
 
+  const amount = useMemo(() => (!selectedPlan ? 0 : cycle === "yearly" ? selectedPlan.yearly_price : selectedPlan.price), [selectedPlan, cycle]);
+
+  async function handleProceed() {
+    if (!selectedPlan || !accessToken) return;
+    setProcessing(true);
+    setCheckoutError(null);
+    try {
+      const res = await axios.post("/api/payments/initialize", { plan_type: selectedPlan.plan_type, billing_cycle: cycle }, { headers: authHeader });
+      const link = res.data.payment_link;
+      if (link) { window.location.href = link; }
+      else { setCheckoutError("Payment could not be started. Please try again."); setProcessing(false); }
+    } catch (err: unknown) {
+      let message = "We couldn't start your payment. Please try again.";
+      if (axios.isAxiosError(err)) { const detail = (err.response?.data as { detail?: string })?.detail; if (detail) message = detail; }
+      setCheckoutError(message);
+      setProcessing(false);
+    }
+  }
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 text-accent animate-spin" />
-      </div>
-    );
+    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}><div style={{ width: 32, height: 32, border: "3px solid #E4E1D8", borderTopColor: "#2B3A67", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /></div>;
   }
 
   return (
     <>
-      <Head>
-        <title>Billing — LearnPath AI</title>
-      </Head>
+      <Head><title>Billing & plan — LearnPath AI</title></Head>
+      <div style={{ maxWidth: 900, fontFamily: font.body }}>
+        {stage === "overview" && (
+          <>
+            <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: "0 0 4px" }}>Billing & plan</h1>
+            <p style={{ fontSize: 13.5, color: color.textFaint, marginBottom: 22 }}>Manage your plan, track usage, and view payment history.</p>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-1">Subscription &amp; Billing</h1>
-          <p className="text-white/50">Manage your plan, track usage, and view payment history.</p>
-        </div>
-
-        {banner && (
-          <div
-            className={`mb-6 flex items-start gap-3 rounded-xl border p-4 ${
-              banner.type === "success"
-                ? "bg-success-muted border-success/30 text-success"
-                : "bg-error-muted border-error/30 text-error"
-            }`}
-          >
-            {banner.type === "success" ? <Check size={18} className="mt-0.5" /> : <AlertCircle size={18} className="mt-0.5" />}
-            <p className="text-sm">{banner.message}</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl border border-error/30 bg-error-muted p-4 text-error">
-            <AlertCircle size={18} />
-            <p className="text-sm">{error}</p>
-          </div>
-        )}
-
-        {plan && (
-          <div className="space-y-6">
-            {/* Current plan */}
-            <section className="bg-surface-elevated border border-border rounded-2xl p-6 md:p-8">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-sm">
-                    <CreditCard size={22} className="text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">{plan.plan_name}</h2>
-                    <p className="text-sm text-white/50 capitalize">
-                      {plan.status}
-                      {plan.plan_type !== "free" && ` · ${plan.billing_cycle}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-white">{fmtMoney(plan.price_paid)}</p>
-                  {plan.plan_type !== "free" && (
-                    <p className="text-xs text-white/40">per {plan.billing_cycle === "yearly" ? "year" : "month"}</p>
-                  )}
-                </div>
+            {banner && (
+              <div style={{ marginBottom: 20, display: "flex", gap: 10, borderRadius: 10, padding: 14, background: banner.type === "success" ? color.success.bg : color.danger.bg, color: banner.type === "success" ? color.success.fg : color.danger.fg }}>
+                <p style={{ fontSize: 13, margin: 0 }}>{banner.message}</p>
               </div>
-
-              {plan.plan_type !== "free" && (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-white/60 mb-2">
-                  <span className="flex items-center gap-2">
-                    <Calendar size={15} /> Renews {fmtDate(plan.renewal_date)}
-                  </span>
-                  {plan.auto_renew ? (
-                    <span className="flex items-center gap-2 text-success"><Check size={15} /> Auto-renew on</span>
-                  ) : (
-                    <span className="flex items-center gap-2 text-warning"><AlertCircle size={15} /> Auto-renew off</span>
-                  )}
-                  {plan.pending_plan_type && (
-                    <span className="flex items-center gap-2 text-warning">
-                      <TrendingUp size={15} /> Switching to {plan.pending_plan_type} next renewal
-                    </span>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {/* Usage */}
-            <section className="bg-surface-elevated border border-border rounded-2xl p-6 md:p-8">
-              <h2 className="text-lg font-semibold text-white mb-5">Usage this month</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <UsageMeter label="Videos" used={plan.usage.videos_watched} limit={plan.limits.videos_per_month} pct={plan.usage_percentage.videos} />
-                <UsageMeter label="Hours" used={plan.usage.hours_learned} limit={plan.limits.hours_per_month} pct={plan.usage_percentage.hours} />
-                <UsageMeter label="Questions today" used={plan.usage.questions_today} limit={plan.limits.questions_per_day} pct={plan.usage_percentage.questions} />
-              </div>
-            </section>
-
-            {/* Plan comparison */}
-            <section>
-              <h2 className="text-lg font-semibold text-white mb-5">Plans</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {catalog.map((p) => {
-                  const isCurrent = p.plan_type === plan.plan_type;
-                  const isUpgrade = (PLAN_RANK[p.plan_type] ?? 0) > (PLAN_RANK[plan.plan_type] ?? 0);
-                  return (
-                    <div
-                      key={p.plan_type}
-                      className={`rounded-2xl border p-6 flex flex-col ${
-                        isCurrent ? "border-accent bg-accent-muted" : "border-border bg-surface-elevated"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        {p.plan_type === "premium" && <Zap size={16} className="text-accent-light" />}
-                        <h3 className="text-base font-semibold text-white">{p.name}</h3>
-                      </div>
-                      <p className="text-2xl font-bold text-white mb-1">
-                        {fmtMoney(p.price)}
-                        <span className="text-sm font-normal text-white/40">/mo</span>
-                      </p>
-                      <ul className="space-y-2 my-4 text-sm text-white/60 flex-1">
-                        <li className="flex items-center gap-2"><Check size={14} className="text-success" /> {fmtLimit(p.videos_per_month)} videos / month</li>
-                        <li className="flex items-center gap-2"><Check size={14} className="text-success" /> {fmtLimit(p.hours_per_month)} hours / month</li>
-                        <li className="flex items-center gap-2"><Check size={14} className="text-success" /> {fmtLimit(p.questions_per_day)} questions / day</li>
-                        {p.features.map((f) => (
-                          <li key={f} className="flex items-center gap-2 capitalize">
-                            <Check size={14} className="text-success" /> {f.replace(/_/g, " ")}
-                          </li>
-                        ))}
-                      </ul>
-                      <button
-                        type="button"
-                        disabled={isCurrent || busy === p.plan_type}
-                        onClick={() => handleSelectPlan(p)}
-                        className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-                          isCurrent
-                            ? "bg-surface-hover text-white/50"
-                            : isUpgrade
-                            ? "bg-gradient-accent text-white shadow-glow-sm hover:opacity-90"
-                            : "bg-surface-hover text-white hover:bg-surface-hover/70"
-                        }`}
-                      >
-                        {busy === p.plan_type ? "Working…" : isCurrent ? "Current plan" : isUpgrade ? "Upgrade" : "Downgrade"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Feature comparison matrix */}
-            <FeatureMatrix highlightPlan={(plan.plan_type as "free" | "pro" | "premium") || "pro"} />
-
-            {/* Billing history */}
-            <section className="bg-surface-elevated border border-border rounded-2xl p-6 md:p-8">
-              <h2 className="text-lg font-semibold text-white mb-5">Billing history</h2>
-              {history.length === 0 ? (
-                <p className="text-sm text-white/40">No billing history yet.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-white/40 border-b border-border">
-                        <th className="py-2 font-medium">Date</th>
-                        <th className="py-2 font-medium">Description</th>
-                        <th className="py-2 font-medium text-right">Amount</th>
-                        <th className="py-2 font-medium text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.map((row) => (
-                        <tr key={row.id} className="border-b border-border/50">
-                          <td className="py-3 text-white/70">{fmtDate(row.date)}</td>
-                          <td className="py-3 text-white/70">{row.description || row.plan}</td>
-                          <td className="py-3 text-right text-white">{fmtMoney(row.amount)}</td>
-                          <td className="py-3 text-right">
-                            <span className="inline-flex items-center gap-1 text-success text-xs">
-                              <Check size={12} /> {row.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            {/* Manage */}
-            {plan.plan_type !== "free" && plan.status === "active" && (
-              <section className="bg-surface-elevated border border-border rounded-2xl p-6 md:p-8">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-white">Cancel subscription</p>
-                    <p className="text-xs text-white/40 mt-0.5">
-                      Keep access until {fmtDate(plan.renewal_date)}, then move to Free.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={busy === "cancel"}
-                    className="px-5 py-2.5 rounded-xl bg-error-muted text-error text-sm font-semibold hover:bg-error/20 transition-colors disabled:opacity-50"
-                  >
-                    {busy === "cancel" ? "Cancelling…" : "Cancel plan"}
-                  </button>
-                </div>
-              </section>
             )}
+            {error && <div style={{ marginBottom: 20, borderRadius: 10, padding: 14, background: color.danger.bg, color: color.danger.fg, fontSize: 13 }}>{error}</div>}
 
-            <p className="flex items-center justify-center gap-2 text-xs text-white/30 pt-2">
-              <Shield size={13} /> Payments secured by Flutterwave
-            </p>
-          </div>
+            {plan && (
+              <>
+                <Card padding="lg" style={{ marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 20 }}>{plan.plan_name}</div>
+                      <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 3, textTransform: "capitalize" }}>{plan.status}{plan.plan_type !== "free" && ` · ${plan.billing_cycle}`}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{fmtMoney(plan.price_paid)}</div>
+                      {plan.plan_type !== "free" && <div style={{ fontSize: 11.5, color: color.textFaint }}>per {plan.billing_cycle === "yearly" ? "year" : "month"}</div>}
+                    </div>
+                  </div>
+                  {plan.plan_type !== "free" && (
+                    <div style={{ fontSize: 12.5, color: color.textFaint, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      <span>Renews {fmtDate(plan.renewal_date)}</span>
+                      <span style={{ color: plan.auto_renew ? color.success.fg : color.warning.fg }}>Auto-renew {plan.auto_renew ? "on" : "off"}</span>
+                      {plan.pending_plan_type && <span style={{ color: color.warning.fg }}>Switching to {plan.pending_plan_type} next renewal</span>}
+                    </div>
+                  )}
+                </Card>
+
+                <UsageAlert data={toUsageData(plan)} />
+
+                <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Usage this month</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+                  <UsageMeter label="Videos" used={plan.usage.videos_watched} limit={plan.limits.videos_per_month} pct={plan.usage_percentage.videos} />
+                  <UsageMeter label="Hours" used={plan.usage.hours_learned} limit={plan.limits.hours_per_month} pct={plan.usage_percentage.hours} />
+                  <UsageMeter label="Questions today" used={plan.usage.questions_today} limit={plan.limits.questions_per_day} pct={plan.usage_percentage.questions} />
+                </div>
+
+                <div id="plans" style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Plans</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+                  {catalog.map((p) => {
+                    const isCurrent = p.plan_type === plan.plan_type;
+                    const isUpgrade = (PLAN_RANK[p.plan_type] ?? 0) > (PLAN_RANK[plan.plan_type] ?? 0);
+                    return (
+                      <Card key={p.plan_type} padding="md" style={{ border: isCurrent ? "1.5px solid #2B3A67" : `1px solid ${color.border}`, background: isCurrent ? "#E9F0FA" : "#fff", display: "flex", flexDirection: "column" }}>
+                        <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 16, marginBottom: 4 }}>{p.name}</div>
+                        <div style={{ fontFamily: font.mono, fontSize: 20, fontWeight: 600, marginBottom: 10 }}>{fmtMoney(p.price)}<span style={{ fontSize: 12, fontWeight: 400, color: color.textFaint }}>/mo</span></div>
+                        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", fontSize: 12.5, color: color.inkSoft, flex: 1 }}>
+                          <li style={{ marginBottom: 6 }}>✓ {fmtLimit(p.videos_per_month)} videos / month</li>
+                          <li style={{ marginBottom: 6 }}>✓ {fmtLimit(p.hours_per_month)} hours / month</li>
+                          <li style={{ marginBottom: 6 }}>✓ {fmtLimit(p.questions_per_day)} questions / day</li>
+                          {p.features.map((f) => <li key={f} style={{ marginBottom: 6, textTransform: "capitalize" }}>✓ {f.replace(/_/g, " ")}</li>)}
+                        </ul>
+                        <button onClick={() => handleSelectPlan(p)} disabled={isCurrent || busy === p.plan_type} style={{ width: "100%", padding: "9px 0", fontSize: 13, fontWeight: 600, borderRadius: 7, border: "none", cursor: isCurrent ? "default" : "pointer", background: isCurrent ? color.surfaceElevated : isUpgrade ? "#2B3A67" : color.surfaceElevated, color: isCurrent ? color.textFaint : isUpgrade ? "#fff" : color.ink }}>
+                          {busy === p.plan_type ? "Working…" : isCurrent ? "Current plan" : isUpgrade ? "Upgrade" : "Downgrade"}
+                        </button>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                <div style={{ marginBottom: 24 }}><FeatureMatrix highlightPlan={(plan.plan_type as "free" | "pro" | "premium") || "pro"} /></div>
+
+                <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Billing history</div>
+                <Card padding="md" style={{ marginBottom: 24 }}>
+                  {history.length === 0 ? <p style={{ fontSize: 13, color: color.textFaint, margin: 0 }}>No billing history yet.</p> : (
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                        <thead><tr style={{ textAlign: "left", color: color.textFaint, borderBottom: `1px solid ${color.borderMuted}` }}><th style={{ padding: "6px 0", fontWeight: 500 }}>Date</th><th style={{ fontWeight: 500 }}>Description</th><th style={{ fontWeight: 500, textAlign: "right" }}>Amount</th><th style={{ fontWeight: 500, textAlign: "right" }}>Status</th></tr></thead>
+                        <tbody>
+                          {history.map((row) => (
+                            <tr key={row.id} style={{ borderBottom: `1px solid ${color.borderMuted}` }}>
+                              <td style={{ padding: "10px 0", color: color.inkSoft }}>{fmtDate(row.date)}</td>
+                              <td style={{ color: color.inkSoft }}>{row.description || row.plan}</td>
+                              <td style={{ textAlign: "right" }}>{fmtMoney(row.amount)}</td>
+                              <td style={{ textAlign: "right", color: color.success.fg }}>✓ {row.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+
+                {plan.plan_type !== "free" && plan.status === "active" && (
+                  <Card padding="lg">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 500 }}>Cancel subscription</div>
+                        <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>Keep access until {fmtDate(plan.renewal_date)}, then move to Free.</div>
+                      </div>
+                      <button onClick={handleCancel} disabled={busy === "cancel"} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: `1px solid #E7B7AE`, background: color.danger.bg, color: color.danger.fg, cursor: "pointer" }}>{busy === "cancel" ? "Cancelling…" : "Cancel plan"}</button>
+                    </div>
+                  </Card>
+                )}
+                <p style={{ display: "flex", justifyContent: "center", gap: 8, fontSize: 11.5, color: color.textFainter, marginTop: 20 }}>Payments secured by Flutterwave</p>
+              </>
+            )}
+          </>
+        )}
+
+        {stage === "checkout" && selectedPlan && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+              <button onClick={() => setStage("overview")} style={{ cursor: "pointer", color: "#2B5FA8", fontSize: 13, fontWeight: 600, background: "none", border: "none" }}>← Back</button>
+              <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 24, margin: 0 }}>Upgrade your plan</h1>
+            </div>
+
+            {checkoutError && <div style={{ marginBottom: 20, borderRadius: 10, padding: 14, background: color.danger.bg, color: color.danger.fg, fontSize: 13 }}>{checkoutError}</div>}
+
+            <div style={{ display: "flex", gap: 6, background: color.surfaceElevated, borderRadius: 8, padding: 3, width: 220, marginBottom: 24 }}>
+              {(["monthly", "yearly"] as const).map((c) => (
+                <button key={c} onClick={() => setCycle(c)} style={{ flex: 1, padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer", background: cycle === c ? "#2B3A67" : "transparent", color: cycle === c ? "#fff" : color.inkSoft }}>{c === "monthly" ? "Monthly" : "Yearly"}</button>
+              ))}
+            </div>
+
+            <Card padding="lg" style={{ maxWidth: 420 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 8 }}><span>{selectedPlan.name} ({cycle})</span><span style={{ fontFamily: font.mono }}>{fmtMoney(amount)}</span></div>
+              <button onClick={handleProceed} disabled={processing} style={{ width: "100%", marginTop: 12, padding: "11px 16px", fontSize: 14, fontWeight: 600, borderRadius: 7, border: "none", background: "#2B3A67", color: "#fff", cursor: "pointer" }}>{processing ? "Redirecting…" : "Proceed to secure payment"}</button>
+              <p style={{ display: "flex", justifyContent: "center", gap: 8, fontSize: 11.5, color: color.textFainter, marginTop: 14 }}>256-bit encrypted · Powered by Flutterwave</p>
+            </Card>
+          </>
         )}
       </div>
     </>

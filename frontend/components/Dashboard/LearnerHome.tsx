@@ -1,3 +1,8 @@
+// Orphaned by the ui-v2 Dashboard migration — its content (today's-goal
+// tracker, performance skills, milestones, achievements strip) was cut from
+// the new Dashboard design and has no other home yet. Keep this file (and
+// its /api/dashboard/ + /api/buddies/ wiring) until that content is folded
+// into the migrated History/Rewards pages, then delete.
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Flame, Target, CheckCircle2, AlertTriangle, Circle, Users, ArrowUpRight, Zap } from "lucide-react";

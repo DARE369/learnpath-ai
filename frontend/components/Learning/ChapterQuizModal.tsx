@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle, ChevronRight, Trophy } from 'lucide-react';
-import type { QuizQuestion } from './ChaptersList';
+import React, { useState, useCallback, useEffect } from "react";
+import type { QuizQuestion } from "./ChaptersList";
+import { Modal, ModalTitle, Button, ThresholdRing } from "../../ui-v2/primitives";
+import { Icon } from "../../ui-v2/icons";
+import { color, font } from "../../ui-v2/tokens";
 
 interface Props {
   chunkId: string;
@@ -11,50 +13,44 @@ interface Props {
   onComplete: (scorePercent: number) => void;
 }
 
-type AnswerState = 'idle' | 'correct' | 'wrong';
+type AnswerState = "idle" | "correct" | "wrong";
 
-export default function ChapterQuizModal({
-  chunkId,
-  chapterTitle,
-  questions,
-  accessToken,
-  onClose,
-  onComplete,
-}: Props) {
+export default function ChapterQuizModal({ chunkId, chapterTitle, questions, accessToken, onClose, onComplete }: Props) {
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [answerState, setAnswerState] = useState<AnswerState>('idle');
+  const [answerState, setAnswerState] = useState<AnswerState>("idle");
   const [correctCount, setCorrectCount] = useState(0);
   const [done, setDone] = useState(false);
 
-  const validQuestions = questions.filter(
-    (q) => q.question_text && q.options?.length > 0
-  );
-
+  const validQuestions = questions.filter((q) => q.question_text && q.options?.length > 0);
   const current = validQuestions[qIndex];
   const total = validQuestions.length;
 
-  const authHeaders: Record<string, string> = accessToken
-    ? { Authorization: `Bearer ${accessToken}` }
-    : {};
+  const authHeaders: Record<string, string> = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
   const saveScore = useCallback(
     (score: number) => {
       fetch(`/api/chunks/detail/${chunkId}/progress`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ watched_seconds: 0, quiz_score: score }),
       }).catch(() => {});
     },
     [chunkId, accessToken], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // No valid questions — skip straight through. Moved to an effect (was a
+  // side effect during render) so onComplete never fires mid-render.
+  useEffect(() => {
+    if (!total) onComplete(100);
+  }, [total, onComplete]);
+
   const handleSelect = (optIdx: number) => {
-    if (answerState !== 'idle') return;
+    if (answerState !== "idle") return;
     const opt = current.options[optIdx];
     const isCorrect = opt.correct;
     setSelected(optIdx);
-    setAnswerState(isCorrect ? 'correct' : 'wrong');
+    setAnswerState(isCorrect ? "correct" : "wrong");
     if (isCorrect) setCorrectCount((n) => n + 1);
   };
 
@@ -62,7 +58,7 @@ export default function ChapterQuizModal({
     if (qIndex < total - 1) {
       setQIndex((i) => i + 1);
       setSelected(null);
-      setAnswerState('idle');
+      setAnswerState("idle");
     } else {
       const finalPct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
       saveScore(finalPct);
@@ -70,170 +66,99 @@ export default function ChapterQuizModal({
     }
   };
 
-  // Recalculate score at done screen properly
   const finalPct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
 
-  if (!total) {
-    // No valid questions — skip straight through
-    onComplete(100);
-    return null;
-  }
+  if (!total) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl overflow-hidden">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-          <div className="min-w-0">
-            <p className="text-xs text-white/30 uppercase tracking-wider">Chapter quiz</p>
-            <h2 className="text-sm font-semibold text-white truncate">{chapterTitle}</h2>
-          </div>
-          {!done && (
-            <span className="text-xs text-white/30 bg-white/5 px-2.5 py-1 rounded-full flex-shrink-0">
-              {qIndex + 1} / {total}
-            </span>
-          )}
+    <Modal onClose={onClose} width={480} dark>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: color.textFainter, textTransform: "uppercase", letterSpacing: "0.05em" }}>Chapter quiz</div>
+          <ModalTitle dark>{chapterTitle}</ModalTitle>
         </div>
-
-        {/* Progress bar */}
         {!done && (
-          <div className="h-0.5 bg-white/5">
-            <div
-              className="h-full bg-indigo-500 transition-all duration-300"
-              style={{ width: `${((qIndex + (answerState !== 'idle' ? 1 : 0)) / total) * 100}%` }}
-            />
-          </div>
+          <span style={{ fontSize: 11.5, color: color.textFainter, background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: 100, flexShrink: 0 }}>
+            {qIndex + 1} / {total}
+          </span>
         )}
+      </div>
 
-        {/* Body */}
-        <div className="px-6 py-5">
-          {done ? (
-            // ── Result screen ──────────────────────────────────────────────
-            <div className="flex flex-col items-center gap-4 py-4 text-center">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                finalPct >= 50 ? 'bg-emerald-500/20' : 'bg-red-500/20'
-              }`}>
-                <Trophy className={`w-8 h-8 ${finalPct >= 50 ? 'text-emerald-400' : 'text-red-400'}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{finalPct}%</p>
-                <p className="text-sm text-white/50 mt-1">
-                  {correctCount} of {total} correct
-                </p>
-              </div>
-              <p className="text-sm text-white/40">
-                {finalPct >= 80
-                  ? 'Excellent work! Ready for the next chapter.'
-                  : finalPct >= 50
-                  ? 'Good effort. Keep watching to solidify this.'
-                  : 'Review the chapter summary if anything is unclear.'}
-              </p>
-              <div className="flex items-center gap-3 mt-2 w-full">
+      {!done && (
+        <div style={{ height: 2, background: "rgba(255,255,255,0.05)", borderRadius: 100, marginBottom: 18, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${((qIndex + (answerState !== "idle" ? 1 : 0)) / total) * 100}%`, background: "#2B5FA8" }} />
+        </div>
+      )}
+
+      {done ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "16px 0", textAlign: "center" }}>
+          <ThresholdRing pct={finalPct} threshold={50} size={92} dark />
+          <div>
+            <div style={{ fontSize: 13.5, color: color.chromeTextMuted, marginTop: 4 }}>{correctCount} of {total} correct</div>
+          </div>
+          <p style={{ fontSize: 13.5, color: color.textFainter, margin: 0 }}>
+            {finalPct >= 80 ? "Excellent work! Ready for the next chapter." : finalPct >= 50 ? "Good effort. Keep watching to solidify this." : "Review the chapter summary if anything is unclear."}
+          </p>
+          <div style={{ display: "flex", gap: 12, marginTop: 8, width: "100%" }}>
+            <Button variant="secondary" fullWidth onClick={onClose} style={{ background: "transparent", borderColor: color.chromeBorder, color: color.chromeTextMuted }}>Stay here</Button>
+            <Button fullWidth onClick={() => onComplete(finalPct)} style={{ fontFamily: font.body }}>
+              Next chapter <Icon name="chevronRight" size={16} className="" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <p style={{ fontSize: 15, fontWeight: 500, color: color.chromeText, lineHeight: 1.5, margin: 0 }}>{current.question_text}</p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {current.options.map((opt, i) => {
+              const isSelected = selected === i;
+              const reveal = answerState !== "idle";
+              let border: string = color.chromeBorder;
+              let bg = "rgba(255,255,255,0.03)";
+              let fg: string = color.chromeTextMuted;
+              if (reveal) {
+                if (opt.correct) { border = "rgba(30,127,92,0.5)"; bg = "rgba(30,127,92,0.12)"; fg = "#5FCFA0"; }
+                else if (isSelected) { border = "rgba(176,54,44,0.5)"; bg = "rgba(176,54,44,0.12)"; fg = "#E08579"; }
+                else { border = "rgba(255,255,255,0.05)"; bg = "rgba(255,255,255,0.02)"; fg = color.textFainter; }
+              }
+              return (
                 <button
+                  key={i}
                   type="button"
-                  onClick={onClose}
-                  className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-white/60 hover:text-white hover:border-white/20 transition-colors"
+                  onClick={() => handleSelect(i)}
+                  disabled={reveal}
+                  style={{ width: "100%", textAlign: "left", borderRadius: 10, border: `1px solid ${border}`, background: bg, color: fg, padding: "12px 16px", fontSize: 13.5, cursor: reveal ? "default" : "pointer" }}
                 >
-                  Stay here
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ flexShrink: 0, width: 24, height: 24, borderRadius: "50%", border: "1px solid currentColor", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500 }}>
+                      {String.fromCharCode(65 + i)}
+                    </span>
+                    <span>{opt.text}</span>
+                    {reveal && opt.correct && <Icon name="checkCircle" size={16} className="" />}
+                    {reveal && isSelected && !opt.correct && <Icon name="xCircle" size={16} className="" />}
+                  </div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onComplete(finalPct)}
-                  className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2.5 text-sm font-semibold text-white transition-colors inline-flex items-center justify-center gap-1.5"
-                >
-                  Next chapter <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            // ── Question screen ────────────────────────────────────────────
-            <div className="flex flex-col gap-4">
-              <p className="text-base font-medium text-white leading-snug">
-                {current.question_text}
-              </p>
+              );
+            })}
+          </div>
 
-              <div className="flex flex-col gap-2">
-                {current.options.map((opt, i) => {
-                  const isSelected = selected === i;
-                  const reveal = answerState !== 'idle';
-                  let cls =
-                    'w-full text-left rounded-xl border px-4 py-3 text-sm transition-all ';
-                  if (!reveal) {
-                    cls +=
-                      'border-white/10 bg-white/[0.03] text-white/80 hover:border-indigo-500/40 hover:bg-indigo-500/5 cursor-pointer';
-                  } else if (opt.correct) {
-                    cls += 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300';
-                  } else if (isSelected && !opt.correct) {
-                    cls += 'border-red-500/50 bg-red-500/10 text-red-300';
-                  } else {
-                    cls += 'border-white/5 bg-white/[0.02] text-white/30';
-                  }
-
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      className={cls}
-                      onClick={() => handleSelect(i)}
-                      disabled={reveal}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full border border-current/30 text-xs flex items-center justify-center font-medium">
-                          {String.fromCharCode(65 + i)}
-                        </span>
-                        <span>{opt.text}</span>
-                        {reveal && opt.correct && (
-                          <CheckCircle className="ml-auto h-4 w-4 text-emerald-400 flex-shrink-0" />
-                        )}
-                        {reveal && isSelected && !opt.correct && (
-                          <XCircle className="ml-auto h-4 w-4 text-red-400 flex-shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Explanation */}
-              {answerState !== 'idle' && current.explanation && (
-                <div className={`rounded-xl px-4 py-3 text-sm leading-relaxed ${
-                  answerState === 'correct'
-                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-200/80'
-                    : 'bg-red-500/10 border border-red-500/20 text-red-200/80'
-                }`}>
-                  {current.explanation}
-                </div>
-              )}
-
-              {/* Next / Skip */}
-              <div className="flex items-center justify-between pt-1">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="text-xs text-white/25 hover:text-white/50 transition-colors"
-                >
-                  Skip quiz
-                </button>
-                {answerState !== 'idle' && (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition-colors"
-                  >
-                    {qIndex < total - 1 ? 'Next' : 'Finish'}
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+          {answerState !== "idle" && current.explanation && (
+            <div style={{ borderRadius: 10, padding: "12px 16px", fontSize: 13.5, lineHeight: 1.55, background: answerState === "correct" ? "rgba(30,127,92,0.12)" : "rgba(176,54,44,0.12)", border: `1px solid ${answerState === "correct" ? "rgba(30,127,92,0.3)" : "rgba(176,54,44,0.3)"}`, color: answerState === "correct" ? "#8FD9BC" : "#F0A99E" }}>
+              {current.explanation}
             </div>
           )}
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4 }}>
+            <button type="button" onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11.5, color: color.textFainter }}>Skip quiz</button>
+            {answerState !== "idle" && (
+              <Button onClick={handleNext} style={{ fontFamily: font.body }}>
+                {qIndex < total - 1 ? "Next" : "Finish"} <Icon name="chevronRight" size={16} className="" />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }

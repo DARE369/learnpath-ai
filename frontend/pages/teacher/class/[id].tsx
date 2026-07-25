@@ -1,13 +1,18 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
-import { ArrowLeft, Search, Download, Users } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
-import { Card, Button, Skeleton, Badge, EmptyState } from "../../../components/ui";
-import ClassRosterTable from "../../../components/Teacher/ClassRosterTable";
 import type { ClassDetail, RosterResponse, RosterStudent } from "../../../components/Teacher/types";
+import { STATUS_LABEL, STATUS_TONE } from "../../../components/Teacher/types";
+import { Card, Badge, InlineError, Select } from "../../../ui-v2/primitives";
+import { color, font } from "../../../ui-v2/tokens";
 
 const PAGE_SIZE = 25;
+
+function badgeTone(t: "error" | "success" | "warning"): "danger" | "success" | "warning" {
+  return t === "error" ? "danger" : t;
+}
 
 export default function ClassDetailPage() {
   const router = useRouter();
@@ -51,8 +56,7 @@ export default function ClassDetailPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const viewStudent = (studentId: string) =>
-    router.push(`/teacher/students/${studentId}?class=${encodeURIComponent(classId)}`);
+  const viewStudent = (studentId: string) => router.push(`/teacher/students/${studentId}?class=${encodeURIComponent(classId)}`);
 
   async function exportCsv() {
     if (!classId || !accessToken) return;
@@ -62,14 +66,7 @@ export default function ClassDetailPage() {
       const data: RosterResponse = await res.json();
       const rows: RosterStudent[] = data.roster || [];
       const header = ["Name", "Email", "Progress %", "Score %", "Status", "Last active"];
-      const csv = [
-        header.join(","),
-        ...rows.map((s) =>
-          [s.name, s.email ?? "", s.progress, s.score, s.status, s.last_active ?? ""]
-            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-            .join(","),
-        ),
-      ].join("\n");
+      const csv = [header.join(","), ...rows.map((s) => [s.name, s.email ?? "", s.progress, s.score, s.status, s.last_active ?? ""].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -85,78 +82,82 @@ export default function ClassDetailPage() {
   return (
     <>
       <Head><title>{detail?.class_name || "Class"} — LearnPath AI</title></Head>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <button onClick={() => router.push("/teacher/dashboard")} className="mb-4 inline-flex items-center gap-1.5 text-sm text-accent-light hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Dashboard
-        </button>
+      <div style={{ maxWidth: 1180, fontFamily: font.body }}>
+        <Link href="/teacher/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#2B5FA8", textDecoration: "none", marginBottom: 16 }}>← Dashboard</Link>
 
         {loading && !detail ? (
-          <Skeleton className="h-72 w-full" />
+          <div style={{ textAlign: "center", padding: 60, color: color.textFaint }}>Loading…</div>
         ) : error ? (
-          <Card><p className="text-sm text-error">{error}</p><Button className="mt-3" size="sm" variant="secondary" onClick={load}>Retry</Button></Card>
+          <InlineError message={error} onRetry={load} />
         ) : detail ? (
           <>
-            {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-white">{detail.class_name}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/50">
-                <span>{detail.student_count} students</span>
-                <span>·</span><span>{detail.avg_score}% avg score</span>
-                <span>·</span><span>{detail.avg_progress}% avg progress</span>
-                <span>·</span><span>{detail.active_this_week} active this week</span>
-                {detail.at_risk_count > 0 && <Badge tone="error">{detail.at_risk_count} at-risk</Badge>}
-              </div>
+            <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 26, margin: "0 0 6px" }}>{detail.class_name}</h1>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, fontSize: 13, color: color.textFaint, marginBottom: 20 }}>
+              <span>{detail.student_count} students</span>·<span>{detail.avg_score}% avg score</span>·<span>{detail.avg_progress}% avg progress</span>·<span>{detail.active_this_week} active this week</span>
+              {detail.at_risk_count > 0 && <Badge tone="danger">{detail.at_risk_count} at-risk</Badge>}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-4">
-              <div className="space-y-4 lg:col-span-3">
-                {/* Filters */}
-                <Card padding="sm">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Select label="Show" value={status} onChange={(v) => { setStatus(v); setPage(1); }}
-                      options={[["all", "All students"], ["good", "On track"], ["caution", "Caution"], ["at_risk", "At-risk"]]} />
-                    <Select label="Sort by" value={sortBy} onChange={(v) => { setSortBy(v); setPage(1); }}
-                      options={[["progress", "Progress"], ["score", "Score"], ["activity", "Activity"], ["name", "Name"]]} />
+            <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: 20 }}>
+              <div>
+                <Card padding="sm" style={{ marginBottom: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                    <Select label="Show" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+                      <option value="all">All students</option><option value="good">On track</option><option value="caution">Caution</option><option value="at_risk">At-risk</option>
+                    </Select>
+                    <Select label="Sort by" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}>
+                      <option value="progress">Progress</option><option value="score">Score</option><option value="activity">Activity</option><option value="name">Name</option>
+                    </Select>
                     <div>
-                      <label className="mb-1 block text-xs text-white/40">Search</label>
-                      <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
-                        <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                          placeholder="Find a student…" className="input-field pl-9" />
-                      </div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Search</div>
+                      <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Find a student…" style={{ width: "100%", padding: "8px 12px", fontSize: 13, border: "1px solid #CFCBC0", borderRadius: 6 }} />
                     </div>
                   </div>
                 </Card>
 
-                {/* Roster */}
                 {roster && roster.roster.length > 0 ? (
                   <>
-                    <ClassRosterTable roster={roster.roster} onView={viewStudent} />
+                    <div style={{ background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, overflow: "hidden" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 12, padding: "11px 18px", fontSize: 11, fontWeight: 600, color: color.textFaint, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${color.border}` }}>
+                        <div>Student</div><div>Progress</div><div>Score</div><div>Status</div><div>Last active</div>
+                      </div>
+                      {roster.roster.map((s) => (
+                        <div key={s.student_id} onClick={() => viewStudent(s.student_id)} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 12, padding: "11px 18px", alignItems: "center", borderBottom: `1px solid ${color.borderMuted}`, fontSize: 13.5, cursor: "pointer" }}>
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{s.name}</div>
+                            <div style={{ fontSize: 11.5, color: color.textFaint }}>{s.email}</div>
+                          </div>
+                          <div style={{ fontFamily: font.mono, fontSize: 13 }}>{s.progress}%</div>
+                          <div style={{ fontFamily: font.mono, fontSize: 13, color: s.score < 60 ? color.danger.fg : color.ink }}>{s.score}%</div>
+                          <div><Badge tone={badgeTone(STATUS_TONE[s.status])}>{STATUS_LABEL[s.status]}</Badge></div>
+                          <div style={{ fontSize: 12, color: color.textFaint }}>{s.last_active ?? "Never"}</div>
+                        </div>
+                      ))}
+                    </div>
                     {roster.pagination.pages > 1 && (
-                      <div className="flex items-center justify-center gap-3 text-sm">
-                        <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-                        <span className="text-white/50">Page {roster.pagination.page} of {roster.pagination.pages}</span>
-                        <Button size="sm" variant="secondary" disabled={page >= roster.pagination.pages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 13, marginTop: 14 }}>
+                        <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ padding: "6px 12px", border: `1px solid ${color.border}`, borderRadius: 6, background: "#fff", cursor: page <= 1 ? "not-allowed" : "pointer", opacity: page <= 1 ? 0.4 : 1 }}>Previous</button>
+                        <span style={{ color: color.textFaint }}>Page {roster.pagination.page} of {roster.pagination.pages}</span>
+                        <button disabled={page >= roster.pagination.pages} onClick={() => setPage((p) => p + 1)} style={{ padding: "6px 12px", border: `1px solid ${color.border}`, borderRadius: 6, background: "#fff", cursor: page >= roster.pagination.pages ? "not-allowed" : "pointer", opacity: page >= roster.pagination.pages ? 0.4 : 1 }}>Next</button>
                       </div>
                     )}
                   </>
                 ) : (
-                  <EmptyState icon={<Users className="h-5 w-5" />} title="No students found" description="No students match your filters yet." />
+                  <div style={{ background: "#fff", border: `1px dashed ${color.border}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>No students found</div>
+                    <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 4 }}>No students match your filters yet.</div>
+                  </div>
                 )}
               </div>
 
-              {/* Quick actions */}
               <div>
                 <Card padding="md">
-                  <h3 className="mb-3 text-sm font-semibold text-white">Quick actions</h3>
-                  <div className="space-y-2">
-                    <Button fullWidth size="sm" variant="secondary" onClick={exportCsv} loading={exporting} leftIcon={<Download className="h-4 w-4" />}>
-                      Export roster (CSV)
-                    </Button>
-                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Send class message</Button>
-                    <Button fullWidth size="sm" variant="secondary" href={`/teacher/analytics/${classId}`}>View analytics</Button>
-                    <Button fullWidth size="sm" variant="secondary" href={`/teacher/assignments?class=${classId}`}>Assign homework</Button>
-                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Generate report</Button>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Quick actions</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button onClick={exportCsv} disabled={exporting} style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, cursor: "pointer" }}>{exporting ? "Exporting…" : "Export roster (CSV)"}</button>
+                    <button disabled title="Coming soon" style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: "none", background: "none", color: color.textFainter, cursor: "not-allowed", textAlign: "left" }}>Send class message</button>
+                    <Link href={`/teacher/analytics/${classId}`} style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, textDecoration: "none", textAlign: "center" }}>View analytics</Link>
+                    <Link href={`/teacher/assignments?class=${classId}`} style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, textDecoration: "none", textAlign: "center" }}>Assign homework</Link>
+                    <button disabled title="Coming soon" style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: "none", background: "none", color: color.textFainter, cursor: "not-allowed", textAlign: "left" }}>Generate report</button>
                   </div>
                 </Card>
               </div>
@@ -165,16 +166,5 @@ export default function ClassDetailPage() {
         ) : null}
       </div>
     </>
-  );
-}
-
-function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs text-white/40">{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field">
-        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-    </div>
   );
 }

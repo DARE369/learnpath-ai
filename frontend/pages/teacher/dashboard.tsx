@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { ClipboardList, MessageSquare, BookOpen, BarChart3 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-import { Card, Button, Skeleton } from "../../components/ui";
-import ClassOverviewCards from "../../components/Teacher/ClassOverviewCards";
-import AtRiskAlerts from "../../components/Teacher/AtRiskAlerts";
-import QuickMetrics from "../../components/Teacher/QuickMetrics";
-import RecentActivity from "../../components/Teacher/RecentActivity";
 import type { TeacherDashboard } from "../../components/Teacher/types";
+import { timeAgo } from "../../components/Teacher/types";
+import { Card, InlineError, Badge } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
@@ -22,9 +19,7 @@ export default function TeacherDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/teachers/dashboard", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await fetch("/api/teachers/dashboard", { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error(String(res.status));
       setData(await res.json());
     } catch {
@@ -34,9 +29,7 @@ export default function TeacherDashboardPage() {
     }
   }
 
-  useEffect(() => {
-    void load();
-  }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstName = (user?.fullName || user?.email || "").split(/[\s@]/)[0];
   const viewClass = (classId: string) => router.push(`/teacher/class/${classId}`);
@@ -44,39 +37,94 @@ export default function TeacherDashboardPage() {
   return (
     <>
       <Head><title>Teacher Dashboard — LearnPath AI</title></Head>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">Your dashboard</h1>
-          <p className="mt-1 text-sm text-white/40">
-            {firstName ? `Welcome back, ${firstName}. ` : ""}Manage your classes and students at a glance.
-          </p>
-        </div>
+      <div style={{ maxWidth: 1180, fontFamily: font.body }}>
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: 0 }}>Teacher Dashboard</h1>
+        <p style={{ fontSize: 13.5, color: color.textFaint, marginTop: 4, marginBottom: 22 }}>{firstName ? `Welcome back, ${firstName}. ` : ""}Manage your classes and students at a glance.</p>
 
         {loading ? (
-          <Skeleton className="h-72 w-full" />
+          <div style={{ textAlign: "center", padding: 60, color: color.textFaint }}>Loading…</div>
         ) : error ? (
-          <Card>
-            <p className="text-sm text-error">{error}</p>
-            <Button className="mt-3" size="sm" variant="secondary" onClick={load}>Retry</Button>
-          </Card>
+          <InlineError message={error} onRetry={load} />
         ) : data ? (
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="space-y-6 lg:col-span-2">
-              <ClassOverviewCards classes={data.classes} onView={viewClass} />
-              <AtRiskAlerts alerts={data.alerts} onViewProfile={viewClass} />
-              <RecentActivity activities={data.recent_activity} />
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>At-risk students — needs attention today</div>
+              <Card padding="md" style={{ marginBottom: 24 }}>
+                {data.alerts.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 20 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: color.success.fg }}>No at-risk students</div>
+                    <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 4 }}>Everyone&apos;s on track right now.</div>
+                  </div>
+                ) : (
+                  data.alerts.slice(0, 5).map((a, i) => (
+                    <div key={a.alert_id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: i < Math.min(data.alerts.length, 5) - 1 ? `1px solid ${color.borderMuted}` : "none" }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: color.surfaceElevated, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11.5, fontWeight: 600, color: color.inkSoft, flexShrink: 0 }}>{a.student_name.split(" ").map((w) => w[0]).slice(0, 2).join("")}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{a.student_name} <span style={{ fontWeight: 400, color: color.textFaint }}>· {a.class_name}</span></div>
+                        <div style={{ fontSize: 12, color: color.danger.fg, marginTop: 2 }}>{a.reason === "no_attempts" ? "Zero attempts" : a.reason === "low_score" ? `Score ${a.current_score}%` : `Inactive ${a.days_inactive}d`}</div>
+                      </div>
+                      <button onClick={() => viewClass(a.class_id)} style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, borderRadius: 6, border: "1px solid #2B3A67", background: "#fff", color: "#2B3A67", cursor: "pointer", flexShrink: 0 }}>View</button>
+                    </div>
+                  ))
+                )}
+              </Card>
+
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Recent activity</div>
+              <Card padding="md">
+                {data.recent_activity.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 20 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>No recent activity</div>
+                    <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 4 }}>Activity from your students will show up here.</div>
+                  </div>
+                ) : (
+                  data.recent_activity.slice(0, 15).map((a, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: i < Math.min(data.recent_activity.length, 15) - 1 ? `1px solid ${color.borderMuted}` : "none", fontSize: 13 }}>
+                      <span style={{ flex: 1 }}>{a.description}</span>
+                      <span style={{ fontFamily: font.mono, fontSize: 11.5, color: color.textFaint, flexShrink: 0 }}>{timeAgo(a.occurred_at)}</span>
+                    </div>
+                  ))
+                )}
+              </Card>
             </div>
 
-            <div className="space-y-6">
-              <QuickMetrics metrics={data.metrics} />
-              <Card padding="md">
-                <h3 className="mb-3 text-sm font-semibold text-white">Quick actions</h3>
-                <div className="space-y-1.5">
-                  <Action icon={<ClipboardList className="h-4 w-4" />} label="Create assignment" onClick={() => router.push("/teacher/assignments")} />
-                  <Action icon={<MessageSquare className="h-4 w-4" />} label="Message a student" soon />
-                  <Action icon={<BookOpen className="h-4 w-4" />} label="Assign content" soon />
-                  <Action icon={<BarChart3 className="h-4 w-4" />} label="View analytics" onClick={() => router.push("/teacher/analytics")} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Your classes</div>
+              {data.classes.length === 0 ? (
+                <Card padding="md" style={{ textAlign: "center", marginBottom: 20 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>No classes yet</div>
+                  <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 4 }}>Create your first class to start tracking students.</div>
+                </Card>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+                  {data.classes.map((c) => (
+                    <Card key={c.class_id} padding="md" style={{ cursor: "pointer" }} onClick={() => viewClass(c.class_id)}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{c.class_name}</div>
+                        {c.at_risk_count > 0 && <Badge tone="danger">{c.at_risk_count} at-risk</Badge>}
+                      </div>
+                      <div style={{ fontSize: 12, color: color.textFaint, marginBottom: 8 }}>{c.subject || "—"} · {c.student_count} students</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                        <span>Avg score: <b>{c.avg_score}%</b></span>
+                        <span>Active this week: <b>{c.active_this_week}</b></span>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
+                <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{data.metrics.total_students}</div><div style={{ fontSize: 11.5, color: color.textFaint, marginTop: 4 }}>Total students</div></Card>
+                <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{data.metrics.avg_score}%</div><div style={{ fontSize: 11.5, color: color.textFaint, marginTop: 4 }}>Average score</div></Card>
+                <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{data.metrics.active_this_week}</div><div style={{ fontSize: 11.5, color: color.textFaint, marginTop: 4 }}>Active this week</div></Card>
+                <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{data.metrics.completion_rate}%</div><div style={{ fontSize: 11.5, color: color.textFaint, marginTop: 4 }}>Completion rate</div></Card>
+              </div>
+
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Quick actions</div>
+              <Card padding="sm">
+                <QuickAction label="Create assignment" onClick={() => router.push("/teacher/assignments")} />
+                <QuickAction label="Message a student" soon />
+                <QuickAction label="Assign content" soon />
+                <QuickAction label="View analytics" onClick={() => router.push("/teacher/analytics")} />
               </Card>
             </div>
           </div>
@@ -86,17 +134,11 @@ export default function TeacherDashboardPage() {
   );
 }
 
-function Action({ icon, label, onClick, soon }: { icon: React.ReactNode; label: string; onClick?: () => void; soon?: boolean }) {
+function QuickAction({ label, onClick, soon }: { label: string; onClick?: () => void; soon?: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={soon}
-      title={soon ? "Coming soon" : undefined}
-      className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-white/80 transition-colors hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <span className="flex items-center gap-2.5">{icon}{label}</span>
-      {soon && <span className="text-[10px] uppercase tracking-wide text-white/30">soon</span>}
+    <button onClick={onClick} disabled={soon} title={soon ? "Coming soon" : undefined} style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 12px", borderRadius: 7, fontSize: 13.5, background: "none", border: "none", color: soon ? color.textFainter : color.ink, cursor: soon ? "not-allowed" : "pointer", textAlign: "left" }}>
+      <span>{label}</span>
+      {soon && <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em", color: color.textFainter }}>soon</span>}
     </button>
   );
 }

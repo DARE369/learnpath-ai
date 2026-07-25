@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Icon } from "../../ui-v2/icons";
+import { color, font } from "../../ui-v2/tokens";
 
 interface Message {
   role: "user" | "assistant";
@@ -12,38 +14,43 @@ interface AITutorPanelProps {
   topicTitle?: string;
   videoTitle?: string;
   learningPathId?: string;
+  /** Whether the Lexi tab is the currently-visible one. Session init is
+   * lazy — it fires once the first time this becomes true, so users who
+   * never open Lexi never burn a /api/tutor/session call. */
+  active?: boolean;
 }
 
 function LexiAvatar() {
   return (
-    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 text-xs font-bold text-white">
+    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #7C5CBF, #2B5FA8)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff" }}>
       L
     </div>
   );
 }
 
+function usePulse(intervalMs = 400): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const id = setInterval(() => setOn((v) => !v), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return on;
+}
+
 function TypingDots() {
+  const on = usePulse();
   return (
-    <div className="flex items-center gap-1 py-1">
+    <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 0" }}>
       {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
+        <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.4)", opacity: on ? 1 : 0.4, transform: `translateY(${on ? -2 : 0}px)`, transition: "transform 0.3s ease, opacity 0.3s ease" }} />
       ))}
     </div>
   );
 }
 
-export default function AITutorPanel({
-  accessToken,
-  subject,
-  topicTitle,
-  videoTitle,
-  learningPathId,
-}: AITutorPanelProps) {
-  const [open, setOpen] = useState(false);
+const STARTER_PROMPTS = ["I don't understand this concept", "Can you give me an example?", "How do I solve this type of question?"];
+
+export default function AITutorPanel({ accessToken, subject, topicTitle, videoTitle, learningPathId, active = true }: AITutorPanelProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -52,10 +59,10 @@ export default function AITutorPanel({
   const [sessionLoading, setSessionLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const hasInitialized = useRef(false);
 
   const authHeader: Record<string, string> = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
-  // Start a tutor session when the panel is first opened
   const initSession = useCallback(async () => {
     if (sessionId || sessionLoading) return;
     setSessionLoading(true);
@@ -74,16 +81,12 @@ export default function AITutorPanel({
       const data = await res.json();
       setSessionId(data.session_id);
 
-      // Load existing history if there is any
-      const histRes = await fetch(`/api/tutor/session/${data.session_id}/history`, {
-        headers: authHeader,
-      });
+      const histRes = await fetch(`/api/tutor/session/${data.session_id}/history`, { headers: authHeader });
       if (histRes.ok) {
         const histData = await histRes.json();
         if (histData.messages?.length) {
           setMessages(histData.messages);
         } else {
-          // Greet first-time opener
           const greeting = videoTitle
             ? `Hi! I'm Lexi, your AI study tutor. I can see you're watching "${videoTitle}". What would you like to understand better?`
             : subject
@@ -100,20 +103,19 @@ export default function AITutorPanel({
   }, [sessionId, sessionLoading, subject, videoTitle, learningPathId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (open && !sessionId) {
+    if (active && !hasInitialized.current) {
+      hasInitialized.current = true;
       void initSession();
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 150);
-    }
-  }, [open]);
+    if (active) setTimeout(() => inputRef.current?.focus(), 150);
+  }, [active]);
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -164,137 +166,84 @@ export default function AITutorPanel({
   };
 
   return (
-    <>
-      {/* Floating trigger button */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        title="Ask Lexi — your AI tutor"
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all ${
-          open
-            ? "bg-indigo-700 rotate-45"
-            : "bg-gradient-to-br from-violet-600 to-indigo-600 hover:scale-105"
-        }`}
-      >
-        {open ? (
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-          </svg>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, fontFamily: font.body }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: `1px solid ${color.chromeBorder}`, background: "linear-gradient(90deg, rgba(124,92,191,0.15), rgba(43,95,168,0.15))", flexShrink: 0 }}>
+        <LexiAvatar />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: color.chromeText }}>Lexi</div>
+          <div style={{ fontSize: 11, color: color.textFainter, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topicTitle || subject || "AI Study Tutor"}</div>
+        </div>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: color.success.fg, flexShrink: 0 }} title="Online" />
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {sessionLoading && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: color.textFainter, fontSize: 12, padding: "16px 0" }}>Connecting to Lexi…</div>
         )}
-      </button>
 
-      {/* Panel */}
-      {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-[360px] max-w-[calc(100vw-24px)] h-[520px] max-h-[calc(100vh-120px)] bg-[#1a1a2e] border border-indigo-500/20 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] bg-gradient-to-r from-violet-900/40 to-indigo-900/40">
+        {messages.map((msg, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, flexDirection: msg.role === "user" ? "row-reverse" : "row" }}>
+            {msg.role === "assistant" && <LexiAvatar />}
+            <div
+              style={{
+                maxWidth: "82%", borderRadius: 14, padding: "9px 12px", fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap",
+                background: msg.role === "user" ? "#2B5FA8" : "rgba(255,255,255,0.06)",
+                color: msg.role === "user" ? "#fff" : color.chromeTextMuted,
+                borderTopRightRadius: msg.role === "user" ? 4 : 14,
+                borderTopLeftRadius: msg.role === "assistant" ? 4 : 14,
+              }}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div style={{ display: "flex", gap: 8 }}>
             <LexiAvatar />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white">Lexi</p>
-              <p className="text-xs text-white/40 truncate">
-                {topicTitle || subject || "AI Study Tutor"}
-              </p>
+            <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 14, borderTopLeftRadius: 4, padding: "9px 12px" }}>
+              <TypingDots />
             </div>
-            <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" title="Online" />
           </div>
+        )}
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {sessionLoading && (
-              <div className="flex items-center gap-2 text-white/40 text-xs py-4 justify-center">
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Connecting to Lexi…
-              </div>
-            )}
+        {error && <p style={{ fontSize: 11.5, color: "#E08579", textAlign: "center", background: "rgba(176,54,44,0.12)", borderRadius: 8, padding: "8px 12px", margin: 0 }}>{error}</p>}
 
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                {msg.role === "assistant" && <LexiAvatar />}
-                <div
-                  className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-tr-sm"
-                      : "bg-white/[0.06] text-white/85 rounded-tl-sm"
-                  }`}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            ))}
+        <div ref={bottomRef} />
+      </div>
 
-            {loading && (
-              <div className="flex gap-2">
-                <LexiAvatar />
-                <div className="bg-white/[0.06] rounded-2xl rounded-tl-sm px-3.5 py-2.5">
-                  <TypingDots />
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <p className="text-xs text-rose-400 text-center bg-rose-500/10 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Suggested starters — shown when no messages yet */}
-          {messages.length <= 1 && !sessionLoading && (
-            <div className="px-4 pb-2 flex flex-wrap gap-1.5">
-              {[
-                "I don't understand this concept",
-                "Can you give me an example?",
-                "How do I solve this type of question?",
-              ].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => { setInput(s); inputRef.current?.focus(); }}
-                  className="text-xs px-2.5 py-1.5 rounded-full bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 transition-colors"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Input */}
-          <div className="px-3 py-3 border-t border-white/[0.06]">
-            <div className="flex items-end gap-2 bg-white/[0.05] rounded-xl border border-white/[0.08] px-3 py-2 focus-within:border-indigo-500/40 transition-colors">
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask Lexi anything…"
-                disabled={loading || sessionLoading || !sessionId}
-                className="flex-1 bg-transparent text-sm text-white placeholder-white/25 resize-none focus:outline-none max-h-24 leading-relaxed disabled:opacity-50"
-                style={{ minHeight: "24px" }}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!input.trim() || loading || !sessionId}
-                className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-              >
-                <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-[10px] text-white/20 text-center mt-1.5">
-              Lexi guides you — she won&apos;t just give you answers
-            </p>
-          </div>
+      {messages.length <= 1 && !sessionLoading && (
+        <div style={{ padding: "0 14px 8px", display: "flex", flexWrap: "wrap", gap: 6, flexShrink: 0 }}>
+          {STARTER_PROMPTS.map((s) => (
+            <button key={s} onClick={() => { setInput(s); inputRef.current?.focus(); }} style={{ fontSize: 11.5, padding: "6px 10px", borderRadius: 100, background: "rgba(43,95,168,0.15)", color: "#6FA0E0", border: "none", cursor: "pointer", fontFamily: font.body }}>
+              {s}
+            </button>
+          ))}
         </div>
       )}
-    </>
+
+      <div style={{ padding: 12, borderTop: `1px solid ${color.chromeBorder}`, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: "rgba(255,255,255,0.05)", borderRadius: 10, border: `1px solid ${color.chromeBorder}`, padding: "8px 10px" }}>
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask Lexi anything…"
+            disabled={loading || sessionLoading || !sessionId}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", resize: "none", fontSize: 13, color: color.chromeText, fontFamily: font.body, maxHeight: 96, minHeight: 24 }}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading || !sessionId}
+            style={{ width: 26, height: 26, borderRadius: 8, background: "#2B5FA8", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: !input.trim() || loading || !sessionId ? 0.35 : 1, flexShrink: 0, color: "#fff" }}
+          >
+            <Icon name="send" size={13} className="" />
+          </button>
+        </div>
+        <p style={{ fontSize: 10, color: color.textFainter, textAlign: "center", marginTop: 6 }}>Lexi guides you — she won&apos;t just give you answers</p>
+      </div>
+    </div>
   );
 }

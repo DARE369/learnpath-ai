@@ -1,3 +1,21 @@
 {
-  "extends": ["next/core-web-vitals"]
+  "extends": ["next/core-web-vitals"],
+  "overrides": [
+    {
+      "files": ["ui-v2/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*/components/ui*", "@/components/ui*", "*/lib/tokens*", "@/lib/tokens*", "*/styles/globals.css"],
+                "message": "ui-v2 is an isolated design system — do not import the legacy component library, tokens, or global stylesheet. Add whatever's missing to ui-v2/ instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

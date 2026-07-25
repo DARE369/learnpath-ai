@@ -3,6 +3,8 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import axios from "axios";
+import { TextField } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -49,60 +51,46 @@ export default function ResetPasswordPage() {
       <Head>
         <title>Set a new password — LearnPath AI</title>
       </Head>
-      <div className="min-h-screen bg-background flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[420px]">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white mb-1.5 tracking-tight">Set a new password</h1>
-            <p className="text-white/45 text-sm">Choose a strong password you don&apos;t use elsewhere.</p>
-          </div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", color: color.ink, background: color.paper, fontFamily: font.body }}>
+        <div style={{ width: "100%", maxWidth: 400 }}>
+          <Link href="/" style={{ textDecoration: "none", fontFamily: font.display, fontWeight: 600, fontSize: 19, color: color.ink, display: "inline-block", marginBottom: 28 }}>
+            LearnPath
+          </Link>
 
-          <div className="auth-card">
-            {done ? (
-              <div className="text-center">
-                <p className="text-white text-sm">Password updated. Redirecting you to sign in…</p>
-                <Link href="/auth/login" className="mt-6 inline-block text-accent-light hover:text-white text-sm font-medium">
-                  Sign in now
-                </Link>
+          {done ? (
+            <>
+              <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 24, margin: "0 0 8px" }}>Set a new password</h1>
+              <div style={{ background: color.success.bg, border: "1px solid #C3E1D3", borderRadius: 8, padding: "14px 16px", fontSize: 13.5, color: color.success.fg }}>
+                Password updated. Redirecting you to sign in…
               </div>
-            ) : (
+              <Link href="/auth/login" style={{ textDecoration: "none", fontWeight: 600, color: "#2B3A67", display: "inline-block", marginTop: 16 }}>
+                Sign in now
+              </Link>
+            </>
+          ) : (
+            <>
+              <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 24, margin: "0 0 8px" }}>Set a new password</h1>
+              <p style={{ fontSize: 13.5, color: color.textFaint, margin: "0 0 24px" }}>Choose a strong password you don&rsquo;t use elsewhere.</p>
+              {error && (
+                <div style={{ background: color.danger.bg, border: "1px solid #E7B7AE", borderRadius: 8, padding: "11px 14px", fontSize: 13, color: "#8B4A3E", marginBottom: 16 }}>{error}</div>
+              )}
               <form onSubmit={handleSubmit} noValidate>
-                {error && (
-                  <div className="mb-5 px-4 py-3 rounded-xl bg-error-muted border border-error/20 text-error text-sm">
-                    {error}
-                  </div>
-                )}
-                <div className="mb-4">
-                  <label htmlFor="password" className="label">New password</label>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input-field"
-                    disabled={loading}
-                  />
+                <div style={{ marginBottom: 14 }}>
+                  <TextField label="New password" type="password" autoComplete="new-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
                 </div>
-                <div className="mb-6">
-                  <label htmlFor="confirm" className="label">Confirm password</label>
-                  <input
-                    id="confirm"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    className="input-field"
-                    disabled={loading}
-                  />
+                <div style={{ marginBottom: 20 }}>
+                  <TextField label="Confirm password" type="password" autoComplete="new-password" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} disabled={loading} />
                 </div>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{ width: "100%", padding: "11px 16px", fontSize: 14.5, fontWeight: 600, borderRadius: 7, border: "none", background: "#2B3A67", color: "#fff", cursor: loading ? "not-allowed" : "pointer" }}
+                >
                   {loading ? "Updating…" : "Update password"}
                 </button>
               </form>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </>

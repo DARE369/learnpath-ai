@@ -1,6 +1,9 @@
 "use client";
 import React, { useState } from "react";
 import FeedbackCard from "./FeedbackCard";
+import { Card, Button, Badge, Textarea, type BadgeTone } from "../../ui-v2/primitives";
+import { Icon } from "../../ui-v2/icons";
+import { color, font } from "../../ui-v2/tokens";
 
 interface FeedbackState {
   score: number;
@@ -25,10 +28,11 @@ interface QuestionCardProps {
 }
 
 const CONFIDENCE_LABELS = ["Not sure", "Slight idea", "Fairly sure", "Confident", "Very sure"];
+const DIFFICULTY_TONE: Record<string, BadgeTone> = { easy: "success", hard: "danger", medium: "warning" };
 
 function ConfidenceStars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       {CONFIDENCE_LABELS.map((label, i) => {
         const filled = i < value;
         return (
@@ -36,33 +40,18 @@ function ConfidenceStars({ value, onChange }: { value: number; onChange: (v: num
             key={i}
             onClick={() => onChange(i + 1)}
             title={label}
-            className="group relative"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: filled ? "#C8792A" : color.textFainter, display: "flex" }}
           >
-            <svg
-              className={`w-5 h-5 transition-colors ${filled ? "text-amber-400" : "text-white/20 hover:text-white/40"}`}
-              fill={filled ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth={1.5}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-              />
-            </svg>
+            <Icon name="star" size={16} className="" />
           </button>
         );
       })}
-      {value > 0 && (
-        <span className="ml-1 text-xs text-white/30">{CONFIDENCE_LABELS[value - 1]}</span>
-      )}
+      {value > 0 && <span style={{ marginLeft: 4, fontSize: 11.5, color: color.textFainter }}>{CONFIDENCE_LABELS[value - 1]}</span>}
     </div>
   );
 }
 
 export default function QuestionCard({
-  sessionId,
   question,
   questionType,
   options,
@@ -81,11 +70,7 @@ export default function QuestionCard({
   const [error, setError] = useState<string | null>(null);
   const [feedbackState, setFeedbackState] = useState<FeedbackState | null>(null);
 
-  const studentAnswer =
-    questionType === "multiple_choice" && selectedOption !== null
-      ? options?.[selectedOption] ?? ""
-      : answer;
-
+  const studentAnswer = questionType === "multiple_choice" && selectedOption !== null ? options?.[selectedOption] ?? "" : answer;
   const canSubmit = studentAnswer.trim().length > 0 && !loading;
 
   const handleSubmit = async () => {
@@ -135,105 +120,77 @@ export default function QuestionCard({
   }
 
   return (
-    <div className="bg-[#1c1c1c] rounded-2xl border border-indigo-500/20 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center">
-            <svg className="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-            </svg>
+    <Card dark padding="sm" style={{ padding: 0, overflow: "hidden", border: "1px solid rgba(43,95,168,0.3)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: `1px solid ${color.chromeBorder}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(43,95,168,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="sparkles" size={13} className="" />
           </div>
-          <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Comprehension Check</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "#6FA0E0", textTransform: "uppercase", letterSpacing: "0.05em" }}>Comprehension Check</span>
         </div>
-        <div className="flex items-center gap-3">
-          {estimatedTime && (
-            <span className="text-xs text-white/25">{Math.ceil(estimatedTime / 60)} min</span>
-          )}
-          <span className={`text-xs px-2 py-0.5 rounded-full border ${
-            difficulty === "easy"
-              ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-              : difficulty === "hard"
-              ? "text-rose-400 border-rose-500/30 bg-rose-500/10"
-              : "text-amber-400 border-amber-500/30 bg-amber-500/10"
-          }`}>
-            {difficulty}
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {estimatedTime && <span style={{ fontSize: 11.5, color: color.textFainter }}>{Math.ceil(estimatedTime / 60)} min</span>}
+          <Badge tone={DIFFICULTY_TONE[difficulty] ?? "warning"}>{difficulty}</Badge>
         </div>
       </div>
 
-      <div className="p-5 flex flex-col gap-4">
-        {/* Question */}
-        <p className="text-base text-white/90 leading-relaxed font-medium">{question}</p>
+      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+        <p style={{ fontSize: 15, color: color.chromeText, lineHeight: 1.55, fontWeight: 500, margin: 0 }}>{question}</p>
 
-        {/* Answer input */}
         {questionType === "multiple_choice" && options ? (
-          <div className="flex flex-col gap-2">
-            {options.map((opt, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedOption(i)}
-                className={`flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl border text-sm transition-all ${
-                  selectedOption === i
-                    ? "border-indigo-500/60 bg-indigo-500/10 text-white"
-                    : "border-white/[0.08] bg-white/[0.02] text-white/60 hover:border-white/20 hover:text-white/80"
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-colors ${
-                  selectedOption === i ? "border-indigo-400 bg-indigo-400" : "border-white/30"
-                }`} />
-                {opt}
-              </button>
-            ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {options.map((opt, i) => {
+              const selected = selectedOption === i;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelectedOption(i)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+                    padding: "12px 16px", borderRadius: 10, fontSize: 13.5, cursor: "pointer",
+                    border: `1px solid ${selected ? "#3A5A8F" : color.chromeBorder}`,
+                    background: selected ? "rgba(43,95,168,0.12)" : "rgba(255,255,255,0.02)",
+                    color: selected ? color.chromeText : color.chromeTextMuted,
+                  }}
+                >
+                  <span style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selected ? "#6FA0E0" : "rgba(255,255,255,0.3)"}`, background: selected ? "#6FA0E0" : "transparent", flexShrink: 0 }} />
+                  {opt}
+                </button>
+              );
+            })}
           </div>
         ) : (
-          <textarea
+          <Textarea
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             placeholder="Type your answer here…"
             rows={4}
-            className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none focus:border-indigo-500/50 transition-colors leading-relaxed"
+            style={{ background: "rgba(0,0,0,0.3)", borderColor: color.chromeBorder, color: color.chromeText }}
           />
         )}
 
-        {/* Confidence */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-white/30 whitespace-nowrap">Confidence:</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 11.5, color: color.textFainter, whiteSpace: "nowrap" }}>Confidence:</span>
           <ConfidenceStars value={confidence} onChange={setConfidence} />
         </div>
 
         {error && (
-          <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+          <p style={{ fontSize: 11.5, color: color.danger.fg, background: "rgba(176,54,44,0.12)", border: "1px solid rgba(176,54,44,0.3)", borderRadius: 8, padding: "8px 12px", margin: 0 }}>
             {error}
           </p>
         )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Evaluating…
-              </>
-            ) : (
-              "Submit Answer"
-            )}
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} style={{ fontFamily: font.body }}>
+            {loading ? "Evaluating…" : "Submit Answer"}
+          </Button>
           {onSkip && (
-            <button onClick={onSkip} className="text-sm text-white/25 hover:text-white/50 transition-colors">
+            <button onClick={onSkip} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: color.textFainter }}>
               Skip for now
             </button>
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

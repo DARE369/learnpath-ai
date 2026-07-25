@@ -1,24 +1,18 @@
-'use client';
-import { PartyPopper, Check, X } from 'lucide-react';
-
-import React, { useState, useEffect, useCallback } from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { Card } from "../ui-v2/primitives";
+import { color, font } from "../ui-v2/tokens";
 
 function authHeaders(): Record<string, string> {
-  const token =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
-      : null;
-  return token
-    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-    : { 'Content-Type': 'application/json' };
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token") : null;
+  return token ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` } : { "Content-Type": "application/json" };
 }
 
 interface Option { id: string; text: string; }
 interface ReviewCard {
   card_id: string;
-  card_type?: 'quiz' | 'flashcard';
+  card_type?: "quiz" | "flashcard";
   state: string;
   reps: number;
   lapses: number;
@@ -34,6 +28,12 @@ interface ReviewFeedback {
   back?: string;
 }
 
+const STATE_BADGE: Record<string, { bg: string; fg: string }> = {
+  new: { bg: color.surfaceElevated, fg: color.textFaint },
+  learning: { bg: color.warning.bg, fg: color.warning.fg },
+  review: { bg: color.info.bg, fg: color.info.fg },
+};
+
 export default function ReviewPage() {
   const [cards, setCards] = useState<ReviewCard[]>([]);
   const [index, setIndex] = useState(0);
@@ -47,7 +47,7 @@ export default function ReviewPage() {
   const fetchDue = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/quiz/review/due', { headers: authHeaders() });
+      const res = await fetch("/api/quiz/review/due", { headers: authHeaders() });
       const data = await res.json();
       setCards(data.cards || []);
       setIndex(0);
@@ -63,17 +63,13 @@ export default function ReviewPage() {
   useEffect(() => { fetchDue(); }, [fetchDue]);
 
   const card = cards[index];
-  const isFlashcard = card?.card_type === 'flashcard';
+  const isFlashcard = card?.card_type === "flashcard";
 
   const submitAnswer = async (answer: string) => {
     if (!card) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/quiz/review/${card.card_id}/answer`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ answer }),
-      });
+      const res = await fetch(`/api/quiz/review/${card.card_id}/answer`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ answer }) });
       const data = await res.json();
       setFeedback(data);
       setReviewedCount((n) => n + 1);
@@ -84,170 +80,120 @@ export default function ReviewPage() {
     }
   };
 
-  const handleNext = () => {
-    setSelected(null);
-    setRevealed(false);
-    setFeedback(null);
-    setIndex((i) => i + 1);
-  };
+  const handleNext = () => { setSelected(null); setRevealed(false); setFeedback(null); setIndex((i) => i + 1); };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <div style={{ width: 32, height: 32, border: "3px solid #E4E1D8", borderTopColor: "#2B3A67", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
   }
 
   const allDone = !card;
+  const badge = card ? STATE_BADGE[card.state] || STATE_BADGE.new : STATE_BADGE.new;
 
   return (
     <>
       <Head><title>Review — LearnPath AI</title></Head>
-      <div className="min-h-screen bg-background">
-        <div className="max-w-2xl mx-auto px-6 py-10">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white">Spaced Repetition Review</h1>
-            <p className="text-white/50 mt-1 text-sm">
-              Questions you missed resurface here at the optimal time to lock them into memory.
-            </p>
+      <div style={{ maxWidth: 640, margin: "0 auto", fontFamily: font.body }}>
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 26, margin: "0 0 8px" }}>Review</h1>
+
+        {!allDone && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 13, color: color.textFaint }}>{index + 1} of {cards.length} due today</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: font.mono, fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 100, background: badge.bg, color: badge.fg }}>{card.state}</span>
+                {card.lapses > 0 && <span style={{ fontFamily: font.mono, fontSize: 11, color: color.danger.fg }}>{card.lapses} lapse{card.lapses === 1 ? "" : "s"}</span>}
+              </div>
+            </div>
+            <div style={{ height: 5, background: color.surfaceElevated, borderRadius: 100, marginBottom: 24, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${Math.round((index / cards.length) * 100)}%`, background: "#2B3A67", borderRadius: 100 }} />
+            </div>
+          </>
+        )}
+
+        {allDone ? (
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>
+            <div style={{ fontFamily: font.display, fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
+              {reviewedCount > 0 ? "Review complete!" : "You're all caught up"}
+            </div>
+            <div style={{ fontSize: 14, color: color.textFaint, marginBottom: 20 }}>
+              {reviewedCount > 0
+                ? `You reviewed ${reviewedCount} card${reviewedCount === 1 ? "" : "s"}. Come back when more are due.`
+                : "No cards are due right now. Missed quiz questions will appear here over time."}
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button onClick={fetchDue} style={{ padding: "9px 18px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, cursor: "pointer" }}>Refresh</button>
+              <Link href="/dashboard" style={{ padding: "9px 18px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none", background: "#2B3A67", color: "#fff", textDecoration: "none" }}>Back to Dashboard</Link>
+            </div>
           </div>
-
-          {allDone ? (
-            <div className="bg-surface-elevated border border-border rounded-2xl p-10 text-center">
-              <PartyPopper className="mx-auto mb-4 h-12 w-12 text-accent-light" />
-              <h2 className="text-xl font-semibold text-white">
-                {reviewedCount > 0 ? 'Review complete!' : "You're all caught up"}
-              </h2>
-              <p className="text-white/50 mt-2">
-                {reviewedCount > 0
-                  ? `You reviewed ${reviewedCount} card${reviewedCount === 1 ? '' : 's'}. Come back when more are due.`
-                  : 'No cards are due right now. Missed quiz questions will appear here over time.'}
-              </p>
-              <div className="flex gap-3 justify-center mt-6">
-                <button onClick={fetchDue} className="px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white transition">
-                  Refresh
-                </button>
-                <Link href="/dashboard" className="px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 transition">
-                  Back to Dashboard
-                </Link>
-              </div>
+        ) : isFlashcard ? (
+          <>
+            <div onClick={() => !revealed && setRevealed(true)} style={{ cursor: revealed ? "default" : "pointer" }}>
+              <Card padding="lg" style={{ minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: color.textFaint, marginBottom: 14 }}>{card.flashcard?.concept}</div>
+                <div style={{ fontFamily: font.display, fontWeight: 500, fontSize: 18, lineHeight: 1.4, marginBottom: 16 }}>{card.flashcard?.front}</div>
+                {!revealed ? (
+                  <div style={{ fontSize: 12.5, color: color.textFaint }}>Tap to reveal answer</div>
+                ) : (
+                  <div style={{ borderTop: `1px solid ${color.borderMuted}`, paddingTop: 16, width: "100%" }}>
+                    <div style={{ fontSize: 15 }}>{card.flashcard?.back}</div>
+                  </div>
+                )}
+              </Card>
             </div>
-          ) : (
-            <div className="bg-surface-elevated border border-border rounded-2xl p-6">
-              <div className="flex justify-between text-xs text-white/40 mb-4">
-                <span>Card {index + 1} of {cards.length}</span>
-                <span className="capitalize">{card.state} · {card.lapses} lapse{card.lapses === 1 ? '' : 's'}</span>
+            {revealed && (
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={() => submitAnswer("missed")} disabled={submitting} style={{ flex: 1, padding: 14, fontSize: 14, fontWeight: 600, borderRadius: 9, border: `1px solid #E7B7AE`, background: color.danger.bg, color: color.danger.fg, cursor: "pointer" }}>1 · Didn&rsquo;t know it</button>
+                <button onClick={() => submitAnswer("got_it")} disabled={submitting} style={{ flex: 1, padding: 14, fontSize: 14, fontWeight: 600, borderRadius: 9, border: `1px solid #A9D3C0`, background: color.success.bg, color: color.success.fg, cursor: "pointer" }}>2 · Got it</button>
               </div>
-
-              {isFlashcard ? (
-                /* ── Flashcard: flip + self-grade ── */
-                <>
-                  <p className="text-lg text-white font-medium mb-4">{card.flashcard?.front}</p>
-                  {(revealed || feedback) && (
-                    <div className="rounded-xl border border-border bg-surface p-4 mb-2">
-                      <p className="text-white/80 text-sm">{card.flashcard?.back}</p>
-                    </div>
-                  )}
-                  {feedback && (
-                    <p className="text-white/40 text-xs mt-2">
-                      {feedback.is_correct ? 'Nice recall.' : 'Keep at it.'} Next review in{' '}
-                      {feedback.next_due_days} day{feedback.next_due_days === 1 ? '' : 's'}.
-                    </p>
-                  )}
-                  <div className="mt-6">
-                    {feedback ? (
-                      <button onClick={handleNext} className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition">
-                        {index + 1 < cards.length ? 'Next card' : 'Finish'}
-                      </button>
-                    ) : !revealed ? (
-                      <button onClick={() => setRevealed(true)} className="w-full px-4 py-3 bg-surface border border-border text-white rounded-xl font-medium hover:border-white/20 transition">
-                        Reveal answer
-                      </button>
-                    ) : (
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => submitAnswer('missed')}
-                          disabled={submitting}
-                          className="flex flex-1 items-center justify-center gap-1.5 px-4 py-3 bg-red-500/15 text-red-300 border border-red-500/40 rounded-xl font-medium hover:bg-red-500/25 transition disabled:opacity-50"
-                        >
-                          <X className="h-4 w-4" /> Missed it
-                        </button>
-                        <button
-                          onClick={() => submitAnswer('got_it')}
-                          disabled={submitting}
-                          className="flex flex-1 items-center justify-center gap-1.5 px-4 py-3 bg-green-500/15 text-green-300 border border-green-500/40 rounded-xl font-medium hover:bg-green-500/25 transition disabled:opacity-50"
-                        >
-                          <Check className="h-4 w-4" /> Got it
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                /* ── Quiz question: multiple choice ── */
-                <>
-                  <p className="text-lg text-white font-medium mb-5">{card.question?.text}</p>
-
-                  <div className="space-y-2.5">
-                    {(card.question?.options || []).map((opt) => {
-                      const isPicked = selected === opt.id;
-                      const isAnswerCorrect = feedback && feedback.correct_answer_id === opt.id;
-                      const isPickedWrong = feedback && isPicked && !feedback.is_correct;
-                      return (
-                        <button
-                          key={opt.id}
-                          disabled={!!feedback || submitting}
-                          onClick={() => setSelected(opt.id)}
-                          className={`w-full text-left px-4 py-3 rounded-xl border transition ${
-                            isAnswerCorrect
-                              ? 'border-green-500/60 bg-green-500/10 text-green-300'
-                              : isPickedWrong
-                              ? 'border-red-500/60 bg-red-500/10 text-red-300'
-                              : isPicked
-                              ? 'border-accent bg-accent/10 text-white'
-                              : 'border-border bg-surface text-white/70 hover:text-white hover:border-white/20'
-                          }`}
-                        >
-                          {opt.text}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {feedback && (
-                    <div className={`mt-5 rounded-xl p-4 ${feedback.is_correct ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
-                      <p className={`flex items-center gap-1.5 font-semibold ${feedback.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                        {feedback.is_correct ? <><Check className="h-4 w-4" /> Correct</> : <><X className="h-4 w-4" /> Not quite</>}
-                      </p>
-                      {feedback.explanation && <p className="text-white/70 text-sm mt-1.5">{feedback.explanation}</p>}
-                      <p className="text-white/40 text-xs mt-2">
-                        Next review in {feedback.next_due_days} day{feedback.next_due_days === 1 ? '' : 's'}.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="mt-6">
-                    {feedback ? (
-                      <button onClick={handleNext} className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition">
-                        {index + 1 < cards.length ? 'Next card' : 'Finish'}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => selected && submitAnswer(selected)}
-                        disabled={!selected || submitting}
-                        className="w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {submitting ? 'Checking…' : 'Submit'}
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
+            )}
+          </>
+        ) : (
+          <Card padding="lg" style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: color.textFaint, marginBottom: 16, textAlign: "center" }}>{card.question?.concept} · missed question</div>
+            <div style={{ fontFamily: font.display, fontWeight: 500, fontSize: 19, lineHeight: 1.4, marginBottom: 22, textAlign: "center" }}>{card.question?.text}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {(card.question?.options || []).map((opt) => {
+                const isPicked = selected === opt.id;
+                const isAnswerCorrect = feedback && feedback.correct_answer_id === opt.id;
+                const isPickedWrong = feedback && isPicked && !feedback.is_correct;
+                const bg = isAnswerCorrect ? color.success.bg : isPickedWrong ? color.danger.bg : isPicked ? "#EFF1F7" : "#fff";
+                const bd = isAnswerCorrect ? "#A9D3C0" : isPickedWrong ? "#E7B7AE" : isPicked ? "#2B3A67" : color.border;
+                return (
+                  <button key={opt.id} disabled={!!feedback || submitting} onClick={() => setSelected(opt.id)} style={{ textAlign: "left", padding: "12px 14px", fontSize: 13.5, borderRadius: 8, border: `1px solid ${bd}`, background: bg, color: color.ink, cursor: feedback ? "default" : "pointer" }}>
+                    {opt.text}
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </div>
+          </Card>
+        )}
+
+        {feedback && (
+          <>
+            <div style={{ borderRadius: 10, padding: "14px 16px", marginBottom: 14, background: feedback.is_correct ? color.success.bg : color.danger.bg, color: feedback.is_correct ? color.success.fg : color.danger.fg }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                {isFlashcard ? (feedback.is_correct ? "Got it — nice recall." : "That's okay — it'll come back around soon.") : feedback.is_correct ? "Correct" : "Not quite"}
+              </div>
+              {feedback.explanation && <div style={{ fontSize: 12.5, marginTop: 4 }}>{feedback.explanation}</div>}
+              <div style={{ fontSize: 12.5, marginTop: 3 }}>Next review in {feedback.next_due_days} day{feedback.next_due_days === 1 ? "" : "s"}.</div>
+            </div>
+            <button onClick={handleNext} style={{ width: "100%", padding: 13, fontSize: 14, fontWeight: 600, borderRadius: 9, border: "none", background: "#2B3A67", color: "#fff", cursor: "pointer" }}>
+              {index + 1 < cards.length ? "Continue" : "Finish"}
+            </button>
+          </>
+        )}
+
+        {!isFlashcard && !feedback && !allDone && (
+          <button onClick={() => selected && submitAnswer(selected)} disabled={!selected || submitting} style={{ width: "100%", padding: 13, fontSize: 14, fontWeight: 600, borderRadius: 9, border: "none", background: selected ? "#2B3A67" : "#B7BDD1", color: "#fff", cursor: selected ? "pointer" : "not-allowed" }}>
+            {submitting ? "Checking…" : "Submit"}
+          </button>
+        )}
       </div>
+      <style jsx>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </>
   );
 }

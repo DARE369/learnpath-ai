@@ -1,97 +1,39 @@
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
+import { Card, TextField, Toggle, Modal, ModalTitle } from "../ui-v2/primitives";
+import { color, font } from "../ui-v2/tokens";
 
 const PREFS_STORAGE_KEY = "learnpath:learning-prefs:v1";
 
-interface ProfileForm {
-  fullName: string;
-  email: string;
-}
-
-interface PreferencesForm {
-  dailyGoalMinutes: number;
-  reminderTime: string;
-  notifyEmail: boolean;
-  notifyStreak: boolean;
-  notifyProduct: boolean;
-}
-
+interface ProfileForm { fullName: string; email: string; }
+interface PreferencesForm { dailyGoalMinutes: number; reminderTime: string; notifyEmail: boolean; notifyStreak: boolean; notifyProduct: boolean; }
 type SaveState = { type: "idle" } | { type: "saving" } | { type: "saved" } | { type: "error"; message: string };
 
-function Toggle({ checked, onChange, label, description }: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  description?: string;
-}) {
-  return (
-    <label className="flex items-start justify-between gap-4 py-3 cursor-pointer">
-      <div className="flex-1">
-        <p className="text-sm font-medium text-white">{label}</p>
-        {description && <p className="text-xs text-white/40 mt-0.5">{description}</p>}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
-          checked ? "bg-accent" : "bg-surface-hover"
-        }`}
-        role="switch"
-        aria-checked={checked}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
-            checked ? "translate-x-5" : "translate-x-0.5"
-          }`}
-        />
-      </button>
-    </label>
-  );
-}
-
-function Section({ title, description, children }: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="bg-surface-elevated border border-border rounded-2xl p-6 md:p-8">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
-        {description && <p className="text-sm text-white/50 mt-1">{description}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
+const SECTIONS = [
+  { key: "account", label: "Account" },
+  { key: "notifications", label: "Notifications" },
+  { key: "privacy", label: "Privacy & data" },
+  { key: "danger", label: "Delete account" },
+] as const;
+type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
+  const [section, setSection] = useState<SectionKey>("account");
 
   const [profile, setProfile] = useState<ProfileForm>({ fullName: "", email: "" });
   const [profileSave, setProfileSave] = useState<SaveState>({ type: "idle" });
 
-  const [prefs, setPrefs] = useState<PreferencesForm>({
-    dailyGoalMinutes: 30,
-    reminderTime: "18:00",
-    notifyEmail: true,
-    notifyStreak: true,
-    notifyProduct: false,
-  });
+  const [prefs, setPrefs] = useState<PreferencesForm>({ dailyGoalMinutes: 30, reminderTime: "18:00", notifyEmail: true, notifyStreak: true, notifyProduct: false });
   const [prefsSave, setPrefsSave] = useState<SaveState>({ type: "idle" });
 
-  useEffect(() => {
-    if (user) {
-      setProfile({ fullName: user.fullName || "", email: user.email });
-    }
-  }, [user]);
+  useEffect(() => { if (user) setProfile({ fullName: user.fullName || "", email: user.email }); }, [user]);
 
-  // Load preferences from localStorage on mount. Preferences live client-side
-  // until a backend table exists for them.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -107,21 +49,11 @@ export default function SettingsPage() {
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!profile.fullName.trim()) {
-      setProfileSave({ type: "error", message: "Full name is required" });
-      return;
-    }
-    if (!accessToken) {
-      setProfileSave({ type: "error", message: "You're not signed in." });
-      return;
-    }
+    if (!profile.fullName.trim()) { setProfileSave({ type: "error", message: "Full name is required" }); return; }
+    if (!accessToken) { setProfileSave({ type: "error", message: "You're not signed in." }); return; }
     setProfileSave({ type: "saving" });
     try {
-      await axios.patch(
-        "/api/auth/me",
-        { full_name: profile.fullName.trim() },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
+      await axios.patch("/api/auth/me", { full_name: profile.fullName.trim() }, { headers: { Authorization: `Bearer ${accessToken}` } });
       flashSaved(setProfileSave);
     } catch (err: unknown) {
       let message = "Couldn't save your profile.";
@@ -138,21 +70,15 @@ export default function SettingsPage() {
     e.preventDefault();
     setPrefsSave({ type: "saving" });
     try {
-      if (typeof window !== "undefined") {
-        localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
-      }
+      if (typeof window !== "undefined") localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
       flashSaved(setPrefsSave);
     } catch {
       setPrefsSave({ type: "error", message: "Couldn't save preferences locally." });
     }
   }
 
-  function handleLogout() {
-    logout();
-    router.push("/auth/login");
-  }
+  function handleLogout() { logout(); router.push("/auth/login"); }
 
-  // ── Privacy & data (Stage 8) ────────────────────────────────────────────────
   const [exporting, setExporting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -163,9 +89,7 @@ export default function SettingsPage() {
     if (!accessToken) return;
     setExporting(true);
     try {
-      const res = await axios.get("/api/auth/export", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await axios.get("/api/auth/export", { headers: { Authorization: `Bearer ${accessToken}` } });
       const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -173,11 +97,8 @@ export default function SettingsPage() {
       a.download = `learnpath-data-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      /* surfaced via button state only */
-    } finally {
-      setExporting(false);
-    }
+    } catch { /* surfaced via button state only */ }
+    finally { setExporting(false); }
   }
 
   async function handleDeleteAccount() {
@@ -185,237 +106,137 @@ export default function SettingsPage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await axios.post(
-        "/api/auth/account/delete",
-        { confirm: true, password: deletePassword || undefined },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
+      await axios.post("/api/auth/account/delete", { confirm: true, password: deletePassword || undefined }, { headers: { Authorization: `Bearer ${accessToken}` } });
       logout();
       router.push("/");
     } catch (err: unknown) {
       let message = "Couldn't delete your account.";
-      if (axios.isAxiosError(err)) {
-        message = (err.response?.data as { detail?: string } | undefined)?.detail || message;
-      }
+      if (axios.isAxiosError(err)) message = (err.response?.data as { detail?: string } | undefined)?.detail || message;
       setDeleteError(message);
       setDeleting(false);
     }
   }
 
+  const savedText = (s: SaveState) => (s.type === "saved" ? <span style={{ fontSize: 12, color: color.success.fg }}>Saved</span> : s.type === "error" ? <span style={{ fontSize: 12, color: color.danger.fg }}>{s.message}</span> : null);
+
   return (
     <>
-      <Head>
-        <title>Settings — LearnPath AI</title>
-      </Head>
-
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-1">Settings</h1>
-          <p className="text-white/50">Manage your profile, preferences, and account.</p>
+      <Head><title>Settings — LearnPath AI</title></Head>
+      <div style={{ display: "flex", gap: 32, alignItems: "flex-start", fontFamily: font.body }}>
+        <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+          <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 22, margin: "0 0 16px" }}>Settings</h1>
+          {SECTIONS.map((s) => (
+            <div key={s.key} onClick={() => setSection(s.key)} style={{ padding: "9px 12px", borderRadius: 7, fontSize: 13.5, fontWeight: 500, cursor: "pointer", color: section === s.key ? color.ink : s.key === "danger" ? color.danger.fg : color.inkSoft, background: section === s.key ? color.surfaceElevated : "transparent" }}>
+              {s.label}
+            </div>
+          ))}
         </div>
 
-        <div className="space-y-6">
-          {/* Profile */}
-          <Section title="Profile" description="How you appear to LearnPath AI.">
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="fullName" className="label">Full name</label>
-                <input
-                  id="fullName"
-                  type="text"
-                  value={profile.fullName}
-                  onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))}
-                  className="input-field"
-                  placeholder="Your name"
-                />
-              </div>
-              <div>
-                <label htmlFor="email" className="label">Email address</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={profile.email}
-                  disabled
-                  className="input-field opacity-60 cursor-not-allowed"
-                />
-                <p className="text-xs text-white/30 mt-1.5">Email cannot be changed from this screen.</p>
-              </div>
-              <div className="flex items-center justify-end gap-3 pt-2">
-                {profileSave.type === "saved" && (
-                  <span className="text-xs text-success">Saved</span>
-                )}
-                {profileSave.type === "error" && (
-                  <span className="text-xs text-error">{profileSave.message}</span>
-                )}
-                <button
-                  type="submit"
-                  disabled={profileSave.type === "saving"}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {profileSave.type === "saving" ? "Saving…" : "Save profile"}
-                </button>
-              </div>
-            </form>
-          </Section>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: 560 }}>
+          {section === "account" && (
+            <>
+              <Card padding="lg" style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 18 }}>Profile</div>
+                <form onSubmit={handleProfileSubmit}>
+                  <div style={{ marginBottom: 14 }}>
+                    <TextField label="Full name" value={profile.fullName} onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} />
+                  </div>
+                  <div style={{ marginBottom: 18 }}>
+                    <TextField label="Email address" value={profile.email} disabled style={{ opacity: 0.6, cursor: "not-allowed" }} />
+                    <p style={{ fontSize: 11.5, color: color.textFaint, marginTop: 6 }}>Email cannot be changed from this screen.</p>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
+                    {savedText(profileSave)}
+                    <button type="submit" disabled={profileSave.type === "saving"} style={{ padding: "10px 18px", fontSize: 13.5, fontWeight: 600, borderRadius: 7, border: "none", background: "#2B3A67", color: "#fff", cursor: "pointer" }}>{profileSave.type === "saving" ? "Saving…" : "Save changes"}</button>
+                  </div>
+                </form>
+              </Card>
 
-          {/* Learning preferences */}
-          <Section title="Learning preferences" description="Shape your daily learning rhythm.">
-            <form onSubmit={handlePrefsSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="goal" className="label">Daily goal</label>
-                <select
-                  id="goal"
-                  value={prefs.dailyGoalMinutes}
-                  onChange={(e) => setPrefs((p) => ({ ...p, dailyGoalMinutes: Number(e.target.value) }))}
-                  className="input-field"
-                >
-                  <option value={15}>15 minutes / day</option>
-                  <option value={30}>30 minutes / day</option>
-                  <option value={45}>45 minutes / day</option>
-                  <option value={60}>1 hour / day</option>
-                  <option value={120}>2 hours / day</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="reminder" className="label">Daily reminder time</label>
-                <input
-                  id="reminder"
-                  type="time"
-                  value={prefs.reminderTime}
-                  onChange={(e) => setPrefs((p) => ({ ...p, reminderTime: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
+              <Card padding="lg">
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sign out</div>
+                <div style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 16 }}>End your session on this device.</div>
+                <button onClick={handleLogout} style={{ padding: "9px 16px", fontSize: 13.5, fontWeight: 600, borderRadius: 6, border: "1px solid #E7B7AE", background: color.danger.bg, color: color.danger.fg, cursor: "pointer" }}>Sign out</button>
+              </Card>
+            </>
+          )}
 
-              <div className="border-t border-border pt-2">
-                <Toggle
-                  checked={prefs.notifyEmail}
-                  onChange={(v) => setPrefs((p) => ({ ...p, notifyEmail: v }))}
-                  label="Email reminders"
-                  description="Get a nudge if you miss your daily goal."
-                />
-                <Toggle
-                  checked={prefs.notifyStreak}
-                  onChange={(v) => setPrefs((p) => ({ ...p, notifyStreak: v }))}
-                  label="Streak alerts"
-                  description="Heads-up before your streak would break."
-                />
-                <Toggle
-                  checked={prefs.notifyProduct}
-                  onChange={(v) => setPrefs((p) => ({ ...p, notifyProduct: v }))}
-                  label="Product updates"
-                  description="Occasional notes about new features."
-                />
-              </div>
+          {section === "notifications" && (
+            <Card padding="lg">
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Learning preferences</div>
+              <div style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 18 }}>Shape your daily learning rhythm.</div>
+              <form onSubmit={handlePrefsSubmit}>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 600, display: "block", marginBottom: 6 }}>Daily goal</label>
+                  <select value={prefs.dailyGoalMinutes} onChange={(e) => setPrefs((p) => ({ ...p, dailyGoalMinutes: Number(e.target.value) }))} style={{ width: "100%", padding: "9px 12px", fontSize: 14, border: "1px solid #CFCBC0", borderRadius: 6 }}>
+                    <option value={15}>15 minutes / day</option>
+                    <option value={30}>30 minutes / day</option>
+                    <option value={45}>45 minutes / day</option>
+                    <option value={60}>1 hour / day</option>
+                    <option value={120}>2 hours / day</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <TextField label="Daily reminder time" type="time" value={prefs.reminderTime} onChange={(e) => setPrefs((p) => ({ ...p, reminderTime: e.target.value }))} />
+                </div>
+                <div style={{ borderTop: `1px solid ${color.borderMuted}`, paddingTop: 4 }}>
+                  <Toggle checked={prefs.notifyEmail} onChange={(v) => setPrefs((p) => ({ ...p, notifyEmail: v }))} label="Email reminders" description="Get a nudge if you miss your daily goal." />
+                  <Toggle checked={prefs.notifyStreak} onChange={(v) => setPrefs((p) => ({ ...p, notifyStreak: v }))} label="Streak alerts" description="Heads-up before your streak would break." />
+                  <Toggle checked={prefs.notifyProduct} onChange={(v) => setPrefs((p) => ({ ...p, notifyProduct: v }))} label="Product updates" description="Occasional notes about new features." />
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginTop: 14 }}>
+                  {prefsSave.type === "saved" && <span style={{ fontSize: 12, color: color.success.fg }}>Saved</span>}
+                  <button type="submit" disabled={prefsSave.type === "saving"} style={{ padding: "10px 18px", fontSize: 13.5, fontWeight: 600, borderRadius: 7, border: "none", background: "#2B3A67", color: "#fff", cursor: "pointer" }}>{prefsSave.type === "saving" ? "Saving…" : "Save preferences"}</button>
+                </div>
+              </form>
+            </Card>
+          )}
 
-              <div className="flex items-center justify-end gap-3 pt-2">
-                {prefsSave.type === "saved" && <span className="text-xs text-success">Saved</span>}
-                <button
-                  type="submit"
-                  disabled={prefsSave.type === "saving"}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {prefsSave.type === "saving" ? "Saving…" : "Save preferences"}
-                </button>
+          {section === "privacy" && (
+            <Card padding="lg">
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 18 }}>Privacy & data</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderBottom: `1px solid ${color.borderMuted}`, paddingBottom: 18, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>Download my data</div>
+                  <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>Get a JSON copy of everything we hold for you.</div>
+                </div>
+                <button onClick={handleExport} disabled={exporting} style={{ padding: "9px 16px", fontSize: 13, fontWeight: 600, borderRadius: 7, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, cursor: "pointer" }}>{exporting ? "Preparing…" : "Download data"}</button>
               </div>
-            </form>
-          </Section>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 18, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>Manage billing</div>
+                  <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>View plan, usage, and payment history.</div>
+                </div>
+                <Link href="/billing" style={{ padding: "9px 16px", fontSize: 13, fontWeight: 600, borderRadius: 7, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, textDecoration: "none" }}>Go to Billing</Link>
+              </div>
+            </Card>
+          )}
 
-          {/* Privacy & data */}
-          <Section title="Privacy & data" description="Export or permanently delete your data.">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-5">
-              <div>
-                <p className="text-sm font-medium text-white">Download my data</p>
-                <p className="text-xs text-white/40 mt-0.5">Get a JSON copy of everything we hold for you.</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={exporting}
-                className="px-5 py-2.5 rounded-xl bg-surface border border-border text-white/80 text-sm font-medium hover:text-white hover:border-white/25 transition-colors disabled:opacity-50"
-              >
-                {exporting ? "Preparing…" : "Download data"}
-              </button>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-5">
-              <div>
-                <p className="text-sm font-medium text-white">Delete my account</p>
-                <p className="text-xs text-white/40 mt-0.5">Permanently removes your personal data. This can&apos;t be undone.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setDeleteOpen(true); setDeleteError(null); setDeletePassword(""); }}
-                className="px-5 py-2.5 rounded-xl bg-error-muted text-error text-sm font-semibold hover:bg-error/20 transition-colors"
-              >
-                Delete account
-              </button>
-            </div>
-          </Section>
-
-          {/* Account */}
-          <Section title="Account" description="Sign out or manage your account.">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-white">Sign out</p>
-                <p className="text-xs text-white/40 mt-0.5">End your session on this device.</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="px-5 py-2.5 rounded-xl bg-error-muted text-error text-sm font-semibold hover:bg-error/20 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          </Section>
+          {section === "danger" && (
+            <Card padding="lg" style={{ border: "1px solid #E7B7AE" }}>
+              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6, color: color.danger.fg }}>Delete account</div>
+              <div style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 18 }}>Permanently deletes your account and all associated data. This can&rsquo;t be undone.</div>
+              <button onClick={() => { setDeleteOpen(true); setDeleteError(null); setDeletePassword(""); }} style={{ padding: "9px 16px", fontSize: 13.5, fontWeight: 600, borderRadius: 6, border: `1px solid ${color.danger.fg}`, background: "#fff", color: color.danger.fg, cursor: "pointer" }}>Delete account</button>
+            </Card>
+          )}
         </div>
       </div>
 
-      {/* Delete-account confirm modal */}
       {deleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => !deleting && setDeleteOpen(false)} />
-          <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface-elevated p-6">
-            <h3 className="text-lg font-semibold text-white">Delete your account?</h3>
-            <p className="mt-1 text-sm text-white/50">
-              This permanently removes your personal data and signs you out. This action can&apos;t be undone.
-            </p>
-            {user?.email && (
-              <div className="mt-4">
-                <label htmlFor="delpw" className="label">Confirm your password</label>
-                <input
-                  id="delpw"
-                  type="password"
-                  value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
-                  className="input-field"
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                />
-                <p className="mt-1 text-xs text-white/30">Leave blank if you signed up with Google.</p>
-              </div>
-            )}
-            {deleteError && <p className="mt-3 text-sm text-error">{deleteError}</p>}
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setDeleteOpen(false)}
-                disabled={deleting}
-                className="px-4 py-2 rounded-xl text-white/60 hover:text-white text-sm transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="px-5 py-2.5 rounded-xl bg-error text-onaccent text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {deleting ? "Deleting…" : "Delete forever"}
-              </button>
+        <Modal onClose={() => !deleting && setDeleteOpen(false)}>
+          <ModalTitle danger>Delete your account?</ModalTitle>
+          <p style={{ fontSize: 13, color: color.textFaint, marginBottom: 14 }}>This permanently removes your personal data and signs you out. This action can&rsquo;t be undone.</p>
+          {user?.email && (
+            <div style={{ marginBottom: 14 }}>
+              <TextField label="Confirm your password" type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
+              <p style={{ fontSize: 11, color: color.textFainter, marginTop: 5 }}>Leave blank if you signed up with Google.</p>
             </div>
+          )}
+          {deleteError && <p style={{ fontSize: 13, color: color.danger.fg, marginBottom: 10 }}>{deleteError}</p>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <button onClick={() => setDeleteOpen(false)} disabled={deleting} style={{ padding: "9px 16px", fontSize: 13, color: color.inkSoft, background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
+            <button onClick={handleDeleteAccount} disabled={deleting} style={{ padding: "10px 18px", fontSize: 13, fontWeight: 600, borderRadius: 7, border: "none", background: color.danger.fg, color: "#fff", cursor: "pointer" }}>{deleting ? "Deleting…" : "Delete forever"}</button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

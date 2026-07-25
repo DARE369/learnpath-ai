@@ -40,8 +40,10 @@ function usePWAImpl() {
 
   // Register service worker and set up event listeners
   useEffect(() => {
-    // Register service worker
-    if ("serviceWorker" in navigator) {
+    // Register service worker (production only — in dev it caches webpack
+    // chunks that go stale on every rebuild and fights Fast Refresh, causing
+    // reload loops).
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js", { scope: "/" })
         .then((registration) => {

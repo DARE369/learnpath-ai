@@ -1,19 +1,17 @@
-'use client';
-import { FileText, Link2, Upload } from 'lucide-react';
-
-import React, { useState } from 'react';
-import Head from 'next/head';
-import { useRouter } from 'next/router';
+import React, { useState } from "react";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import { color, font } from "../ui-v2/tokens";
 
 function token(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token');
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token");
 }
 
 export default function UploadPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'file' | 'url'>('file');
-  const [url, setUrl] = useState('');
+  const [mode, setMode] = useState<"file" | "url">("file");
+  const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,17 +22,13 @@ export default function UploadPage() {
     setError(null);
     try {
       const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/content/upload', {
-        method: 'POST',
-        headers: token() ? { Authorization: `Bearer ${token()}` } : {},
-        body: fd,
-      });
+      fd.append("file", file);
+      const res = await fetch("/api/content/upload", { method: "POST", headers: token() ? { Authorization: `Bearer ${token()}` } : {}, body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      if (!res.ok) throw new Error(data.detail || "Upload failed");
       router.push(`/content/${data.content_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(err instanceof Error ? err.message : "Upload failed");
       setLoading(false);
     }
   };
@@ -44,19 +38,12 @@ export default function UploadPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/content/upload-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
-        },
-        body: JSON.stringify({ url: url.trim() }),
-      });
+      const res = await fetch("/api/content/upload-url", { method: "POST", headers: { "Content-Type": "application/json", ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, body: JSON.stringify({ url: url.trim() }) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Could not ingest URL');
+      if (!res.ok) throw new Error(data.detail || "Could not ingest URL");
       router.push(`/content/${data.content_id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not ingest URL');
+      setError(err instanceof Error ? err.message : "Could not ingest URL");
       setLoading(false);
     }
   };
@@ -64,72 +51,39 @@ export default function UploadPage() {
   return (
     <>
       <Head><title>Upload Notes — LearnPath AI</title></Head>
-      <div className="min-h-screen bg-background">
-        <div className="max-w-2xl mx-auto px-6 py-12">
-          <h1 className="text-2xl font-bold text-white">Upload Your Notes</h1>
-          <p className="text-white/50 mt-1">
-            Turn any document into an AI explanation, flashcards, matched videos, and a practice quiz.
-          </p>
+      <div style={{ maxWidth: 600, fontFamily: font.body }}>
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: "0 0 6px" }}>Upload your own material</h1>
+        <div style={{ fontSize: 13.5, color: color.textFaint, marginBottom: 26, maxWidth: 520, lineHeight: 1.6 }}>Turn a document, PDF, or photo of handwritten notes into an AI explanation, flashcards, matched videos, and a quiz.</div>
 
-          <div className="flex gap-2 mt-6">
-            <button
-              onClick={() => setMode('file')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm border transition ${mode === 'file' ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-            ><FileText className="h-4 w-4" /> Upload file</button>
-            <button
-              onClick={() => setMode('url')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm border transition ${mode === 'url' ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-            ><Link2 className="h-4 w-4" /> Paste URL</button>
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 20px", textAlign: "center" }}>
+            <div style={{ width: 34, height: 34, border: "3px solid #E4E1D8", borderTopColor: "#2B3A67", borderRadius: "50%", marginBottom: 20, animation: "spin 0.8s linear infinite" }} />
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Extracting your content…</div>
           </div>
+        ) : (
+          <>
+            {error && <div style={{ fontSize: 13, color: color.danger.fg, background: color.danger.bg, borderRadius: 8, padding: "12px 16px", marginBottom: 12 }}>{error}</div>}
 
-          {error && (
-            <div className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-red-300 text-sm">{error}</div>
-          )}
-
-          <div className="mt-6">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-16 bg-surface-elevated border border-border rounded-2xl">
-                <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
-                <p className="text-white/50 text-sm">Extracting your content…</p>
-              </div>
-            ) : mode === 'file' ? (
-              <label className="block cursor-pointer">
-                <div className="border-2 border-dashed border-border rounded-2xl p-12 text-center bg-surface-elevated hover:border-accent transition">
-                  <Upload className="mx-auto mb-3 h-9 w-9 text-white/40" />
-                  <p className="text-white font-medium">Click to choose a file</p>
-                  <p className="text-white/40 text-sm mt-1">PDF, Word, Text, or Image · up to 50MB</p>
-                  <p className="text-white/30 text-xs mt-2">
-                    Scanned PDFs &amp; photos of notes are read with OCR.
-                  </p>
+            {mode === "file" && (
+              <label style={{ display: "block", cursor: "pointer", marginBottom: 16 }}>
+                <div style={{ border: "1.5px dashed #CFCBC0", borderRadius: 12, padding: "48px 24px", textAlign: "center", background: "#fff" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Click to select a file, or drag one here</div>
+                  <div style={{ fontSize: 12.5, color: color.textFaint }}>PDF, Word, text, Markdown, or image (OCR supported) · up to 50MB</div>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.txt,.md,.jpg,.jpeg,.png,.webp"
-                  onChange={handleFile}
-                />
+                <input type="file" style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.md,.jpg,.jpeg,.png,.webp" onChange={handleFile} />
               </label>
-            ) : (
-              <div className="bg-surface-elevated border border-border rounded-2xl p-6">
-                <input
-                  type="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleUrl()}
-                  placeholder="https://example.com/article"
-                  className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-white placeholder-white/30 focus:border-accent outline-none"
-                />
-                <button
-                  onClick={handleUrl}
-                  disabled={!url.trim()}
-                  className="mt-3 w-full px-4 py-3 bg-accent text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-40"
-                >
-                  Ingest URL
-                </button>
-              </div>
             )}
-          </div>
-        </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, color: color.textFaint, fontSize: 12.5 }}>
+              <div style={{ flex: 1, height: 1, background: color.border }} />or<div style={{ flex: 1, height: 1, background: color.border }} />
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleUrl()} placeholder="Paste a URL instead…" style={{ flex: 1, padding: "10px 14px", fontSize: 14, border: "1px solid #CFCBC0", borderRadius: 8, fontFamily: font.body }} />
+              <button onClick={handleUrl} disabled={!url.trim()} style={{ padding: "10px 20px", fontSize: 13.5, fontWeight: 600, borderRadius: 7, border: "none", cursor: url.trim() ? "pointer" : "not-allowed", background: url.trim() ? "#2B3A67" : "#B7BDD1", color: "#fff" }}>Go</button>
+            </div>
+          </>
+        )}
       </div>
     </>
   );

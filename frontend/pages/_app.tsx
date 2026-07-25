@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import AppShell from "../components/layout/AppShell";
+import AppShellV2 from "../ui-v2/AppShellV2";
 import { homeForRole } from "../components/layout/nav";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { ProgressProvider } from "../hooks/useProgress";
@@ -13,7 +14,11 @@ import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
 import { OfflineIndicator } from "../components/PWA/OfflineIndicator";
 import "../styles/globals.css";
 
-const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/onboarding", "/legal"];
+// Full-bleed "focus mode" screens render with no persistent nav chrome at
+// all (their own self-contained top bar instead) — true for both the
+// pre-auth pages and a few distraction-free in-app screens (a timed exam,
+// active video playback).
+const NO_CHROME_PATHS = ["/", "/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/onboarding", "/legal", "/exams/mock", "/learning", "/school/onboarding"];
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -50,6 +55,20 @@ function hidesChrome(pathname: string): boolean {
 
 function isStudentRole(role?: string): boolean {
   return !role || role === "student" || role === "user";
+}
+
+// Routes that have been migrated to the new (ui-v2) design system get the
+// new shell; everything else keeps the legacy AppShell until its own
+// migration lands. Add a route here in the same commit that migrates it.
+const V2_PATHS = [
+  "/dashboard", "/buddies", "/review", "/concepts", "/exams", "/history", "/rewards",
+  "/settings", "/billing", "/notes", "/upload", "/content", "/paths", "/courses", "/explore",
+  "/teacher/dashboard", "/teacher/class", "/teacher/students",
+  "/school/dashboard", "/school/roster", "/school/billing",
+];
+
+function usesV2Shell(pathname: string): boolean {
+  return V2_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
 // Which audience-area a path belongs to. Used to keep each role in its workspace.
@@ -161,7 +180,19 @@ function Shell({ Component, pageProps }: AppProps) {
     );
   }
 
-  // Authenticated app pages render inside the role-aware sidebar shell.
+  // Authenticated app pages render inside the role-aware sidebar shell —
+  // routes migrated to ui-v2 get the new shell, everything else keeps the
+  // legacy one until its own migration lands (see V2_PATHS above).
+  if (usesV2Shell(router.pathname)) {
+    return (
+      <AppShellV2>
+        <Component {...pageProps} />
+        <OfflineIndicator />
+        <PWAInstallPrompt />
+      </AppShellV2>
+    );
+  }
+
   return (
     <AppShell role={user?.role}>
       <Component {...pageProps} />

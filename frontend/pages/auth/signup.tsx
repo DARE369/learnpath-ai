@@ -1,148 +1,260 @@
-import React from "react";
-import { useRouter } from "next/router";
-import Link from "next/link";
+import React, { useMemo, useState } from "react";
 import Head from "next/head";
-import { Zap, Target, Brain, Lock } from "lucide-react";
-import SignupForm from "../../components/Auth/SignupForm";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import axios from "axios";
+import dynamic from "next/dynamic";
+import { useAuth } from "../../hooks/useAuth";
 import { homeForRole } from "../../components/layout/nav";
+import AuthSplitLayout from "../../ui-v2/AuthSplitLayout";
+import { TextField, FormError } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
+
+const GoogleButton = dynamic(() => import("../../components/Auth/GoogleButton"), {
+  ssr: false,
+  loading: () => <div style={{ height: 42, width: "100%", borderRadius: 7, border: "1px solid #CFCBC0" }} />,
+});
+
+const GOOGLE_BUTTON_CLASSNAME =
+  "flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-[#CFCBC0] bg-white hover:bg-[#F7F5F0] transition-colors text-sm font-semibold text-[#14171F] disabled:opacity-50 disabled:cursor-not-allowed w-full";
+
+type SignupRole = "student" | "teacher" | "school_admin";
+
+const ROLE_TABS: { value: SignupRole; label: string }[] = [
+  { value: "student", label: "Student" },
+  { value: "teacher", label: "Teacher" },
+  { value: "school_admin", label: "School" },
+];
+
+function normalizeRole(raw: unknown): SignupRole {
+  return raw === "teacher" || raw === "school_admin" ? raw : "student";
+}
+
+function passwordChecks(pw: string) {
+  return {
+    len: pw.length >= 8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    num: /[0-9]/.test(pw),
+    special: /[^A-Za-z0-9]/.test(pw),
+  };
+}
 
 export default function SignupPage() {
   const router = useRouter();
+  const { signup } = useAuth();
 
-  function handleSuccess(_token: string, role?: string) {
-    // Students land on the dashboard (the _app onboarding gate sends new students
-    // to /onboarding); teachers/school admins go straight to their workspace.
+  const [role, setRole] = useState<SignupRole>(() => normalizeRole(router.query.role));
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const checks = useMemo(() => passwordChecks(password), [password]);
+  const score = Object.values(checks).filter(Boolean).length;
+  const strengthPct = (score / 5) * 100;
+  const strengthColor = score <= 2 ? color.danger.fg : score <= 3 ? color.warning.fg : color.success.fg;
+  const confirmMismatch = confirmPassword.length > 0 && confirmPassword !== password;
+
+  function goHome() {
     router.push(homeForRole(role));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setEmailError(null);
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError("Enter a valid email address");
+      return;
+    }
+    if (!Object.values(checks).every(Boolean)) {
+      setError("Password must include at least 8 characters, uppercase, lowercase, a number, and a special character.");
+      return;
+    }
+    if (confirmMismatch) {
+      setError("Passwords don't match");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await signup(email, password, name, role);
+      goHome();
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const detail = err.response?.data?.detail;
+        if (err.response?.status === 400) {
+          if (typeof detail === "string" && detail.includes("Email already")) {
+            setEmailError("An account with this email already exists");
+          } else {
+            setError(detail || "Password does not meet requirements");
+          }
+        } else {
+          setError(detail || "Something went wrong. Please try again.");
+        }
+      } else {
+        setError("Network error. Check your connection.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
     <>
       <Head>
         <title>Create account — LearnPath AI</title>
-        <meta name="description" content="Create your free LearnPath AI account and start learning smarter" />
       </Head>
 
-      <div className="min-h-screen bg-background flex">
-        {/* Left panel — branding */}
-        <div className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 overflow-hidden">
-          {/* Background glow */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse at 30% 40%, rgba(99,102,241,0.18) 0%, transparent 65%), radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.12) 0%, transparent 55%)",
-            }}
-          />
-          {/* Subtle grid */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.03]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)",
-              backgroundSize: "60px 60px",
-            }}
-          />
-
-          {/* Logo */}
-          <div className="relative z-10">
-            <Link href="/" className="flex items-center gap-2.5 group w-fit">
-              <div className="w-9 h-9 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-sm">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-              </div>
-              <span className="text-white font-semibold text-lg tracking-tight">LearnPath AI</span>
+      <AuthSplitLayout
+        brandPanel={
+          <>
+            <Link href="/" style={{ textDecoration: "none", fontFamily: font.display, fontWeight: 600, fontSize: 20, color: color.chromeText }}>
+              LearnPath
             </Link>
-          </div>
-
-          {/* Hero copy */}
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-muted border border-accent/20 mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-slow" />
-              <span className="text-success text-xs font-medium">Free forever on the starter plan</span>
+            <div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: font.mono, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#C8792A", background: "#231C14", padding: "5px 11px", borderRadius: 100, marginBottom: 18 }}>
+                Early access
+              </div>
+              <div style={{ fontFamily: font.display, fontWeight: 500, fontSize: 22, lineHeight: 1.45, maxWidth: 380, marginBottom: 16 }}>
+                A watchable path, quality-scored and prerequisite-ordered — not just sorted by view count.
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#8B93AE", maxWidth: 360 }}>
+                We&rsquo;re not going to print a fake user count to look bigger than we are. Build one real path and see the rubric at work for yourself.
+              </div>
             </div>
+            <div style={{ fontSize: 12, color: "#5C6478" }}>© LearnPath AI · early access</div>
+          </>
+        }
+      >
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 25, margin: "0 0 8px" }}>Create your account</h1>
+        <p style={{ fontSize: 13.5, color: color.textFaint, margin: "0 0 22px" }}>Free to start. No card required.</p>
 
-            <h1 className="text-4xl xl:text-5xl font-bold text-white leading-[1.15] tracking-tight mb-5">
-              Start learning
-              <br />
-              <span className="bg-gradient-accent bg-clip-text text-transparent">the smart way</span>
-            </h1>
+        <div style={{ display: "flex", gap: 4, background: color.surfaceElevated, borderRadius: 8, padding: 3, marginBottom: 22 }}>
+          {ROLE_TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setRole(t.value)}
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "8px 0",
+                flex: 1,
+                borderRadius: 6,
+                cursor: "pointer",
+                border: "none",
+                background: role === t.value ? "#fff" : "transparent",
+                color: role === t.value ? color.ink : color.textFaint,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-            <p className="text-white/50 text-lg leading-relaxed max-w-sm">
-              Get a personalised curriculum built from the best educational content on YouTube — scored, structured, and sorted by AI.
-            </p>
+        {error && <FormError>{error}</FormError>}
 
-            {/* Benefits */}
-            <div className="mt-10 space-y-3">
-              {[
-                { Icon: Zap, text: "Learning paths in under 30 seconds" },
-                { Icon: Target, text: "Quality-scored videos only (EQS ≥ 65)" },
-                { Icon: Brain, text: "Prerequisite-ordered curriculum" },
-                { Icon: Lock, text: "No credit card required" },
-              ].map(({ Icon, text }) => (
-                <div key={text} className="flex items-center gap-3">
-                  <Icon className="h-4 w-4 flex-shrink-0 text-accent-light" />
-                  <span className="text-white/60 text-sm">{text}</span>
+        <div style={{ marginBottom: 16 }}>
+          <GoogleButton onSuccess={goHome} label="Continue with Google" buttonClassName={GOOGLE_BUTTON_CLASSNAME} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ flex: 1, height: 1, background: color.border }} />
+          <div style={{ fontSize: 11.5, color: color.textFainter }}>or with email</div>
+          <div style={{ flex: 1, height: 1, background: color.border }} />
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div style={{ marginBottom: 12 }}>
+            <TextField label="Full name (optional)" placeholder="Chidinma Okafor" value={name} onChange={(e) => setName(e.target.value)} disabled={submitting} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <TextField
+              label="Email"
+              type="email"
+              placeholder="student@school.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={emailError ?? undefined}
+              disabled={submitting}
+            />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Password</div>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={submitting}
+              style={{ width: "100%", padding: "10px 12px", fontSize: 14, fontFamily: font.body, border: "1px solid #CFCBC0", borderRadius: 6, background: "#fff", outline: "none", color: color.ink }}
+            />
+            {password && (
+              <>
+                <div style={{ height: 4, background: color.surfaceElevated, borderRadius: 100, overflow: "hidden", marginTop: 8 }}>
+                  <div style={{ height: "100%", width: `${strengthPct}%`, background: strengthColor, borderRadius: 100 }} />
                 </div>
-              ))}
-            </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 10px", marginTop: 8 }}>
+                  {[
+                    ["len", "8+ characters"],
+                    ["upper", "Uppercase letter"],
+                    ["lower", "Lowercase letter"],
+                    ["num", "A number"],
+                    ["special", "Special character"],
+                  ].map(([key, label]) => (
+                    <div key={key} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: checks[key as keyof typeof checks] ? color.success.fg : color.textFainter }}>
+                      <span>{checks[key as keyof typeof checks] ? "✓" : "○"}</span>
+                      {label}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
+          <div style={{ marginBottom: 20, marginTop: 12 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>Confirm password</div>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={submitting}
+              style={{ width: "100%", padding: "10px 12px", fontSize: 14, fontFamily: font.body, border: `1px solid ${confirmMismatch ? color.danger.fg : "#CFCBC0"}`, borderRadius: 6, background: "#fff", outline: "none", color: color.ink }}
+            />
+            {confirmMismatch && <div style={{ fontSize: 11.5, color: color.danger.fg, marginTop: 5 }}>Passwords don&rsquo;t match</div>}
+          </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              width: "100%",
+              padding: "11px 16px",
+              fontSize: 14.5,
+              fontWeight: 600,
+              borderRadius: 7,
+              border: "none",
+              background: submitting ? "#B7BDD1" : "#2B3A67",
+              color: submitting ? "#E4E7F0" : "#fff",
+              cursor: submitting ? "not-allowed" : "pointer",
+            }}
+          >
+            {submitting ? "Creating account…" : "Create account"}
+          </button>
+        </form>
 
-          {/* Testimonial */}
-          <div className="relative z-10 p-5 rounded-2xl bg-surface-elevated border border-border">
-            <p className="text-white/70 text-sm leading-relaxed mb-3">
-              &ldquo;I went from zero to deploying a full-stack app in 3 weeks. The learning path was spot-on — no fluff, just what I needed.&rdquo;
-            </p>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-accent flex items-center justify-center text-xs font-bold text-white">
-                S
-              </div>
-              <div>
-                <p className="text-white text-xs font-medium">Sarah K.</p>
-                <p className="text-white/35 text-xs">Software Engineer</p>
-              </div>
-            </div>
-          </div>
+        <div style={{ fontSize: 13, color: color.textFaint, textAlign: "center", marginTop: 20 }}>
+          Already have an account?{" "}
+          <Link href="/auth/login" style={{ textDecoration: "none", fontWeight: 600, color: "#2B3A67" }}>
+            Sign in
+          </Link>
         </div>
-
-        {/* Right panel — form */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-16">
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-10">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-accent flex items-center justify-center shadow-glow-sm">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-              </div>
-              <span className="text-white font-semibold text-lg tracking-tight">LearnPath AI</span>
-            </Link>
-          </div>
-
-          <div className="w-full max-w-[420px]">
-            {/* Header */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-white mb-1.5 tracking-tight">Create your account</h2>
-              <p className="text-white/45 text-sm">Join thousands learning smarter with AI</p>
-            </div>
-
-            {/* Card */}
-            <div className="auth-card">
-              <SignupForm onSuccess={handleSuccess} />
-            </div>
-
-            <p className="mt-5 text-center text-xs text-white/35">
-              By creating an account you agree to our{" "}
-              <Link href="/legal/terms" className="text-accent-light hover:text-white">Terms</Link>{" "}and{" "}
-              <Link href="/legal/privacy" className="text-accent-light hover:text-white">Privacy Policy</Link>.
-            </p>
-          </div>
-        </div>
-      </div>
+      </AuthSplitLayout>
     </>
   );
 }

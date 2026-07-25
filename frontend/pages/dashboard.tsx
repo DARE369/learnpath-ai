@@ -1,23 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Play, ArrowRight, Video, Brain, BookOpen, Clock, ArrowUpRight, AlertTriangle } from "lucide-react";
-import LearnerHome from "../components/Dashboard/LearnerHome";
-import ActivityHeatmap from "../components/Dashboard/ActivityHeatmap";
-import ProgressChart from "../components/Dashboard/ProgressChart";
-import TopicsChart from "../components/Dashboard/TopicsChart";
+import { useAuth } from "../hooks/useAuth";
+import { useProgress } from "../hooks/useProgress";
+import { useDashboardData } from "../hooks/useDashboardData";
+import { Card, LinkButton, Badge, ThresholdRing, SectionLabel, Skeleton, InlineError, type BadgeTone } from "../ui-v2/primitives";
+import { color, font } from "../ui-v2/tokens";
+import { streakTierMessage } from "../ui-v2/streak";
 import RecommendedCourses from "../components/Dashboard/RecommendedCourses";
 import RecentActivity from "../components/Dashboard/RecentActivity";
-import UsageAlert from "../components/Billing/UsageAlert";
-import AdBanner from "../components/Ads/AdBanner";
-import { Button, Card, StatTile, SectionHeader } from "../components/ui";
-import { Skeleton } from "../components/ui/Skeleton";
-import { useProgress } from "../hooks/useProgress";
-import { useAuth } from "../hooks/useAuth";
-import { useDashboardData } from "../hooks/useDashboardData";
-import type { UsageData } from "../components/Billing/UsageCard";
+import TopicsChart from "../components/Dashboard/TopicsChart";
+import ProgressChart from "../components/Dashboard/ProgressChart";
 
-// ─── Local types ────────────────────────────────────────────────────────────
+// ─── Local types (unchanged data shapes from the endpoints already in use) ──
 
 interface ReadinessScore {
   subject_id: string;
@@ -36,112 +31,63 @@ interface ActivePath {
   progress_percent: number;
 }
 
-// ─── Section error ───────────────────────────────────────────────────────────
-
-function SectionError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Card padding="md" className="text-center py-8">
-      <p className="text-sm text-white/50 mb-3">Failed to load data</p>
-      <button
-        onClick={onRetry}
-        className="text-xs text-accent-light hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
-      >
-        Retry
-      </button>
-    </Card>
-  );
+interface Buddy {
+  user_id: string;
+  name: string;
+  online: boolean;
+  streak_days: number;
+  avg_score: number | null;
+  connection_id: string;
 }
 
-// ─── Greeting helpers ────────────────────────────────────────────────────────
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token");
+}
 
 function getGreeting(): { emoji: string; text: string; secondary: string } {
   const h = new Date().getHours();
-  if (h < 12) {
-    return {
-      emoji: "🌤️",
-      text: "Good morning",
-      secondary: "Morning learners retain more — great time to get ahead.",
-    };
-  }
-  if (h < 17) {
-    return {
-      emoji: "☀️",
-      text: "Good afternoon",
-      secondary: "Keep the momentum going. You're doing great.",
-    };
-  }
-  return {
-    emoji: "🌙",
-    text: "Good evening",
-    secondary: "Evening sessions are great for review and consolidation.",
-  };
+  if (h < 12) return { emoji: "🌤️", text: "Good morning", secondary: "Morning learners retain more — great time to get ahead." };
+  if (h < 17) return { emoji: "☀️", text: "Good afternoon", secondary: "Keep the momentum going. You're doing great." };
+  return { emoji: "🌙", text: "Good evening", secondary: "Evening sessions are great for review and consolidation." };
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+function readinessLabel(score: number): { label: string; tone: BadgeTone } {
+  if (score >= 80) return { label: "Ready", tone: "success" };
+  if (score >= 60) return { label: "On track", tone: "success" };
+  if (score >= 40) return { label: "Needs work", tone: "warning" };
+  return { label: "Just starting", tone: "danger" };
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const userPlan = user?.tier || "free";
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
   const greeting = getGreeting();
 
-  const { stats, heatmap, weekly } = useProgress();
+  const { stats, streak, weekly } = useProgress();
 
-  // Time period toggle: "all" = cumulative stats, "week" = this-week sums
-  const [timePeriod, setTimePeriod] = useState<"all" | "week">("all");
-
+  const [period, setPeriod] = useState<"week" | "all">("all");
   const weekVideos = weekly.reduce((s, d) => s + (d.videos ?? 0), 0);
   const weekHours = weekly.reduce((s, d) => s + (d.minutes ?? 0), 0) / 60;
+  const daysStudiedThisWeek = weekly.filter((d) => (d.videos ?? 0) > 0 || (d.minutes ?? 0) > 0).length;
 
   const displayStats =
-    timePeriod === "week"
-      ? {
-          videos: weekVideos,
-          concepts: stats.conceptsMastered,
-          courses: stats.coursesStarted,
-          hours: weekHours,
-        }
-      : {
-          videos: stats.videosWatched,
-          concepts: stats.conceptsMastered,
-          courses: stats.coursesStarted,
-          hours: stats.hoursLearned,
-        };
+    period === "week"
+      ? { videos: weekVideos, concepts: stats.conceptsMastered, courses: stats.coursesStarted, hours: weekHours }
+      : { videos: stats.videosWatched, concepts: stats.conceptsMastered, courses: stats.coursesStarted, hours: stats.hoursLearned };
 
-  // Existing sections
-  const [usageData, setUsageData] = useState<UsageData | null>(null);
+  // Active path + exam readiness — same endpoints the previous dashboard used;
+  // the usage/plan-limit alert fetch was cut along with its banner (see
+  // decision note below) rather than ported here.
   const [activePath, setActivePath] = useState<ActivePath | null>(null);
   const [pathLoaded, setPathLoaded] = useState(false);
   const [readinessScores, setReadinessScores] = useState<ReadinessScore[]>([]);
-
-  // New sections via hook (recs, activity, topics)
-  const {
-    recs,
-    recsLoading,
-    recsError,
-    loadRecs,
-    activityItems,
-    activityLoading,
-    activityError,
-    loadActivity,
-    topicsData,
-    topicsLoading,
-    rateLimitCountdown,
-    isRateLimited,
-  } = useDashboardData();
+  const [buddies, setBuddies] = useState<Buddy[]>([]);
 
   useEffect(() => {
-    const t =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token")
-        : null;
+    const t = getToken();
     if (!t) return;
     const headers = { Authorization: `Bearer ${t}` };
-
-    fetch("/api/usage/current", { headers })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setUsageData(d as UsageData))
-      .catch(() => {});
 
     fetch("/api/adaptive-paths/active", { headers })
       .then((r) => (r.ok ? r.json() : null))
@@ -153,7 +99,15 @@ export default function DashboardPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.scores && setReadinessScores(d.scores))
       .catch(() => {});
+
+    fetch("/api/buddies/", { headers })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setBuddies((d?.buddies ?? []).slice(0, 3)))
+      .catch(() => {});
   }, []);
+
+  const { recs, recsLoading, recsError, loadRecs, activityItems, activityLoading, activityError, loadActivity, topicsData, topicsLoading, rateLimitCountdown, isRateLimited } =
+    useDashboardData();
 
   return (
     <>
@@ -161,218 +115,247 @@ export default function DashboardPage() {
         <title>Dashboard — LearnPath AI</title>
       </Head>
 
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6">
-
-        {/* ── Greeting (H1) ─────────────────────────────────────────────── */}
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+      <div>
+        {/* Greeting */}
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             <span>{greeting.emoji}</span>
-            {greeting.text}, {firstName}
+            {greeting.text}, {firstName}.
           </h1>
-          <p className="mt-1 text-sm text-white/50">{greeting.secondary}</p>
+          <div style={{ fontSize: 13, color: color.textFaint, marginTop: 4 }}>{greeting.secondary}</div>
         </div>
 
-        {/* 429 rate-limit banner */}
         {isRateLimited && (
-          <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>
-              Too many requests. Dashboard data will refresh in{" "}
-              <span className="tabular-nums font-semibold">{rateLimitCountdown}s</span>.
-            </span>
+          <div
+            style={{
+              border: `1px solid #E7B7AE`,
+              background: color.danger.bg,
+              borderRadius: 10,
+              padding: "14px 18px",
+              marginBottom: 20,
+              fontSize: 13.5,
+              color: "#7A2A20",
+            }}
+          >
+            Too many requests. Dashboard data will refresh in <b>{rateLimitCountdown}s</b>.
           </div>
         )}
 
-        {/* Usage limit alert */}
-        {usageData && <UsageAlert data={usageData} />}
-
-        {/* Continue learning hero */}
-        <Card padding="lg" className="bg-gradient-to-r from-accent-muted via-surface to-surface">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="min-w-0">
+        {/* Continue learning + this week */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 20, marginBottom: 20 }}>
+          <Card padding="lg" dark style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em", color: color.chromeTextFaint, marginBottom: 10 }}>
+                Continue learning
+              </div>
               {activePath ? (
                 <>
-                  <p className="text-sm text-white/50">Continue where you left off</p>
-                  <h2 className="mt-1 truncate text-xl font-bold text-white">{activePath.path_name}</h2>
-                  <p className="mt-1 text-sm text-white/40">
-                    {activePath.completed_modules}/{activePath.total_modules} modules ·{" "}
-                    {activePath.progress_percent}% complete
-                  </p>
+                  <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 22, marginBottom: 8 }}>{activePath.path_name}</div>
+                  <div style={{ fontSize: 13, color: color.chromeTextMuted, marginBottom: 18 }}>
+                    {activePath.completed_modules}/{activePath.total_modules} modules · {activePath.progress_percent}% complete
+                  </div>
                 </>
               ) : (
                 <>
-                  <h2 className="text-xl font-bold text-white">Ready to learn something new?</h2>
-                  <p className="mt-1 text-sm text-white/40">
-                    {pathLoaded
-                      ? "Pick a topic and we'll build a personalised path in seconds."
-                      : "Loading your progress…"}
-                  </p>
+                  <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 22, marginBottom: 8 }}>Ready to learn something new?</div>
+                  <div style={{ fontSize: 13, color: color.chromeTextMuted, marginBottom: 18 }}>
+                    {pathLoaded ? "Pick a topic and we'll build a personalised path in seconds." : "Loading your progress…"}
+                  </div>
                 </>
               )}
             </div>
             {activePath ? (
-              <Button href={`/paths/${activePath.id}`} leftIcon={<Play className="h-4 w-4" />}>
-                Continue learning
-              </Button>
+              <div>
+                <div style={{ height: 6, background: "#2A2E3A", borderRadius: 100, marginBottom: 14, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${activePath.progress_percent}%`, background: "#C8792A", borderRadius: 100 }} />
+                </div>
+                <LinkButton href={`/paths/${activePath.id}`} variant="secondary" style={{ background: "#F4F1EA", borderColor: "#F4F1EA", color: color.ink }}>
+                  Resume — {activePath.progress_percent}% complete
+                </LinkButton>
+              </div>
             ) : (
-              <Button href="/explore" leftIcon={<ArrowRight className="h-4 w-4" />}>
+              <LinkButton href="/paths" variant="secondary" style={{ background: "#F4F1EA", borderColor: "#F4F1EA", color: color.ink }}>
                 Explore topics
-              </Button>
+              </LinkButton>
             )}
-          </div>
-        </Card>
+          </Card>
 
-        {/* Upgrade banner */}
-        <AdBanner placement="banner" userPlan={userPlan} />
+          <Card padding="lg" style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{ flexShrink: 0 }}>
+              <ThresholdRing pct={Math.round((daysStudiedThisWeek / 7) * 100)} threshold={0} size={64} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: color.textFaint, marginBottom: 6 }}>
+                This week
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+                {streak}-day streak
+              </div>
+              <div style={{ fontSize: 13, color: color.inkSoft }}>{streakTierMessage(streak)}</div>
+              <div style={{ fontSize: 12, color: color.textFaint, marginTop: 4 }}>{daysStudiedThisWeek} of 7 study days this week</div>
+            </div>
+          </Card>
+        </div>
 
-        {/* ── Stats grid + time period toggle (H3) ──────────────────────── */}
-        <div>
-          {/* Toggle */}
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-white/30 font-medium uppercase tracking-wider">Overview</p>
-            <div className="flex items-center gap-1 rounded-lg border border-white/10 p-0.5">
-              {(["all", "week"] as const).map((p) => (
+        {/* Stats */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft }}>Your progress</div>
+            <div style={{ display: "flex", gap: 4, background: color.surfaceElevated, borderRadius: 7, padding: 3 }}>
+              {(["week", "all"] as const).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setTimePeriod(p)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    timePeriod === p
-                      ? "bg-white/10 text-white"
-                      : "text-white/40 hover:text-white/70"
-                  }`}
+                  onClick={() => setPeriod(p)}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: "6px 12px",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    border: "none",
+                    background: period === p ? "#fff" : "transparent",
+                    color: period === p ? color.ink : color.textFaint,
+                  }}
                 >
-                  {p === "all" ? "All time" : "This week"}
+                  {p === "week" ? "This week" : "All time"}
                 </button>
               ))}
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatTile
-              icon={<Video className="h-5 w-5" />}
-              label="Videos watched"
-              value={displayStats.videos}
-              color="accent"
-              href="/activity"
-            />
-            <StatTile
-              icon={<Brain className="h-5 w-5" />}
-              label="Concepts mastered"
-              value={displayStats.concepts}
-              color="success"
-              href="/concepts"
-            />
-            <StatTile
-              icon={<BookOpen className="h-5 w-5" />}
-              label="Courses started"
-              value={displayStats.courses}
-              color="info"
-              href="/explore"
-            />
-            <StatTile
-              icon={<Clock className="h-5 w-5" />}
-              label={`Hours learned${timePeriod === "week" ? " (week)" : ""}`}
-              value={displayStats.hours.toFixed(1)}
-              color="warning"
-              href="/activity"
-            />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+            <StatTileV2 value={displayStats.videos} label="Videos watched" href="/activity" />
+            <StatTileV2 value={displayStats.concepts} label="Concepts mastered" href="/concepts" />
+            <StatTileV2 value={displayStats.courses} label="Courses started" href="/paths" />
+            <StatTileV2 value={displayStats.hours.toFixed(1)} label={`Hours learned${period === "week" ? " (week)" : ""}`} href="/activity" />
           </div>
         </div>
 
         {/* Progress charts */}
-        <div>
-          <SectionHeader title="Your Progress" subtitle="Activity and course breakdown" />
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ProgressChart data={weekly} />
-            <TopicsChart data={topicsData} isLoading={topicsLoading} />
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 20, marginBottom: 24 }}>
+          <ProgressChart data={weekly} />
+          <TopicsChart data={topicsData} isLoading={topicsLoading} />
         </div>
 
-        {/* Exam readiness */}
-        {readinessScores.length > 0 && (
-          <div>
-            <SectionHeader title="Exam Readiness" subtitle="Updated after each study session" />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {readinessScores.map((s) => {
-                const pct = s.score;
-                const color =
-                  pct >= 70 ? "text-green-400" : pct >= 45 ? "text-amber-400" : "text-rose-400";
-                const barColor =
-                  pct >= 70 ? "bg-green-500" : pct >= 45 ? "bg-amber-500" : "bg-rose-500";
-                const label =
-                  pct >= 80 ? "Ready" : pct >= 60 ? "On track" : pct >= 40 ? "Needs work" : "Just starting";
-                return (
-                  <Card key={s.subject_id} padding="md" className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">{s.subject_name}</p>
-                        <p className={`mt-0.5 text-xs ${color}`}>{label}</p>
+        {/* Exam readiness + Study buddies */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, marginBottom: 24 }}>
+          {readinessScores.length > 0 && (
+            <div>
+              <SectionLabel>Exam readiness</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {readinessScores.map((r) => {
+                  const { label, tone } = readinessLabel(r.score);
+                  return (
+                    <Card key={r.subject_id} padding="md" style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                      <div style={{ flexShrink: 0 }}>
+                        <ThresholdRing pct={r.score} size={52} />
                       </div>
-                      <span className={`text-2xl font-bold tabular-nums ${color}`}>{pct}%</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>{r.subject_name}</div>
+                        {r.weak_topics.length > 0 && (
+                          <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 2 }}>Weak: {r.weak_topics.slice(0, 2).join(", ")}</div>
+                        )}
+                      </div>
+                      <Badge tone={tone}>{label}</Badge>
+                      <Link
+                        href={`/paths?q=${encodeURIComponent(r.subject_name)}&autorun=1`}
+                        style={{ fontSize: 11.5, color: "#2B3A67", fontWeight: 600, textDecoration: "none", flexShrink: 0, width: "100%" }}
+                      >
+                        Study now →
+                      </Link>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <SectionLabel>Study buddies</SectionLabel>
+            <Card padding="md">
+              {buddies.length === 0 ? (
+                <p style={{ fontSize: 13, color: color.textFaint, margin: 0 }}>
+                  No buddies yet.{" "}
+                  <Link href="/buddies" style={{ color: "#2B3A67" }}>
+                    Find one to stay accountable →
+                  </Link>
+                </p>
+              ) : (
+                buddies.map((b) => (
+                  <div key={b.connection_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${color.borderMuted}` }}>
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: "50%", background: color.surfaceElevated, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, color: color.inkSoft }}>
+                        {b.name.slice(0, 2).toUpperCase()}
+                      </div>
                       <div
-                        className={`h-1.5 rounded-full transition-all duration-700 ${barColor}`}
-                        style={{ width: `${Math.max(3, pct)}%` }}
+                        style={{
+                          position: "absolute",
+                          bottom: -1,
+                          right: -1,
+                          width: 9,
+                          height: 9,
+                          borderRadius: "50%",
+                          background: b.online ? color.success.fg : "#D9D5C9",
+                          border: "2px solid #fff",
+                        }}
                       />
                     </div>
-                    {s.weak_topics.length > 0 && (
-                      <p className="truncate text-xs text-white/40">
-                        Focus: {s.weak_topics.slice(0, 2).join(", ")}
-                      </p>
-                    )}
-                    <Link
-                      href={`/explore?q=${encodeURIComponent(s.subject_name)}&autorun=1`}
-                      className="text-xs text-accent-light transition-colors hover:text-white"
-                    >
-                      Study now →
-                    </Link>
-                  </Card>
-                );
-              })}
-            </div>
+                    <div style={{ flex: 1, fontSize: 13, fontWeight: 500, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
+                    <div style={{ fontFamily: font.mono, fontSize: 12, color: color.textFaint, flexShrink: 0 }}>{b.streak_days}d</div>
+                  </div>
+                ))
+              )}
+            </Card>
           </div>
-        )}
-
-        {/* Learner home: goal, performance, weekly bars, milestones, achievements */}
-        <LearnerHome />
-
-        {/* Activity heatmap */}
-        <div>
-          <SectionHeader title="Activity" subtitle="Your last 16 weeks" />
-          <Card padding="md">
-            <ActivityHeatmap data={heatmap} weeks={16} />
-          </Card>
         </div>
 
-        {/* Recommended courses */}
-        <div>
-          <SectionHeader
-            title="Recommended for You"
+        {/* Study tools */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
+          <Link href="/upload" style={{ textDecoration: "none" }}>
+            <Card padding="md" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 18 }}>↑</span>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: color.ink }}>Upload your own material</div>
+                <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>Turn a doc or photo into notes, flashcards &amp; a quiz</div>
+              </div>
+            </Card>
+          </Link>
+          <Link href="/notes" style={{ textDecoration: "none" }}>
+            <Card padding="md" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 18 }}>☰</span>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: color.ink }}>Study notes library</div>
+                <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>Revisit AI notes from videos you&rsquo;ve watched</div>
+              </div>
+            </Card>
+          </Link>
+        </div>
+
+        {/* Recommended */}
+        <div style={{ marginBottom: 24 }}>
+          <SectionLabel
             action={
-              <Link
-                href="/explore"
-                className="inline-flex items-center gap-1 text-sm text-accent-light hover:text-white transition-colors"
-              >
-                See all <ArrowUpRight className="h-3.5 w-3.5" />
+              <Link href="/paths" style={{ fontSize: 12.5, color: "#2B3A67", textDecoration: "none", fontWeight: 600 }}>
+                See all →
               </Link>
             }
-          />
+          >
+            Recommended for you
+          </SectionLabel>
           {recsLoading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-72 rounded-2xl" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} style={{ height: 140 }} />
               ))}
             </div>
           ) : recsError ? (
-            <SectionError onRetry={loadRecs} />
+            <InlineError message="Failed to load data" onRetry={loadRecs} />
           ) : recs && recs.length > 0 ? (
             <RecommendedCourses courses={recs} />
           ) : (
-            <Card padding="md" className="py-8 text-center">
-              <p className="text-sm text-white/50">
+            <Card padding="md" style={{ textAlign: "center", padding: "32px 20px" }}>
+              <p style={{ fontSize: 13.5, color: color.inkSoft, margin: 0 }}>
                 No recommendations yet.{" "}
-                <Link href="/explore" className="text-accent-light hover:text-white">
+                <Link href="/paths" style={{ color: "#2B3A67" }}>
                   Explore courses
                 </Link>{" "}
                 to get started.
@@ -383,32 +366,50 @@ export default function DashboardPage() {
 
         {/* Recent activity */}
         <div>
-          <SectionHeader
-            title="Recent Activity"
+          <SectionLabel
             action={
-              <Link
-                href="/activity"
-                className="inline-flex items-center gap-1 text-sm text-accent-light hover:text-white transition-colors"
-              >
-                View all <ArrowUpRight className="h-3.5 w-3.5" />
+              <Link href="/activity" style={{ fontSize: 12.5, color: "#2B3A67", textDecoration: "none", fontWeight: 600 }}>
+                View full history →
               </Link>
             }
-          />
+          >
+            Recent activity
+          </SectionLabel>
           {activityLoading ? (
-            <Card padding="md" className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-xl" />
+            <Card padding="md">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} style={{ height: 44, marginBottom: i < 3 ? 8 : 0 }} />
               ))}
             </Card>
           ) : activityError ? (
-            <SectionError onRetry={loadActivity} />
+            <InlineError message="Failed to load data" onRetry={loadActivity} />
+          ) : !activityItems || activityItems.length === 0 ? (
+            <Card padding="md" style={{ textAlign: "center", padding: "32px 20px" }}>
+              <p style={{ fontSize: 13.5, color: color.inkSoft, margin: 0 }}>
+                No activity yet. Start learning to see your history here.{" "}
+                <Link href="/paths" style={{ color: "#2B3A67" }}>
+                  Explore courses →
+                </Link>
+              </p>
+            </Card>
           ) : (
             <Card padding="md">
-              <RecentActivity items={activityItems ?? []} />
+              <RecentActivity items={activityItems} />
             </Card>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+function StatTileV2({ value, label, href }: { value: string | number; label: string; href: string }) {
+  return (
+    <Link href={href} style={{ textDecoration: "none" }}>
+      <Card padding="md">
+        <div style={{ fontFamily: font.mono, fontSize: 24, fontWeight: 600, color: color.ink }}>{value}</div>
+        <div style={{ fontSize: 12.5, color: color.textFaint, marginTop: 4 }}>{label}</div>
+      </Card>
+    </Link>
   );
 }

@@ -1,3 +1,6 @@
+// Orphaned by the ui-v2 Create Account migration — pages/auth/signup.tsx now
+// owns this form directly (ui-v2 styling, same useAuth().signup logic). Safe
+// to delete once confirmed unneeded elsewhere.
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";

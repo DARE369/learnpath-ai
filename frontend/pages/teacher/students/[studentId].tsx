@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { ArrowLeft, Mail, Clock, Target, CheckCircle2, XCircle, TrendingDown } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
-import { Card, Button, Badge, ProgressBar, SectionHeader, Skeleton, EmptyState } from "../../../components/ui";
-import { StudentProfile, STATUS_LABEL, STATUS_TONE, timeAgo } from "../../../components/Teacher/types";
+import { STATUS_LABEL, STATUS_TONE, timeAgo, type StudentProfile } from "../../../components/Teacher/types";
+import { Card, Badge, ProgressBar } from "../../../ui-v2/primitives";
+import { color, font } from "../../../ui-v2/tokens";
+
+function badgeTone(t: "error" | "success" | "warning"): "danger" | "success" | "warning" {
+  return t === "error" ? "danger" : t;
+}
 
 export default function StudentProfilePage() {
   const router = useRouter();
@@ -19,9 +23,7 @@ export default function StudentProfilePage() {
   useEffect(() => {
     if (!studentId || !classId || !accessToken) return;
     setLoading(true);
-    fetch(`/api/teachers/students/${studentId}?class_id=${encodeURIComponent(classId)}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    fetch(`/api/teachers/students/${studentId}?class_id=${encodeURIComponent(classId)}`, { headers: { Authorization: `Bearer ${accessToken}` } })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setProfile)
       .catch(() => setError("Couldn't load this student."))
@@ -33,118 +35,105 @@ export default function StudentProfilePage() {
   return (
     <>
       <Head><title>{profile?.student.name || "Student"} — LearnPath AI</title></Head>
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <button onClick={backToClass} className="mb-4 inline-flex items-center gap-1.5 text-sm text-accent-light hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Back to class
-        </button>
+      <div style={{ maxWidth: 980, fontFamily: font.body }}>
+        <button onClick={backToClass} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#2B5FA8", background: "none", border: "none", cursor: "pointer", marginBottom: 16 }}>← Back to class</button>
 
         {loading ? (
-          <Skeleton className="h-72 w-full" />
+          <div style={{ textAlign: "center", padding: 60, color: color.textFaint }}>Loading…</div>
         ) : error || !profile ? (
-          <EmptyState title="Student not found" description={error || "No data for this student."} />
+          <Card padding="lg" style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Student not found</div>
+            <div style={{ fontSize: 13.5, color: color.textFaint }}>{error || "No data for this student."}</div>
+          </Card>
         ) : (
           <>
-            {/* Header */}
-            <div className="mb-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold text-white">{profile.student.name}</h1>
-                <Badge tone={STATUS_TONE[profile.enrollment.status]}>{STATUS_LABEL[profile.enrollment.status]}</Badge>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/50">
-                {profile.student.email && <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" />{profile.student.email}</span>}
-                <span>·</span><span>{profile.enrollment.class_name}</span>
-                {profile.enrollment.enrolled_at && <><span>·</span><span>Enrolled {new Date(profile.enrollment.enrolled_at).toLocaleDateString()}</span></>}
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
+              <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 26, margin: 0 }}>{profile.student.name}</h1>
+              <Badge tone={badgeTone(STATUS_TONE[profile.enrollment.status])}>{STATUS_LABEL[profile.enrollment.status]}</Badge>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 13, color: color.textFaint, marginBottom: 22 }}>
+              {profile.student.email && <span>{profile.student.email}</span>}
+              <span>· {profile.enrollment.class_name}</span>
+              {profile.enrollment.enrolled_at && <span>· Enrolled {new Date(profile.enrollment.enrolled_at).toLocaleDateString()}</span>}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="space-y-6 lg:col-span-2">
-                {/* Performance */}
-                <Card padding="md">
-                  <SectionHeader title="Performance" />
-                  <div className="space-y-4">
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+              <div>
+                <Card padding="md" style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Performance</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <Metric label="Current score" value={`${profile.performance.current_score}%`} pct={profile.performance.current_score} />
-                    <Metric label="Path progress" value={`${profile.performance.progress_percent}%`} pct={profile.performance.progress_percent} color="success" />
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="inline-flex items-center gap-2 text-white/50"><Clock className="h-4 w-4" />Time invested</span>
-                      <span className="font-semibold text-white">{profile.performance.time_invested_hours}h</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/50">Last activity</span>
-                      <span className="font-semibold text-white">{timeAgo(profile.performance.last_active)}</span>
-                    </div>
+                    <Metric label="Path progress" value={`${profile.performance.progress_percent}%`} pct={profile.performance.progress_percent} tone="success" />
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span style={{ color: color.textFaint }}>Time invested</span><b>{profile.performance.time_invested_hours}h</b></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span style={{ color: color.textFaint }}>Last activity</span><b>{timeAgo(profile.performance.last_active)}</b></div>
                   </div>
                 </Card>
 
-                {/* Score breakdown */}
-                <Card padding="md">
-                  <SectionHeader title="Score breakdown" subtitle="By concept · lowest first" />
+                <Card padding="md" style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Score breakdown</div>
+                  <div style={{ fontSize: 11.5, color: color.textFaint, marginBottom: 14 }}>By concept · lowest first</div>
                   {profile.score_breakdown.length === 0 ? (
-                    <p className="text-sm text-white/40">No concept data yet.</p>
+                    <p style={{ fontSize: 13, color: color.textFaint }}>No concept data yet.</p>
                   ) : (
-                    <div className="space-y-3">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       {profile.score_breakdown.slice(0, 8).map((c, i) => (
                         <div key={c.name}>
-                          <div className="mb-1 flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-1.5 text-white/70">
-                              {c.name}{i === 0 && <Badge tone="warning" className="ml-1">focus area</Badge>}
-                            </span>
-                            <span className="tabular-nums text-white/50">{c.accuracy}%</span>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                            <span>{c.name}{i === 0 && <span style={{ marginLeft: 6 }}><Badge tone="warning">focus area</Badge></span>}</span>
+                            <span style={{ color: color.textFaint }}>{c.accuracy}%</span>
                           </div>
-                          <ProgressBar value={c.accuracy} color={c.accuracy < 50 ? "error" : c.accuracy < 70 ? "warning" : "success"} size="sm" />
+                          <ProgressBar value={c.accuracy} tone={c.accuracy < 50 ? "danger" : c.accuracy < 70 ? "warning" : "success"} />
                         </div>
                       ))}
                     </div>
                   )}
                 </Card>
 
-                {/* Activity timeline */}
                 <Card padding="md">
-                  <SectionHeader title="Recent activity" />
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Recent activity</div>
                   {profile.activity_timeline.length === 0 ? (
-                    <p className="text-sm text-white/40">No recent activity.</p>
+                    <p style={{ fontSize: 13, color: color.textFaint }}>No recent activity.</p>
                   ) : (
-                    <ul className="space-y-3">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       {profile.activity_timeline.map((t, i) => (
-                        <li key={i} className="flex items-start gap-3">
-                          {t.passed ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" /> : <XCircle className="mt-0.5 h-4 w-4 text-error" />}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white">{t.title}{t.score != null && ` (${t.score}%)`}</p>
-                            <p className="text-xs text-white/40">{timeAgo(t.occurred_at)}</p>
+                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <span style={{ color: t.passed ? color.success.fg : color.danger.fg }}>{t.passed ? "✓" : "✗"}</span>
+                          <div>
+                            <div style={{ fontSize: 13 }}>{t.title}{t.score != null && ` (${t.score}%)`}</div>
+                            <div style={{ fontSize: 11.5, color: color.textFaint }}>{timeAgo(t.occurred_at)}</div>
                           </div>
-                        </li>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </Card>
               </div>
 
-              {/* Sidebar */}
-              <div className="space-y-6">
-                <Card padding="md">
-                  <h3 className="mb-3 text-sm font-semibold text-white">Actions</h3>
-                  <div className="space-y-2">
-                    <Button fullWidth size="sm" variant="secondary" onClick={backToClass}>Back to class</Button>
-                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Send message</Button>
-                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Assign remedial</Button>
-                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Create quiz</Button>
-                    <Button fullWidth size="sm" variant="ghost" disabled title="Coming soon">Flag for parent</Button>
+              <div>
+                <Card padding="md" style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Actions</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button onClick={backToClass} style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: `1px solid ${color.border}`, background: "#fff", cursor: "pointer" }}>Back to class</button>
+                    <button disabled title="Coming soon" style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: "none", background: "none", color: color.textFainter, cursor: "not-allowed", textAlign: "left" }}>Send message</button>
+                    <button disabled title="Coming soon" style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: "none", background: "none", color: color.textFainter, cursor: "not-allowed", textAlign: "left" }}>Assign remedial</button>
+                    <button disabled title="Coming soon" style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: "none", background: "none", color: color.textFainter, cursor: "not-allowed", textAlign: "left" }}>Create quiz</button>
+                    <button disabled title="Coming soon" style={{ padding: "9px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 7, border: "none", background: "none", color: color.textFainter, cursor: "not-allowed", textAlign: "left" }}>Flag for parent</button>
                   </div>
                 </Card>
 
                 <Card padding="md">
-                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white"><TrendingDown className="h-4 w-4 text-error" />Weak concepts</h3>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Weak concepts</div>
                   {profile.weak_concepts.length === 0 ? (
-                    <p className="flex items-center gap-2 text-sm text-white/40"><Target className="h-4 w-4" />No weak concepts flagged.</p>
+                    <p style={{ fontSize: 13, color: color.textFaint }}>No weak concepts flagged.</p>
                   ) : (
-                    <ul className="space-y-2">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {profile.weak_concepts.map((c) => (
-                        <li key={c.name} className="flex items-center justify-between text-sm">
-                          <span className="text-white/70">{c.name}</span>
-                          <span className="font-semibold text-error tabular-nums">{c.accuracy}%</span>
-                        </li>
+                        <div key={c.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                          <span>{c.name}</span>
+                          <span style={{ fontWeight: 600, color: color.danger.fg }}>{c.accuracy}%</span>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </Card>
               </div>
@@ -156,14 +145,11 @@ export default function StudentProfilePage() {
   );
 }
 
-function Metric({ label, value, pct, color }: { label: string; value: string; pct: number; color?: "accent" | "success" }) {
+function Metric({ label, value, pct, tone }: { label: string; value: string; pct: number; tone?: "success" }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-white/50">{label}</span>
-        <span className="font-semibold text-white tabular-nums">{value}</span>
-      </div>
-      <ProgressBar value={pct} color={color || "accent"} />
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}><span style={{ color: color.textFaint }}>{label}</span><b>{value}</b></div>
+      <ProgressBar value={pct} tone={tone || "accent"} />
     </div>
   );
 }

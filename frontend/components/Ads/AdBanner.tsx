@@ -5,6 +5,11 @@
  * timer. Returns null for paid users so callers can render it unconditionally.
  *
  * "Ads" here are LearnPath AI's own upgrade prompts, not third-party ads.
+ *
+ * Orphaned by the ui-v2 Dashboard migration — the new Dashboard design has
+ * no ad/upgrade banner and this had no other caller. It's revenue-relevant,
+ * so before deleting it, decide where this nudge should live now rather
+ * than just dropping it.
  */
 
 import React, { useEffect, useState } from "react";

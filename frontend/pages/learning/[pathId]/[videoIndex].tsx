@@ -11,40 +11,11 @@ import AITutorPanel from "../../../components/Learning/AITutorPanel";
 import QuizModal from "../../../components/Quiz/QuizModal";
 import ProgressTracker from "../../../components/Learning/ProgressTracker";
 import ConceptSidebar from "../../../components/Learning/ConceptSidebar";
+import SessionSidebarTabs from "../../../components/Learning/SessionSidebarTabs";
 import QuestionCard from "../../../components/Learning/QuestionCard";
+import { color, font } from "../../../ui-v2/tokens";
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
-
-const DEMO_VIDEOS = [
-  {
-    index: 0,
-    title: "Introduction to Machine Learning",
-    youtubeId: "ukzFI9rgwfU",
-    durationSeconds: 845,
-    summary: "This video introduces machine learning concepts, including supervised and unsupervised learning, model training, and how algorithms learn from data patterns.",
-  },
-  {
-    index: 1,
-    title: "Supervised Learning Fundamentals",
-    youtubeId: "1vsmaEfbnoE",
-    durationSeconds: 1260,
-    summary: "Covers supervised learning in depth: labelled datasets, training/test splits, loss functions, and how models generalise from training examples to new data.",
-  },
-  {
-    index: 2,
-    title: "Neural Networks Explained",
-    youtubeId: "aircAruvnKk",
-    durationSeconds: 1020,
-    summary: "Explains neural network architecture, layers, activation functions, and how networks approximate complex functions by composing simple nonlinear transformations.",
-  },
-  {
-    index: 3,
-    title: "Backpropagation & Gradient Descent",
-    youtubeId: "Ilg3gGewQ5U",
-    durationSeconds: 930,
-    summary: "Details the backpropagation algorithm and gradient descent optimisation, showing how networks compute gradients and update weights to minimise the loss function.",
-  },
-];
+// ─── Demo data (last-resort fallback only, see derivedConcepts below) ──────
 
 const DEMO_CONCEPTS = [
   { name: "Supervised Learning", status: "mastered" as const, mastery: 92, description: "Training a model on labelled input-output pairs so it can generalise to unseen examples." },
@@ -53,8 +24,6 @@ const DEMO_CONCEPTS = [
   { name: "Backpropagation", status: "not_started" as const, mastery: 0 },
   { name: "Overfitting", status: "not_started" as const, mastery: 0 },
 ];
-
-// ─── AI question state ────────────────────────────────────────────────────────
 
 interface AIQuestion {
   question: string;
@@ -65,36 +34,15 @@ interface AIQuestion {
   estimated_time_seconds?: number;
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
-interface PathVideo {
-  index: number;
-  title: string;
-  youtubeId: string;
-  durationSeconds: number;
-  summary: string;
-}
-
+interface PathVideo { index: number; title: string; youtubeId: string; durationSeconds: number; summary: string; }
 interface BuiltPathLite {
   topic_id: string;
   topic_name: string;
-  learning_path: Array<{
-    video_id?: string;
-    youtube_id: string;
-    title: string;
-    duration_minutes?: number;
-    summary?: string;
-  }>;
+  learning_path: Array<{ video_id?: string; youtube_id: string; title: string; duration_minutes?: number; summary?: string }>;
 }
 
 function pathVideoFromApi(v: BuiltPathLite["learning_path"][number], i: number): PathVideo {
-  return {
-    index: i,
-    title: v.title || `Video ${i + 1}`,
-    youtubeId: v.youtube_id || "",
-    durationSeconds: Math.max(60, (v.duration_minutes || 0) * 60),
-    summary: v.summary || "",
-  };
+  return { index: i, title: v.title || `Video ${i + 1}`, youtubeId: v.youtube_id || "", durationSeconds: Math.max(60, (v.duration_minutes || 0) * 60), summary: v.summary || "" };
 }
 
 export default function LearningSessionPage() {
@@ -124,35 +72,23 @@ export default function LearningSessionPage() {
   const [notes, setNotes] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const progressDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<VideoPlayerHandle>(null);
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [quizOpen, setQuizOpen] = useState(false);
   const [chapterQuiz, setChapterQuiz] = useState<{ chunkId: string; chapterTitle: string; questions: QuizQuestion[] } | null>(null);
-  // Chunks are lifted here so VideoPlayer can receive boundaries for pause-at-end.
   const [chunks, setChunks] = useState<Chunk[]>([]);
-  const activeChunkIdx = useMemo(
-    () => chunks.findIndex((c) => currentSeconds >= c.start_seconds && currentSeconds < c.end_seconds),
-    [chunks, currentSeconds],
-  );
+  const activeChunkIdx = useMemo(() => chunks.findIndex((c) => currentSeconds >= c.start_seconds && currentSeconds < c.end_seconds), [chunks, currentSeconds]);
 
   const accessToken = useMemo(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token");
   }, []);
+  const authHeader = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
 
-  const authHeader = useMemo(
-    (): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    [accessToken],
-  );
-
-  // Load the actual built path. Priority:
-  //  1. sessionStorage stash from SearchTopicForm (instant)
-  //  2. GET /api/search/path/{topic_id} (cache lookup, no rebuild)
-  //  3. Error state — no silent fallback to demo content.
   useEffect(() => {
     if (!router.isReady || !decodedPathId) return;
     let cancelled = false;
-
     const stashKey = `builtPath:${decodedPathId}`;
     try {
       const raw = sessionStorage.getItem(stashKey);
@@ -165,14 +101,11 @@ export default function LearningSessionPage() {
           return;
         }
       }
-    } catch { /* stashed value malformed — fall through to fetch */ }
+    } catch { /* fall through to fetch */ }
 
     (async () => {
       try {
-        const res = await axios.get<BuiltPathLite>(
-          `/api/search/path/${encodeURIComponent(decodedPathId)}`,
-          { headers: authHeader },
-        );
+        const res = await axios.get<BuiltPathLite>(`/api/search/path/${encodeURIComponent(decodedPathId)}`, { headers: authHeader });
         if (cancelled) return;
         if (res.data?.learning_path?.length) {
           setBuiltVideos(res.data.learning_path.map(pathVideoFromApi));
@@ -186,175 +119,117 @@ export default function LearningSessionPage() {
         if (!cancelled) setPathLoading(false);
       }
     })();
-
     return () => { cancelled = true; };
   }, [router.isReady, decodedPathId, authHeader]);
 
-  // Start session on mount
   useEffect(() => {
     if (!router.isReady || !pathId) return;
     const start = async () => {
       try {
-        const res = await axios.post(
-          "/api/sessions/start",
-          {
-            topic_id: "00000000-0000-0000-0000-000000000001",
-            video_index: videoIndex,
-            youtube_id: currentVideo.youtubeId,
-            path_id: String(pathId),
-          },
-          { headers: authHeader },
-        );
+        const res = await axios.post("/api/sessions/start", { topic_id: "00000000-0000-0000-0000-000000000001", video_index: videoIndex, youtube_id: currentVideo.youtubeId, path_id: String(pathId) }, { headers: authHeader });
         setSessionId(res.data.session_id);
-      } catch {
-        // Graceful degradation — session tracking is not critical for viewing
-      }
+      } catch { /* non-critical */ }
     };
     start();
   }, [router.isReady, pathId, videoIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleProgress = useCallback(
-    (pct: number, positionSeconds: number, watchTimeSeconds: number) => {
-      setVideoProgress((prev) => ({ ...prev, [videoIndex]: Math.max(prev[videoIndex] ?? 0, pct) }));
-      setTotalWatchSeconds((prev) => Math.max(prev, watchTimeSeconds));
-      setCurrentSeconds(positionSeconds);
-      if (!sessionId) return;
-      if (progressDebounce.current) clearTimeout(progressDebounce.current);
-      progressDebounce.current = setTimeout(async () => {
-        try {
-          await axios.put(
-            `/api/sessions/progress/${sessionId}`,
-            { watch_percentage: pct, last_position_seconds: positionSeconds, total_watch_time_seconds: watchTimeSeconds, playback_speed: 1.0 },
-            { headers: authHeader },
-          );
-        } catch { /* Non-blocking */ }
-      }, 5000);
-    },
-    [sessionId, videoIndex, authHeader], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    axios.get(`/api/sessions/${sessionId}`, { headers: authHeader })
+      .then((res) => { if (!cancelled && typeof res.data?.notes === "string") setNotes(res.data.notes); })
+      .catch(() => { /* seed silently fails, notes stay empty */ });
+    return () => { cancelled = true; };
+  }, [sessionId, authHeader]);
+
+  const handleNotesChange = useCallback((value: string) => {
+    setNotes(value);
+    if (!sessionId) return;
+    if (notesDebounce.current) clearTimeout(notesDebounce.current);
+    notesDebounce.current = setTimeout(async () => {
+      try {
+        await axios.put(`/api/sessions/progress/${sessionId}`, { watch_percentage: videoProgress[videoIndex] ?? 0, last_position_seconds: currentSeconds, total_watch_time_seconds: totalWatchSeconds, playback_speed: 1.0, notes: value }, { headers: authHeader });
+      } catch { /* non-blocking */ }
+    }, 5000);
+  }, [sessionId, videoProgress, videoIndex, currentSeconds, totalWatchSeconds, authHeader]);
+
+  const handleProgress = useCallback((pct: number, positionSeconds: number, watchTimeSeconds: number) => {
+    setVideoProgress((prev) => ({ ...prev, [videoIndex]: Math.max(prev[videoIndex] ?? 0, pct) }));
+    setTotalWatchSeconds((prev) => Math.max(prev, watchTimeSeconds));
+    setCurrentSeconds(positionSeconds);
+    if (!sessionId) return;
+    if (progressDebounce.current) clearTimeout(progressDebounce.current);
+    progressDebounce.current = setTimeout(async () => {
+      try {
+        await axios.put(`/api/sessions/progress/${sessionId}`, { watch_percentage: pct, last_position_seconds: positionSeconds, total_watch_time_seconds: watchTimeSeconds, playback_speed: 1.0 }, { headers: authHeader });
+      } catch { /* non-blocking */ }
+    }, 5000);
+  }, [sessionId, videoIndex, authHeader]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleVideoComplete = useCallback(async () => {
     setCompletedVideos((prev) => new Set(prev).add(videoIndex));
-    if (sessionId) {
-      axios.post(`/api/sessions/complete/${sessionId}`, {}, { headers: authHeader }).catch(() => {});
-    }
-
-    // Generate AI question
+    if (sessionId) axios.post(`/api/sessions/complete/${sessionId}`, {}, { headers: authHeader }).catch(() => {});
     setQuestionLoading(true);
     setShowQuestion(true);
     try {
-      const res = await fetch("/api/questions/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({
-          video_summary: currentVideo.summary,
-          concept_name: currentVideo.title,
-          difficulty: "medium",
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAiQuestion(data as AIQuestion);
-      }
-    } catch {
-      // Show question panel even without AI — fallback handled in render
-    } finally {
-      setQuestionLoading(false);
-    }
+      const res = await fetch("/api/questions/generate", { method: "POST", headers: { "Content-Type": "application/json", ...authHeader }, body: JSON.stringify({ video_summary: currentVideo.summary, concept_name: currentVideo.title, difficulty: "medium" }) });
+      if (res.ok) setAiQuestion((await res.json()) as AIQuestion);
+    } catch { /* fallback UI handles missing question */ }
+    finally { setQuestionLoading(false); }
   }, [sessionId, videoIndex, currentVideo, authHeader]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAnswerSubmit = useCallback(
-    (score: number, feedback: string) => {
-      void feedback;
-      setShowQuestion(false);
-      setAiQuestion(null);
-      const hasNext = videoIndex < videos.length - 1;
-      if (score >= 0 && hasNext) {
-        router.push(`/learning/${pathId}/${videoIndex + 1}`);
-      } else if (!hasNext) {
-        router.push(`/dashboard?pathComplete=true`);
-      }
-    },
-    [videoIndex, pathId, router, videos.length],
-  );
+  const handleAnswerSubmit = useCallback((score: number, feedback: string) => {
+    void feedback;
+    setShowQuestion(false);
+    setAiQuestion(null);
+    const hasNext = videoIndex < videos.length - 1;
+    if (score >= 0 && hasNext) router.push(`/learning/${pathId}/${videoIndex + 1}`);
+    else if (!hasNext) router.push(`/dashboard?pathComplete=true`);
+  }, [videoIndex, pathId, router, videos.length]);
 
-  // Fired by VideoPlayer when it pauses at a chunk boundary.
   const handleChunkComplete = useCallback((chunkIdx: number) => {
     const chunk = chunks[chunkIdx];
     if (!chunk) return;
     const validQs = chunk.quiz.questions.filter((q) => q.question_text && q.options?.length > 0);
     if (!validQs.length) {
-      // No valid questions — advance automatically
       const next = chunks[chunkIdx + 1];
-      if (next) {
-        playerRef.current?.seekTo(next.start_seconds);
-        playerRef.current?.play();
-      } else {
-        handleVideoComplete();
-      }
+      if (next) { playerRef.current?.seekTo(next.start_seconds); playerRef.current?.play(); }
+      else handleVideoComplete();
       return;
     }
     setChapterQuiz({ chunkId: chunk.id, chapterTitle: chunk.title, questions: chunk.quiz.questions });
   }, [chunks, handleVideoComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fired by ChapterQuizModal "Next chapter" button.
   const handleChapterQuizComplete = useCallback((scorePercent: number) => {
     void scorePercent;
     const completedIdx = chunks.findIndex((c) => c.id === chapterQuiz?.chunkId);
     setChapterQuiz(null);
     const nextIdx = completedIdx + 1;
-    if (nextIdx < chunks.length) {
-      const next = chunks[nextIdx];
-      playerRef.current?.seekTo(next.start_seconds);
-      playerRef.current?.play();
-    } else {
-      handleVideoComplete();
-    }
+    if (nextIdx < chunks.length) { const next = chunks[nextIdx]; playerRef.current?.seekTo(next.start_seconds); playerRef.current?.play(); }
+    else handleVideoComplete();
   }, [chunks, chapterQuiz, handleVideoComplete]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleNavigate = (idx: number) => {
-    router.push(`/learning/${pathId}/${idx}`);
-  };
+  const handleNavigate = (idx: number) => { router.push(`/learning/${pathId}/${idx}`); };
 
-  const videosWithProgress = videos.map((v, i) => ({
-    ...v,
-    index: i,
-    watchPercentage: videoProgress[i] ?? 0,
-    completed: completedVideos.has(i),
-  }));
+  const videosWithProgress = videos.map((v, i) => ({ ...v, index: i, watchPercentage: videoProgress[i] ?? 0, completed: completedVideos.has(i) }));
 
-  // Pull the user's real concept mastery from /api/progress/concepts so the
-  // sidebar reflects what they've actually learned. Falls back gracefully if
-  // the endpoint fails (e.g. no auth, no concept_progress rows yet).
   const [conceptMastery, setConceptMastery] = useState<Record<string, { status: string; mastery: number }>>({});
   useEffect(() => {
     if (!accessToken) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get<{ concepts: Array<{ concept_name: string; status: string; mastery_score: number }> }>(
-          "/api/progress/concepts",
-          { headers: authHeader },
-        );
+        const res = await axios.get<{ concepts: Array<{ concept_name: string; status: string; mastery_score: number }> }>("/api/progress/concepts", { headers: authHeader });
         if (cancelled) return;
         const map: Record<string, { status: string; mastery: number }> = {};
-        for (const c of res.data.concepts || []) {
-          map[c.concept_name.toLowerCase()] = {
-            status: c.status,
-            mastery: Math.round(c.mastery_score * 100),
-          };
-        }
+        for (const c of res.data.concepts || []) map[c.concept_name.toLowerCase()] = { status: c.status, mastery: Math.round(c.mastery_score * 100) };
         setConceptMastery(map);
-      } catch { /* non-fatal — sidebar shows derived defaults */ }
+      } catch { /* sidebar shows derived defaults */ }
     })();
     return () => { cancelled = true; };
   }, [accessToken, authHeader]);
 
-  // Derive concepts from the chunks' key_concepts (transcript-grounded, accurate).
-  // Falls back to path-builder concepts while chunks haven't loaded yet, and
-  // to DEMO_CONCEPTS for demo paths with no data at all.
   const derivedConcepts = useMemo(() => {
-    // Primary: aggregate key_concepts from all chunks for this video
     if (chunks.length > 0) {
       const seen = new Set<string>();
       const list: { name: string; status: "mastered" | "learning" | "not_started"; mastery: number }[] = [];
@@ -363,22 +238,12 @@ export default function LearningSessionPage() {
           if (seen.has(c)) return;
           seen.add(c);
           const real = conceptMastery[c.toLowerCase()];
-          if (real) {
-            list.push({
-              name: c,
-              status: real.status === "mastered" ? "mastered" : real.mastery > 0 ? "learning" : "not_started",
-              mastery: real.mastery,
-            });
-          } else {
-            // No recorded progress yet — user is actively watching, so "learning"
-            list.push({ name: c, status: "learning", mastery: 0 });
-          }
+          if (real) list.push({ name: c, status: real.status === "mastered" ? "mastered" : real.mastery > 0 ? "learning" : "not_started", mastery: real.mastery });
+          else list.push({ name: c, status: "learning", mastery: 0 });
         });
       });
       if (list.length > 0) return list;
     }
-
-    // Fallback while chunks haven't loaded: use path-builder concepts for this video
     if (builtVideos) {
       const raw = typeof window !== "undefined" ? sessionStorage.getItem(`builtPath:${decodedPathId}`) : null;
       if (raw) {
@@ -391,17 +256,12 @@ export default function LearningSessionPage() {
             if (seen.has(c)) return;
             seen.add(c);
             const real = conceptMastery[c.toLowerCase()];
-            list.push({
-              name: c,
-              status: real ? (real.status === "mastered" ? "mastered" : real.mastery > 0 ? "learning" : "not_started") : "learning",
-              mastery: real?.mastery ?? 0,
-            });
+            list.push({ name: c, status: real ? (real.status === "mastered" ? "mastered" : real.mastery > 0 ? "learning" : "not_started") : "learning", mastery: real?.mastery ?? 0 });
           });
           if (list.length > 0) return list;
-        } catch { /* malformed stash — ignore */ }
+        } catch { /* malformed stash */ }
       }
     }
-
     return DEMO_CONCEPTS;
   }, [chunks, conceptMastery, builtVideos, decodedPathId, videoIndex]);
 
@@ -410,10 +270,10 @@ export default function LearningSessionPage() {
 
   if (pathLoading) {
     return (
-      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/50 text-sm">Loading your path…</p>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: color.chromeBg, fontFamily: font.body }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 36, height: 36, border: "3px solid #2A2E3A", borderTopColor: "#C8792A", borderRadius: "50%", margin: "0 auto 16px", animation: "spin 0.8s linear infinite" }} />
+          <p style={{ color: color.chromeTextMuted, fontSize: 13.5 }}>Loading your path…</p>
         </div>
       </div>
     );
@@ -421,23 +281,11 @@ export default function LearningSessionPage() {
 
   if (pathLoadError || videos.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center px-4">
-        <div className="text-center max-w-sm">
-          <div className="w-14 h-14 rounded-2xl bg-surface-elevated border border-border flex items-center justify-center mx-auto mb-5">
-            <svg className="w-7 h-7 text-white/30" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-          </div>
-          <h2 className="text-white font-semibold text-lg mb-2">Path not found</h2>
-          <p className="text-white/50 text-sm mb-6">
-            This learning path could not be loaded. It may have expired or never been built.
-          </p>
-          <Link
-            href="/explore"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-accent text-white text-sm font-semibold shadow-glow-sm hover:opacity-90 transition-opacity"
-          >
-            Back to Explore
-          </Link>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: color.chromeBg, padding: 20, fontFamily: font.body }}>
+        <div style={{ textAlign: "center", maxWidth: 360 }}>
+          <h2 style={{ color: color.chromeText, fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Path not found</h2>
+          <p style={{ color: color.chromeTextMuted, fontSize: 13.5, marginBottom: 24 }}>This learning path could not be loaded. It may have expired or never been built.</p>
+          <Link href="/paths" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 10, background: "#F4F1EA", color: "#14171F", fontSize: 13.5, fontWeight: 600, textDecoration: "none" }}>Back to Explore</Link>
         </div>
       </div>
     );
@@ -445,283 +293,104 @@ export default function LearningSessionPage() {
 
   return (
     <>
-      <Head>
-        <title>{currentVideo.title} — LearnPath AI</title>
-      </Head>
+      <Head><title>{currentVideo.title} — LearnPath AI</title></Head>
 
-      <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
-        {/* Top nav */}
-        <header className="sticky top-0 z-50 bg-[#0f0f0f]/90 backdrop-blur-xl border-b border-white/[0.06]">
-          <div className="max-w-screen-2xl mx-auto px-4 h-14 flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-white/40 hover:text-white/80 transition-colors text-sm">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </Link>
-            <div className="w-px h-4 bg-white/10" />
-            <div className="flex items-center gap-2 text-sm min-w-0">
-              <span className="text-white/30 truncate hidden sm:block">
-                {(builtTopicName || "Learning Path").slice(0, 60) || "Learning Path"}
-              </span>
-              <svg className="w-3 h-3 text-white/20 flex-shrink-0 hidden sm:block" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-              <span className="text-white/70 truncate font-medium">{currentVideo.title}</span>
-            </div>
-            <div className="flex-1" />
-            {chunks.length > 0 && (
-              <div className="hidden sm:flex items-center gap-2.5">
-                <span className="text-xs text-white/30 tabular-nums">
-                  Chapter {Math.max(activeChunkIdx, 0) + 1} of {chunks.length}
-                </span>
-                <div className="flex items-center gap-1">
-                  {chunks.map((_, i) => (
-                    <span
-                      key={i}
-                      className={`h-1.5 rounded-full transition-all ${
-                        i < activeChunkIdx
-                          ? "w-1.5 bg-success"
-                          : i === activeChunkIdx
-                          ? "w-4 bg-accent"
-                          : "w-1.5 bg-white/15"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <div className="w-px h-4 bg-white/10" />
-              </div>
-            )}
-            <span className="text-xs text-white/30 tabular-nums hidden sm:block">
-              {videoIndex + 1} / {videos.length}
-            </span>
-            <button
-              onClick={() => setSidebarOpen((v) => !v)}
-              className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70 transition-colors"
-              aria-label="Toggle sidebar"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
-              </svg>
-            </button>
+      <div style={{ minHeight: "100vh", background: color.chromeBg, color: color.chromeText, display: "flex", flexDirection: "column", fontFamily: font.body }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", borderBottom: `1px solid ${color.chromeBorder}`, flexWrap: "wrap" }}>
+          <Link href="/paths" style={{ color: color.chromeTextMuted, textDecoration: "none", fontSize: 13, flexShrink: 0 }}>← Exit</Link>
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{(builtTopicName || "Learning Path").slice(0, 60)}</div>
+            <div style={{ fontSize: 11.5, color: color.textFainter }}>Video {videoIndex + 1} of {videos.length} · {currentVideo.title}</div>
           </div>
-        </header>
+          {chunks.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {chunks.map((_, i) => (
+                <span key={i} style={{ height: 6, width: i === activeChunkIdx ? 16 : 6, borderRadius: 100, background: i < activeChunkIdx ? color.success.fg : i === activeChunkIdx ? "#C8792A" : color.chromeBorder }} />
+              ))}
+            </div>
+          )}
+          <button onClick={() => setSidebarOpen((v) => !v)} title={sidebarOpen ? "Hide sidebar" : "Show sidebar"} style={{ background: "none", border: "none", color: color.chromeTextMuted, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>{sidebarOpen ? "Hide sidebar" : "Show sidebar"}</button>
+        </div>
 
-        {/* Main content */}
-        <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-6">
-          <div className={`grid gap-6 ${sidebarOpen ? "lg:grid-cols-[13fr_7fr]" : "grid-cols-1"}`}>
-            {/* Left column: player + question */}
-            <div className="flex flex-col gap-4 min-w-0">
-              <VideoPlayer
-                ref={playerRef}
-                youtubeId={currentVideo.youtubeId}
-                onProgress={handleProgress}
-                onComplete={handleVideoComplete}
-                chunks={chunks}
-                activeChunkIndex={activeChunkIdx}
-                onChunkComplete={handleChunkComplete}
-              />
+        <div style={{ flex: 1, display: "flex", gap: 24, padding: "24px 20px", maxWidth: 1400, margin: "0 auto", width: "100%" }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+            <VideoPlayer ref={playerRef} youtubeId={currentVideo.youtubeId} onProgress={handleProgress} onComplete={handleVideoComplete} chunks={chunks} activeChunkIndex={activeChunkIdx} onChunkComplete={handleChunkComplete} />
 
-              {/* Mobile chapter quick-nav (horizontal scroll) */}
-              {chunks.length > 0 && (
-                <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                  {chunks.map((c, i) => {
-                    const isDone = i < activeChunkIdx;
-                    const isActive = i === activeChunkIdx;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          playerRef.current?.seekTo(c.start_seconds);
-                          playerRef.current?.play();
-                        }}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                          isActive
-                            ? "bg-accent text-white"
-                            : isDone
-                            ? "bg-success-muted text-success"
-                            : "bg-white/5 text-white/40 hover:bg-white/10"
-                        }`}
-                      >
-                        {isDone ? <Check className="h-3 w-3" /> : <span>{c.chunk_number}</span>}
-                        {c.title}
-                      </button>
-                    );
-                  })}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>{currentVideo.title}</h1>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                  <span style={{ fontSize: 12, color: color.textFainter }}>Video {videoIndex + 1} of {videos.length}</span>
+                  {completedVideos.has(videoIndex) && <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#34D399" }}><Check size={12} /> Completed</span>}
                 </div>
-              )}
+              </div>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={() => hasPrev && handleNavigate(videoIndex - 1)} disabled={!hasPrev} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${color.chromeBorder}`, background: "transparent", color: color.chromeTextMuted, fontSize: 13, cursor: hasPrev ? "pointer" : "not-allowed", opacity: hasPrev ? 1 : 0.4 }}>← Previous</button>
+                <button onClick={() => hasNext && handleNavigate(videoIndex + 1)} disabled={!hasNext} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#2B3A67", color: "#fff", fontSize: 13, fontWeight: 600, cursor: hasNext ? "pointer" : "not-allowed", opacity: hasNext ? 1 : 0.4 }}>Next video →</button>
+              </div>
+            </div>
 
-              {/* Video metadata */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h1 className="text-lg font-semibold text-white leading-snug">{currentVideo.title}</h1>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-xs text-white/30">Video {videoIndex + 1} of {videos.length}</span>
-                    {completedVideos.has(videoIndex) && (
-                      <span className="flex items-center gap-1 text-xs text-emerald-400">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Completed
-                      </span>
-                    )}
+            <ChaptersList youtubeId={currentVideo.youtubeId} accessToken={accessToken} currentSeconds={currentSeconds} onSeekTo={(s) => { playerRef.current?.seekTo(s); playerRef.current?.play(); }} onChunksLoaded={setChunks} />
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>Test your knowledge</div>
+                <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>Take a short adaptive quiz on this topic — difficulty adjusts to you.</div>
+              </div>
+              <button onClick={() => setQuizOpen(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 8, border: "none", background: "#C8792A", color: "#14171F", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}><Target size={15} /> Start quiz</button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>Study notes</div>
+                <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>Turn this video into AI study notes — 5 styles, flashcards, downloadable.</div>
+              </div>
+              <Link href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 8, border: `1px solid ${color.chromeBorder}`, color: color.chromeText, fontSize: 13, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}><BookOpen size={15} /> Generate notes</Link>
+            </div>
+
+            {showQuestion && (
+              <div>
+                {questionLoading ? (
+                  <div style={{ background: "#1D2230", borderRadius: 12, border: "1px solid #3A5A8F", padding: 22 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>Generating comprehension question…</div>
+                    <div style={{ fontSize: 12, color: color.textFainter, marginTop: 4 }}>Claude is crafting a question tailored to this video</div>
                   </div>
-                </div>
-                {/* Navigation */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => hasPrev && handleNavigate(videoIndex - 1)}
-                    disabled={!hasPrev}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm text-white/60 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Prev
-                  </button>
-                  <button
-                    onClick={() => hasNext && handleNavigate(videoIndex + 1)}
-                    disabled={!hasNext}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm text-white font-medium disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Next
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Chapters (NEW-PACKET-B video chunking) */}
-              <ChaptersList
-                youtubeId={currentVideo.youtubeId}
-                accessToken={accessToken}
-                currentSeconds={currentSeconds}
-                onSeekTo={(s) => {
-                  playerRef.current?.seekTo(s);
-                  playerRef.current?.play();
-                }}
-                onChunksLoaded={setChunks}
-              />
-
-              {/* Adaptive quiz prompt (NEW-PACKET-C) */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="min-w-0">
-                  <p className="text-white font-medium">Test your knowledge</p>
-                  <p className="text-white/50 text-sm">
-                    Take a short adaptive quiz on this topic — difficulty adjusts to you.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setQuizOpen(true)}
-                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
-                >
-                  <Target className="h-4 w-4" /> Start quiz
-                </button>
-              </div>
-
-              {/* Study notes prompt (NEW-PACKET-D) */}
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="min-w-0">
-                  <p className="text-white font-medium">Study notes</p>
-                  <p className="text-white/50 text-sm">
-                    Turn this video into AI study notes — 5 styles, flashcards, downloadable.
-                  </p>
-                </div>
-                <Link
-                  href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`}
-                  className="inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl border border-white/15 text-white text-sm font-medium hover:bg-white/10 transition-colors"
-                >
-                  <BookOpen className="h-4 w-4" /> Generate notes
-                </Link>
-              </div>
-
-              {/* Question panel */}
-              {showQuestion && (
-                <div className="animate-slide-up">
-                  {questionLoading ? (
-                    <div className="bg-[#1c1c1c] rounded-2xl border border-indigo-500/20 p-6 flex items-center gap-4">
-                      <svg className="w-5 h-5 animate-spin text-indigo-400 flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                      </svg>
-                      <div>
-                        <p className="text-sm font-medium text-white">Generating comprehension question…</p>
-                        <p className="text-xs text-white/30 mt-0.5">Claude is crafting a question tailored to this video</p>
-                      </div>
-                    </div>
-                  ) : aiQuestion ? (
-                    <QuestionCard
-                      sessionId={sessionId}
-                      question={aiQuestion.question}
-                      questionType={aiQuestion.type}
-                      options={aiQuestion.options}
-                      correctAnswer={aiQuestion.correct_answer}
-                      difficulty={aiQuestion.difficulty}
-                      estimatedTime={aiQuestion.estimated_time_seconds}
-                      conceptName={currentVideo.title}
-                      topicId={decodedPathId}
-                      onAnswerSubmit={handleAnswerSubmit}
-                      onSkip={() => setShowQuestion(false)}
-                    />
-                  ) : (
-                    // Fallback when API is unavailable
-                    <div className="bg-[#1c1c1c] rounded-2xl border border-white/[0.06] p-5">
-                      <p className="text-sm text-white/60 mb-3">
-                        In your own words, what was the most important concept from this video?
-                      </p>
-                      <button
-                        onClick={() => setShowQuestion(false)}
-                        className="text-xs text-white/30 hover:text-white/60 transition-colors"
-                      >
-                        Skip for now
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Mobile sidebar */}
-              {!sidebarOpen && (
-                <div className="lg:hidden grid sm:grid-cols-2 gap-4">
-                  <ProgressTracker
-                    videos={videosWithProgress}
-                    currentIndex={videoIndex}
-                    totalWatchSeconds={totalWatchSeconds}
-                    onNavigate={handleNavigate}
+                ) : aiQuestion ? (
+                  <QuestionCard
+                    sessionId={sessionId}
+                    question={aiQuestion.question}
+                    questionType={aiQuestion.type}
+                    options={aiQuestion.options}
+                    correctAnswer={aiQuestion.correct_answer}
+                    difficulty={aiQuestion.difficulty}
+                    estimatedTime={aiQuestion.estimated_time_seconds}
+                    conceptName={currentVideo.title}
+                    topicId={decodedPathId}
+                    onAnswerSubmit={handleAnswerSubmit}
+                    onSkip={() => setShowQuestion(false)}
                   />
-                  <ConceptSidebar
-                    concepts={derivedConcepts}
-                    videoTitle={currentVideo.title}
-                    notes={notes}
-                    onNotesChange={setNotes}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Right sidebar */}
-            {sidebarOpen && (
-              <div className="hidden lg:flex flex-col gap-4">
-                <ProgressTracker
-                  videos={videosWithProgress}
-                  currentIndex={videoIndex}
-                  totalWatchSeconds={totalWatchSeconds}
-                  onNavigate={handleNavigate}
-                />
-                <div className="flex-1" style={{ minHeight: 400 }}>
-                  <ConceptSidebar
-                    concepts={derivedConcepts}
-                    videoTitle={currentVideo.title}
-                    notes={notes}
-                    onNotesChange={setNotes}
-                  />
-                </div>
+                ) : (
+                  <div style={{ background: "#1D2230", borderRadius: 12, border: `1px solid ${color.chromeBorder}`, padding: 18 }}>
+                    <p style={{ fontSize: 13.5, color: color.chromeTextMuted, marginBottom: 10 }}>In your own words, what was the most important concept from this video?</p>
+                    <button onClick={() => setShowQuestion(false)} style={{ background: "none", border: "none", color: color.textFainter, fontSize: 12, cursor: "pointer" }}>Skip for now</button>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </main>
+
+          {sidebarOpen && (
+            <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+              <ProgressTracker videos={videosWithProgress} currentIndex={videoIndex} totalWatchSeconds={totalWatchSeconds} onNavigate={handleNavigate} />
+              <div style={{ flex: 1, minHeight: 400, display: "flex" }}>
+                <SessionSidebarTabs
+                  masteryContent={<ConceptSidebar concepts={derivedConcepts} videoTitle={currentVideo.title} notes={notes} onNotesChange={handleNotesChange} />}
+                  lexiContent={(active) => <AITutorPanel accessToken={accessToken} subject={builtTopicName || undefined} videoTitle={currentVideo.title} learningPathId={decodedPathId || undefined} active={active} />}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {chapterQuiz && (
@@ -730,26 +399,12 @@ export default function LearningSessionPage() {
           chapterTitle={chapterQuiz.chapterTitle}
           questions={chapterQuiz.questions}
           accessToken={accessToken}
-          onClose={() => {
-            setChapterQuiz(null);
-            playerRef.current?.play(); // resume if user skips quiz
-          }}
+          onClose={() => { setChapterQuiz(null); playerRef.current?.play(); }}
           onComplete={handleChapterQuizComplete}
         />
       )}
 
-      <QuizModal
-        isOpen={quizOpen}
-        onClose={() => setQuizOpen(false)}
-        topicName={currentVideo.title}
-      />
-
-      <AITutorPanel
-        accessToken={accessToken}
-        subject={builtTopicName || undefined}
-        videoTitle={currentVideo.title}
-        learningPathId={decodedPathId || undefined}
-      />
+      <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} topicName={currentVideo.title} />
     </>
   );
 }

@@ -1,4 +1,9 @@
+// Orphaned by the ui-v2 Dashboard migration — re-homed on the History page's
+// Activity tab, above the flat activity list.
 import React from "react";
+import { Card } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
+import { chartColor } from "../../ui-v2/charts";
 
 interface DayActivity {
   date: string;
@@ -19,14 +24,6 @@ function getIntensity(minutes: number): 0 | 1 | 2 | 3 | 4 {
   return 4;
 }
 
-const intensityStyles = [
-  "bg-white/[0.04] border-white/[0.06]",          // 0 — none
-  "bg-indigo-900/60 border-indigo-800/40",          // 1 — light
-  "bg-indigo-700/60 border-indigo-600/40",          // 2 — moderate
-  "bg-indigo-500/70 border-indigo-400/40",          // 3 — active
-  "bg-indigo-400/90 border-indigo-300/50",          // 4 — very active
-];
-
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,9 +32,7 @@ function buildGrid(data: DayActivity[], weeks: number): (DayActivity | null)[][]
   const today = new Date();
   const totalDays = weeks * 7;
 
-  const grid: (DayActivity | null)[][] = Array.from({ length: 7 }, () =>
-    new Array(weeks).fill(null)
-  );
+  const grid: (DayActivity | null)[][] = Array.from({ length: 7 }, () => new Array(weeks).fill(null));
 
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(today);
@@ -76,85 +71,57 @@ export default function ActivityHeatmap({ data, weeks = 16 }: ActivityHeatmapPro
   const gap = 3;
 
   return (
-    <div className="bg-[#141414] rounded-2xl border border-white/[0.06] p-6">
-      <div className="flex items-center justify-between mb-5">
+    <Card padding="md" style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h3 className="text-sm font-semibold text-white">Activity Heatmap</h3>
-          <p className="text-xs text-white/30 mt-0.5">
+          <div style={{ fontSize: 13, fontWeight: 600, color: color.ink }}>Activity Heatmap</div>
+          <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>
             {data.filter((d) => d.minutes > 0).length} active days in the last {weeks} weeks
-          </p>
+          </div>
         </div>
-        {/* Legend */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-white/30">Less</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontSize: 11, color: color.textFaint }}>Less</span>
           {[0, 1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className={`w-3 h-3 rounded-sm border ${intensityStyles[i]}`}
-            />
+            <div key={i} style={{ width: 12, height: 12, borderRadius: 3, border: `1px solid ${color.border}`, background: chartColor.heatmapScale[i] }} />
           ))}
-          <span className="text-[11px] text-white/30">More</span>
+          <span style={{ fontSize: 11, color: color.textFaint }}>More</span>
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="overflow-x-auto">
-        <div className="relative" style={{ minWidth: weeks * (cellSize + gap) + 32 }}>
-          {/* Month labels */}
-          <div className="flex mb-1 ml-8">
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ position: "relative", minWidth: weeks * (cellSize + gap) + 32 }}>
+          <div style={{ display: "flex", marginBottom: 4, marginLeft: 32, position: "relative", height: 14 }}>
             {monthLabels.map(({ label, col }) => (
-              <div
-                key={`${label}-${col}`}
-                className="text-[10px] text-white/30 absolute"
-                style={{ left: 32 + col * (cellSize + gap) }}
-              >
+              <div key={`${label}-${col}`} style={{ fontSize: 10, color: color.textFaint, position: "absolute", left: col * (cellSize + gap) }}>
                 {label}
               </div>
             ))}
           </div>
-          <div className="h-4" />
 
-          <div className="flex gap-0">
-            {/* Day labels */}
-            <div className="flex flex-col mr-2" style={{ gap }}>
+          <div style={{ display: "flex" }}>
+            <div style={{ display: "flex", flexDirection: "column", marginRight: 8, gap }}>
               {DAYS.map((day, i) => (
-                <div
-                  key={day}
-                  className="text-[10px] text-white/25 flex items-center"
-                  style={{ height: cellSize, opacity: i % 2 === 0 ? 1 : 0 }}
-                >
+                <div key={day} style={{ fontSize: 10, color: color.textFainter, display: "flex", alignItems: "center", height: cellSize, opacity: i % 2 === 0 ? 1 : 0 }}>
                   {day}
                 </div>
               ))}
             </div>
 
-            {/* Cells */}
-            <div className="flex" style={{ gap }}>
+            <div style={{ display: "flex", gap }}>
               {Array.from({ length: weeks }).map((_, w) => (
-                <div key={w} className="flex flex-col" style={{ gap }}>
+                <div key={w} style={{ display: "flex", flexDirection: "column", gap }}>
                   {grid.map((row, d) => {
                     const cell = row[w];
-                    if (!cell) {
-                      return (
-                        <div
-                          key={d}
-                          className="rounded-sm opacity-0"
-                          style={{ width: cellSize, height: cellSize }}
-                        />
-                      );
-                    }
+                    if (!cell) return <div key={d} style={{ width: cellSize, height: cellSize, opacity: 0 }} />;
                     const intensity = getIntensity(cell.minutes);
                     return (
                       <div
                         key={d}
-                        className={`rounded-sm border cursor-default transition-opacity hover:opacity-80 ${intensityStyles[intensity]}`}
-                        style={{ width: cellSize, height: cellSize }}
+                        style={{ width: cellSize, height: cellSize, borderRadius: 3, border: `1px solid ${color.border}`, background: chartColor.heatmapScale[intensity], cursor: "default" }}
                         onMouseEnter={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           setTooltip({
-                            text: cell.minutes > 0
-                              ? `${cell.date}: ${cell.minutes}m · ${cell.videos} video${cell.videos !== 1 ? "s" : ""}`
-                              : `${cell.date}: No activity`,
+                            text: cell.minutes > 0 ? `${cell.date}: ${cell.minutes}m · ${cell.videos} video${cell.videos !== 1 ? "s" : ""}` : `${cell.date}: No activity`,
                             x: rect.left,
                             y: rect.top,
                           });
@@ -170,15 +137,11 @@ export default function ActivityHeatmap({ data, weeks = 16 }: ActivityHeatmapPro
         </div>
       </div>
 
-      {/* Floating tooltip */}
       {tooltip && (
-        <div
-          className="fixed z-50 bg-[#1c1c1c] border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 shadow-xl pointer-events-none"
-          style={{ left: tooltip.x + 18, top: tooltip.y - 10 }}
-        >
+        <div style={{ position: "fixed", zIndex: 50, left: tooltip.x + 18, top: tooltip.y - 10, background: color.chromeBg, color: color.chromeText, borderRadius: 8, padding: "8px 12px", fontSize: 12, fontFamily: font.body, pointerEvents: "none", boxShadow: "0 8px 24px rgba(20,23,31,0.25)" }}>
           {tooltip.text}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

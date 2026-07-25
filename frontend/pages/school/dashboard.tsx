@@ -1,31 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-  AlertTriangle,
-  ArrowUpRight,
-  Bell,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Database,
-  GraduationCap,
-  HelpCircle,
-  RefreshCw,
-  TrendingDown,
-  TrendingUp,
-  Upload,
-  UserPlus,
-  Users,
-  XCircle,
-  Zap,
-} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-import { Button, Card, Skeleton } from "../../components/ui";
-import SchoolLayout from "../../components/School/SchoolLayout";
+import { Card, Badge, Button, Modal, ModalTitle, Textarea, ProgressBar, InlineError, type BadgeTone } from "../../ui-v2/primitives";
+import { ThresholdRing } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Types (mirrors backend /api/school-admin/{id}/dashboard response) ──────
 
 interface HealthMetrics {
   teachers: { total: number; active: number; max: number; active_pct: number; trend: number };
@@ -87,201 +68,63 @@ interface DashboardData {
   activity_timeline: ActivityItem[];
   weekly_trends: Record<string, TrendRow>;
   onboarding: { active: boolean; progress_pct: number; checklist: ChecklistItem[] };
-  recommendations: Array<{
-    id: string;
-    title: string;
-    description: string;
-    priority: number;
-    action_url: string | null;
-  }>;
+  recommendations: Array<{ id: string; title: string; description: string; priority: number; action_url: string | null }>;
   last_updated: string;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+const SEVERITY_TONE: Record<Alert["severity"], BadgeTone> = {
+  critical: "danger",
+  high: "warning",
+  medium: "neutral",
+  low: "neutral",
+};
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  trend,
-  cta,
-  icon: Icon,
-  warn,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  trend?: number;
-  cta?: { label: string; href: string };
-  icon: React.ElementType;
-  warn?: boolean;
-}) {
+// ── Small pieces ─────────────────────────────────────────────────────────
+
+function MetricTile({ value, label, trend, trendGood, href }: { value: string | number; label: string; trend?: string; trendGood?: boolean; href?: string }) {
+  const router = useRouter();
   return (
-    <Card padding="md" className="flex flex-col gap-2">
-      <div className="flex items-start justify-between">
-        <p className="text-xs text-white/50">{label}</p>
-        <Icon
-          className={`h-4 w-4 ${warn ? "text-red-400" : "text-indigo-400"}`}
-        />
-      </div>
-      <p className={`text-2xl font-bold ${warn ? "text-red-300" : "text-white"}`}>
-        {value}
-      </p>
-      {sub && <p className="text-xs text-white/40">{sub}</p>}
-      {trend !== undefined && (
-        <div className="flex items-center gap-1">
-          {trend > 0 ? (
-            <TrendingUp className="h-3 w-3 text-emerald-400" />
-          ) : trend < 0 ? (
-            <TrendingDown className="h-3 w-3 text-red-400" />
-          ) : null}
-          <span
-            className={`text-xs ${trend > 0 ? "text-emerald-400" : trend < 0 ? "text-red-400" : "text-white/30"}`}
-          >
-            {trend > 0 ? "+" : ""}
-            {trend.toFixed(1)}% WoW
-          </span>
-        </div>
-      )}
-      {cta && (
-        <Link
-          href={cta.href}
-          className="mt-auto flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
-        >
-          {cta.label} <ArrowUpRight className="h-3 w-3" />
-        </Link>
-      )}
+    <Card padding="md" style={{ cursor: href ? "pointer" : undefined }} onClick={href ? () => router.push(href) : undefined}>
+      <div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{value}</div>
+      <div style={{ fontSize: 12, color: color.textFaint, marginTop: 4 }}>{label}</div>
+      {trend && <div style={{ fontSize: 11.5, color: trendGood ? color.success.fg : color.danger.fg, marginTop: 6 }}>{trend}</div>}
     </Card>
   );
 }
 
-function HeatBar({ label, pct }: { label: string; pct: number }) {
-  const p = Math.min(100, Math.max(0, Math.round(pct)));
-  const color =
-    p >= 70 ? "bg-emerald-500" : p >= 40 ? "bg-indigo-500" : "bg-amber-500";
+function HeatRow({ label, pct }: { label: string; pct: number }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-40 shrink-0 text-xs text-white/60">{label}</span>
-      <div className="flex-1 overflow-hidden rounded-full bg-white/10" style={{ height: 6 }}>
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${p}%` }} />
-      </div>
-      <span className="w-10 text-right text-xs font-medium text-white">{p}%</span>
+    <div>
+      <div style={{ fontFamily: font.mono, fontSize: 19, fontWeight: 600 }}>{pct}%</div>
+      <div style={{ fontSize: 11.5, color: color.textFaint, marginTop: 2 }}>{label}</div>
     </div>
   );
 }
 
-const SEVERITY_COLOR: Record<string, string> = {
-  critical: "text-red-400",
-  high: "text-orange-400",
-  medium: "text-amber-400",
-  low: "text-white/40",
-};
-const SEVERITY_DOT: Record<string, string> = {
-  critical: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-amber-400",
-  low: "bg-white/20",
-};
-
-function AlertItem({
-  alert,
-  onDismiss,
-  onResolve,
-  schoolId,
-  token,
-}: {
-  alert: Alert;
-  onDismiss: (id: string) => void;
-  onResolve: (id: string) => void;
-  schoolId: string;
-  token: string;
-}) {
-  const [busy, setBusy] = useState(false);
-
-  async function act(type: "dismiss" | "resolve") {
-    setBusy(true);
-    const endpoint =
-      type === "dismiss"
-        ? `/api/school-admin/${schoolId}/alerts/${alert.id}/dismiss`
-        : `/api/school-admin/${schoolId}/alerts/${alert.id}/resolve`;
-    await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    type === "dismiss" ? onDismiss(alert.id) : onResolve(alert.id);
-    setBusy(false);
-  }
-
+function AlertRow({ alert, busy, onResolve, onDismiss }: { alert: Alert; busy: boolean; onResolve: () => void; onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-3 py-3">
-      <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[alert.severity]}`} />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-white">{alert.title}</p>
-        {alert.description && (
-          <p className="mt-0.5 text-xs text-white/40">{alert.description}</p>
-        )}
-        <div className="mt-1.5 flex flex-wrap gap-2">
-          <button
-            onClick={() => act("resolve")}
-            disabled={busy}
-            className="text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-40"
-          >
-            Resolve
-          </button>
-          <button
-            onClick={() => act("dismiss")}
-            disabled={busy}
-            className="text-xs text-white/30 hover:text-white/60 disabled:opacity-40"
-          >
-            Mute
-          </button>
-        </div>
+    <div style={{ background: color.surface, border: `1px solid ${color.border}`, borderLeft: `3px solid ${color.danger.fg}`, borderRadius: 8, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+      <Badge tone={SEVERITY_TONE[alert.severity]}>{alert.severity.toUpperCase()}</Badge>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5 }}>{alert.title}</div>
+        {alert.description && <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>{alert.description}</div>}
       </div>
-      <span className={`shrink-0 text-xs font-medium capitalize ${SEVERITY_COLOR[alert.severity]}`}>
-        {alert.severity}
-      </span>
+      <Button variant="secondary" size="sm" disabled={busy} onClick={onResolve}>Resolve</Button>
+      <Button variant="ghost" size="sm" disabled={busy} onClick={onDismiss}>Dismiss</Button>
     </div>
   );
 }
 
-function TrendDelta({ row, invert = false }: { row?: TrendRow; invert?: boolean }) {
-  if (!row) return <td className="px-3 py-2 text-xs text-white/30">—</td>;
-  const up = row.change > 0;
-  const isGood = invert ? !up : up;
-  return (
-    <td
-      className={`px-3 py-2 text-xs font-medium tabular-nums ${isGood ? "text-emerald-400" : row.change < 0 ? "text-red-400" : "text-white/40"}`}
-    >
-      {row.change > 0 ? "↑" : row.change < 0 ? "↓" : "→"}{" "}
-      {Math.abs(row.change_pct ?? row.change)}
-      {row.change_pct !== undefined ? "%" : ""}
-    </td>
-  );
-}
+// ── Invite modal ─────────────────────────────────────────────────────────
 
-// ── Invite modal ───────────────────────────────────────────────────────────
-
-function InviteModal({
-  schoolId,
-  token,
-  onClose,
-}: {
-  schoolId: string;
-  token: string;
-  onClose: () => void;
-}) {
+function InviteModal({ schoolId, token, onClose }: { schoolId: string; token: string; onClose: () => void }) {
   const [emails, setEmails] = useState("");
-  const [busy, setSending] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ sent: number; errors: string[] } | null>(null);
 
   async function send() {
-    setSending(true);
-    const lines = emails
-      .split(/[\n,;]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    const teachers = lines.map((email) => ({ email }));
-
+    setBusy(true);
+    const teachers = emails.split(/[\n,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean).map((email) => ({ email }));
     const res = await fetch(`/api/school-admin/${schoolId}/invite-teachers`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -289,62 +132,39 @@ function InviteModal({
     });
     const d = await res.json();
     setResult({ sent: d.sent ?? 0, errors: d.errors ?? [] });
-    setSending(false);
+    setBusy(false);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
-        <h3 className="mb-1 text-base font-semibold text-white">Invite Teachers</h3>
-        <p className="mb-4 text-xs text-white/40">
-          Enter emails separated by commas or new lines.
-        </p>
-
-        {result ? (
-          <div className="space-y-3">
-            <p className="text-sm text-emerald-400">{result.sent} invitation{result.sent !== 1 ? "s" : ""} sent ✓</p>
-            {result.errors.length > 0 && (
-              <div className="rounded-lg bg-red-500/10 p-3">
-                {result.errors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-400">{e}</p>
-                ))}
-              </div>
-            )}
-            <Button onClick={onClose} className="w-full">Close</Button>
-          </div>
-        ) : (
-          <>
-            <textarea
-              value={emails}
-              onChange={(e) => setEmails(e.target.value)}
-              rows={5}
-              placeholder={"john@school.edu\njane@school.edu"}
-              className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/20 focus:border-indigo-500 focus:outline-none"
-            />
-            <div className="flex gap-3">
-              <Button onClick={send} disabled={busy || !emails.trim()} className="flex-1">
-                {busy ? "Sending…" : "Send invites"}
-              </Button>
-              <Button variant="secondary" onClick={onClose}>Cancel</Button>
+    <Modal onClose={onClose}>
+      <ModalTitle>Invite teachers</ModalTitle>
+      <p style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 16 }}>Enter emails separated by commas or new lines.</p>
+      {result ? (
+        <div>
+          <p style={{ fontSize: 13.5, color: color.success.fg, marginBottom: 10 }}>{result.sent} invitation{result.sent !== 1 ? "s" : ""} sent</p>
+          {result.errors.length > 0 && (
+            <div style={{ background: color.danger.bg, borderRadius: 8, padding: 12, marginBottom: 14 }}>
+              {result.errors.map((e, i) => <p key={i} style={{ fontSize: 12, color: color.danger.fg, margin: 0 }}>{e}</p>)}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+          <Button fullWidth onClick={onClose}>Close</Button>
+        </div>
+      ) : (
+        <>
+          <Textarea value={emails} onChange={(e) => setEmails(e.target.value)} rows={5} placeholder={"jane@school.edu\njohn@school.edu"} style={{ marginBottom: 16 }} />
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button fullWidth disabled={busy || !emails.trim()} onClick={send}>{busy ? "Sending…" : "Send invites"}</Button>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
 
-// ── Upload modal ───────────────────────────────────────────────────────────
+// ── Upload modal ─────────────────────────────────────────────────────────
 
-function UploadModal({
-  schoolId,
-  token,
-  onClose,
-}: {
-  schoolId: string;
-  token: string;
-  onClose: () => void;
-}) {
+function UploadModal({ schoolId, token, onClose }: { schoolId: string; token: string; onClose: () => void }) {
   const [csvText, setCsvText] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ created: number; existing: number; errors: unknown[] } | null>(null);
@@ -371,50 +191,36 @@ function UploadModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
-        <h3 className="mb-1 text-base font-semibold text-white">Upload Student Roster</h3>
-        <p className="mb-4 text-xs text-white/40">
-          CSV columns: <span className="font-mono text-white/60">email, name, grade</span>
-        </p>
-
-        {result ? (
-          <div className="space-y-3">
-            <p className="text-sm text-emerald-400">{result.created} students created ✓</p>
-            {result.existing > 0 && (
-              <p className="text-xs text-white/50">{result.existing} already had accounts</p>
-            )}
-            {result.errors.length > 0 && (
-              <p className="text-xs text-red-400">{result.errors.length} rows had errors</p>
-            )}
-            <Button onClick={onClose} className="w-full">Close</Button>
+    <Modal onClose={onClose}>
+      <ModalTitle>Upload student roster</ModalTitle>
+      <p style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 16 }}>CSV columns: <span style={{ fontFamily: font.mono }}>email, name, grade</span></p>
+      {result ? (
+        <div>
+          <p style={{ fontSize: 13.5, color: color.success.fg, marginBottom: 6 }}>{result.created} students created</p>
+          {result.existing > 0 && <p style={{ fontSize: 12, color: color.textFaint, marginBottom: 6 }}>{result.existing} already had accounts</p>}
+          {result.errors.length > 0 && <p style={{ fontSize: 12, color: color.danger.fg, marginBottom: 10 }}>{result.errors.length} rows had errors</p>}
+          <Button fullWidth onClick={onClose}>Close</Button>
+        </div>
+      ) : (
+        <>
+          <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={handleFile} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            style={{ width: "100%", padding: "22px 12px", marginBottom: 16, border: `1px dashed #CFCBC0`, borderRadius: 8, background: "transparent", fontSize: 13, color: color.textFaint, cursor: "pointer" }}
+          >
+            {csvText ? "File loaded — ready to upload" : "Click to select CSV file"}
+          </button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button fullWidth disabled={busy || !csvText} onClick={upload}>{busy ? "Uploading…" : "Upload students"}</Button>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
           </div>
-        ) : (
-          <>
-            <div className="mb-3">
-              <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/20 py-6 text-sm text-white/40 hover:border-indigo-500 hover:text-white/70"
-              >
-                <Upload className="h-4 w-4" />
-                {csvText ? "File loaded — ready to upload" : "Click to select CSV file"}
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <Button onClick={upload} disabled={busy || !csvText} className="flex-1">
-                {busy ? "Uploading…" : "Upload students"}
-              </Button>
-              <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </Modal>
   );
 }
 
-// ── Main dashboard ─────────────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────────────────
 
 export default function SchoolDashboardPage() {
   const router = useRouter();
@@ -425,29 +231,28 @@ export default function SchoolDashboardPage() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
-  const [expandMedium, setExpandMedium] = useState(false);
+  const [busyAlert, setBusyAlert] = useState<string | null>(null);
   const [hideOnboarding, setHideOnboarding] = useState(false);
 
-  const fetchDashboard = useCallback(
-    async (sid: string) => {
-      try {
-        const res = await fetch(`/api/school-admin/${sid}/dashboard`, { headers: auth });
-        if (res.ok) setData(await res.json());
-      } finally {
-        setLoading(false);
-      }
-    },
-    [token] // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  const fetchDashboard = useCallback(async (sid: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/school-admin/${sid}/dashboard`, { headers: auth });
+      if (!res.ok) throw new Error(String(res.status));
+      setData(await res.json());
+    } catch {
+      setError("Couldn't load the school dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const sid =
-      typeof window !== "undefined"
-        ? localStorage.getItem("organization_id") ?? sessionStorage.getItem("organization_id")
-        : null;
+    const sid = typeof window !== "undefined" ? localStorage.getItem("organization_id") ?? sessionStorage.getItem("organization_id") : null;
     if (!sid) { setLoading(false); return; }
     setSchoolId(sid);
     fetchDashboard(sid);
@@ -456,378 +261,208 @@ export default function SchoolDashboardPage() {
   async function handleRefresh() {
     if (!schoolId) return;
     setRefreshing(true);
-    await fetch(`/api/school-admin/${schoolId}/refresh-metrics`, {
-      method: "POST",
-      headers: auth,
-    });
+    await fetch(`/api/school-admin/${schoolId}/refresh-metrics`, { method: "POST", headers: auth });
     await fetchDashboard(schoolId);
     setRefreshing(false);
   }
 
-  function removeAlert(id: string) {
-    setData((d) =>
-      d ? { ...d, alerts: d.alerts.filter((a) => a.id !== id) } : d
-    );
+  async function actOnAlert(alertId: string, type: "resolve" | "dismiss") {
+    if (!schoolId) return;
+    setBusyAlert(alertId);
+    await fetch(`/api/school-admin/${schoolId}/alerts/${alertId}/${type}`, { method: "POST", headers: auth });
+    setData((d) => (d ? { ...d, alerts: d.alerts.filter((a) => a.id !== alertId) } : d));
+    setBusyAlert(null);
   }
 
   if (!schoolId && !loading) {
     return (
-      <SchoolLayout>
-        <div className="flex h-64 flex-col items-center justify-center gap-4">
-          <p className="text-white/50">No school linked to your account.</p>
-          <Button onClick={() => router.push("/school/onboarding")}>
-            Set up school
-          </Button>
-        </div>
-      </SchoolLayout>
+      <Card padding="lg" style={{ textAlign: "center", maxWidth: 480, margin: "60px auto" }}>
+        <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 18, marginBottom: 8 }}>No school linked to your account</div>
+        <Button onClick={() => router.push("/school/onboarding")}>Set up school</Button>
+      </Card>
     );
   }
 
-  if (loading) {
-    return (
-      <SchoolLayout>
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-64" />
-          <div className="grid grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-28" />)}
-          </div>
-          <Skeleton className="h-36 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </SchoolLayout>
-    );
-  }
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: color.textFaint }}>Loading…</div>;
+  if (error || !data) return <InlineError message={error || "Failed to load dashboard."} onRetry={schoolId ? () => fetchDashboard(schoolId) : undefined} />;
 
-  if (!data) {
-    return (
-      <SchoolLayout>
-        <p className="text-white/40">Failed to load dashboard.</p>
-      </SchoolLayout>
-    );
-  }
-
-  const { health_metrics: hm, alerts, engagement_heatmap: heat, activity_timeline, weekly_trends: trends, onboarding, recommendations } = data;
-
-  const criticalAlerts = alerts.filter((a) => a.severity === "critical");
-  const highAlerts = alerts.filter((a) => a.severity === "high");
-  const mediumAlerts = alerts.filter((a) => a.severity === "medium");
+  const { school, principal, health_metrics: hm, alerts, engagement_heatmap: heat, activity_timeline, weekly_trends: trends, onboarding, recommendations } = data;
+  const criticalCount = alerts.filter((a) => a.severity === "critical").length;
 
   return (
-    <SchoolLayout>
-      <Head><title>{data.school.name} — Dashboard</title></Head>
-
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">{data.school.name}</h1>
-          <p className="mt-0.5 text-xs text-white/40">
-            Principal Dashboard
-            {data.principal.last_login &&
-              ` · Last login ${new Date(data.principal.last_login).toLocaleString()}`}
-          </p>
+    <>
+      <Head><title>{school.name} — Dashboard</title></Head>
+      <div style={{ maxWidth: 1240, fontFamily: font.body }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: 0 }}>School Dashboard</h1>
+          <Button variant="secondary" size="sm" disabled={refreshing} onClick={handleRefresh}>{refreshing ? "Refreshing…" : "Refresh metrics"}</Button>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          title="Refresh metrics"
-          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60 transition-colors hover:text-white disabled:opacity-40"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "Refreshing…" : "Refresh"}
-        </button>
-      </div>
-
-      {/* Onboarding checklist */}
-      {onboarding.active && !hideOnboarding && (
-        <Card padding="md" className="mb-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">
-              Getting started · {onboarding.progress_pct}% complete
-            </h2>
-            <button
-              onClick={() => setHideOnboarding(true)}
-              className="text-xs text-white/30 hover:text-white/60"
-            >
-              Hide
-            </button>
-          </div>
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-indigo-500 transition-all"
-              style={{ width: `${onboarding.progress_pct}%` }}
-            />
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {onboarding.checklist.map((item) => (
-              <div key={item.key} className="flex items-center gap-2">
-                {item.completed ? (
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-                ) : (
-                  <div className="h-4 w-4 shrink-0 rounded-full border border-white/20" />
-                )}
-                <span className={`text-xs ${item.completed ? "text-white/40 line-through" : "text-white/70"}`}>
-                  {item.item}
-                </span>
-                {!item.completed && (
-                  <Link href={item.action_url} className="ml-auto text-xs text-indigo-400 hover:text-indigo-300">
-                    Go →
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={() => router.push("/school/onboarding")}>
-              Continue setup
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => setHideOnboarding(true)}>
-              Skip for now
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Health metric cards */}
-      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3">
-        <MetricCard
-          label="Teachers Active"
-          value={`${hm.teachers.active} / ${hm.teachers.total}`}
-          sub={`${hm.teachers.active_pct}% active today`}
-          trend={hm.teachers.trend}
-          icon={Users}
-          cta={{ label: "Manage teachers", href: "/school/teachers" }}
-        />
-        <MetricCard
-          label="Students Enrolled"
-          value={`${hm.students.enrolled} / ${hm.students.total}`}
-          sub={`${hm.students.enrolled_pct}% enrolled`}
-          trend={hm.students.trend}
-          icon={GraduationCap}
-          cta={{ label: "View students", href: "/school/students" }}
-        />
-        <MetricCard
-          label="Active Classes"
-          value={`${hm.classes.active} / ${hm.classes.total}`}
-          sub={`${hm.classes.active_pct}% with activity today`}
-          icon={Database}
-          cta={{ label: "View classes", href: "/school/classes" }}
-        />
-        <MetricCard
-          label="Avg Student Score"
-          value={`${hm.performance.avg_student_score}%`}
-          icon={Zap}
-        />
-        <MetricCard
-          label="Storage Used"
-          value={`${hm.storage.used_gb} GB`}
-          sub={`of ${hm.storage.max_gb} GB · ${hm.storage.pct_used}%`}
-          icon={Database}
-          warn={hm.storage.pct_used >= 85}
-        />
-        <MetricCard
-          label="At-Risk Students"
-          value={hm.performance.at_risk_count}
-          sub="scoring below 60%"
-          icon={AlertTriangle}
-          warn={hm.performance.at_risk_count > 0}
-          cta={{ label: "View students", href: "/school/students?filter=at_risk" }}
-        />
-      </div>
-
-      {/* Engagement heatmap */}
-      <Card padding="md" className="mb-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Engagement Heatmap</h2>
-          <span className="text-xs text-white/30">
-            Updated {new Date(heat.last_updated).toLocaleTimeString()}
-          </span>
+        <div style={{ fontSize: 13, color: color.textFaint, marginBottom: 22 }}>
+          {school.name}{principal.last_login && ` · Last login ${new Date(principal.last_login).toLocaleString()}`}
         </div>
-        <div className="space-y-2.5">
-          <HeatBar label="Teachers active" pct={heat.teachers_active_pct} />
-          <HeatBar label="Students active" pct={heat.students_active_pct} />
-          <HeatBar label="Classes in use" pct={heat.classes_active_pct} />
-          <HeatBar label="Assignments submitted" pct={heat.assignments_submission_pct} />
-        </div>
-      </Card>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <Card padding="md" className="mb-5">
-          <h2 className="mb-1 text-sm font-semibold text-white">
-            Alerts ({alerts.length})
-          </h2>
-
-          {criticalAlerts.length > 0 && (
-            <div className="mb-2">
-              <p className="mb-1 text-xs font-semibold text-red-400">🔴 CRITICAL</p>
-              <div className="divide-y divide-white/5">
-                {criticalAlerts.map((a) => (
-                  <AlertItem
-                    key={a.id}
-                    alert={a}
-                    onDismiss={removeAlert}
-                    onResolve={removeAlert}
-                    schoolId={schoolId!}
-                    token={token}
-                  />
-                ))}
-              </div>
+        {/* Onboarding checklist */}
+        {onboarding.active && !hideOnboarding && (
+          <Card padding="md" style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Getting started · {onboarding.progress_pct}% complete</div>
+              <button onClick={() => setHideOnboarding(true)} style={{ fontSize: 12, color: color.textFaint, background: "none", border: "none", cursor: "pointer" }}>Hide</button>
             </div>
-          )}
-
-          {highAlerts.length > 0 && (
-            <div className="mb-2">
-              <p className="mb-1 text-xs font-semibold text-orange-400">
-                🟠 HIGH ({highAlerts.length})
-              </p>
-              <div className="divide-y divide-white/5">
-                {highAlerts.map((a) => (
-                  <AlertItem
-                    key={a.id}
-                    alert={a}
-                    onDismiss={removeAlert}
-                    onResolve={removeAlert}
-                    schoolId={schoolId!}
-                    token={token}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {mediumAlerts.length > 0 && (
-            <div>
-              <button
-                onClick={() => setExpandMedium((v) => !v)}
-                className="flex items-center gap-1 text-xs font-semibold text-amber-400"
-              >
-                🟡 MEDIUM ({mediumAlerts.length})
-                {expandMedium ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )}
-              </button>
-              {expandMedium && (
-                <div className="mt-1 divide-y divide-white/5">
-                  {mediumAlerts.map((a) => (
-                    <AlertItem
-                      key={a.id}
-                      alert={a}
-                      onDismiss={removeAlert}
-                      onResolve={removeAlert}
-                      schoolId={schoolId!}
-                      token={token}
-                    />
-                  ))}
+            <ProgressBar value={onboarding.progress_pct} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+              {onboarding.checklist.map((item) => (
+                <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+                  <span style={{ color: item.completed ? color.success.fg : color.textFainter }}>{item.completed ? "✓" : "○"}</span>
+                  <span style={{ color: item.completed ? color.textFaint : color.ink, textDecoration: item.completed ? "line-through" : "none" }}>{item.item}</span>
+                  {!item.completed && <a href={item.action_url} style={{ marginLeft: "auto", fontSize: 12, color: "#2B5FA8" }}>Go →</a>}
                 </div>
-              )}
+              ))}
             </div>
-          )}
-        </Card>
-      )}
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <Button size="sm" onClick={() => router.push("/school/onboarding")}>Continue setup</Button>
+              <Button size="sm" variant="secondary" onClick={() => setHideOnboarding(true)}>Skip for now</Button>
+            </div>
+          </Card>
+        )}
 
-      {/* Quick actions */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => setShowInvite(true)}>
-          <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Invite Teachers
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => setShowUpload(true)}>
-          <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Students
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => router.push("/school/students?filter=at_risk")}>
-          <AlertTriangle className="mr-1.5 h-3.5 w-3.5" /> View At-Risk
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => router.push("/school/analytics")}>
-          <Zap className="mr-1.5 h-3.5 w-3.5" /> Analytics
-        </Button>
+        {/* Health + metrics */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20, marginBottom: 24 }}>
+          <div style={{ background: color.chromeBg, borderRadius: 12, padding: 26, display: "flex", alignItems: "center", gap: 20 }}>
+            <ThresholdRing pct={hm.performance.avg_student_score} threshold={80} size={90} dark />
+            <div style={{ color: color.chromeText }}>
+              <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: color.chromeTextFaint, marginBottom: 6 }}>School health</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{criticalCount} critical alert{criticalCount !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>Resolve below to clear</div>
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+            <MetricTile value={hm.teachers.total} label="Teachers" trend={`${hm.teachers.trend >= 0 ? "+" : ""}${hm.teachers.trend} this month`} trendGood={hm.teachers.trend >= 0} href="/school/teachers" />
+            <MetricTile value={hm.students.total} label="Students" trend={`${hm.students.trend >= 0 ? "+" : ""}${hm.students.trend} this month`} trendGood={hm.students.trend >= 0} href="/school/students" />
+            <MetricTile value={`${hm.performance.avg_student_score}%`} label="Avg. student score" />
+            <MetricTile value={hm.performance.at_risk_count} label="At-risk students" trend="vs last month" trendGood={false} href="/school/students?filter=at_risk" />
+          </div>
+        </div>
+
+        {/* Alerts */}
+        {alerts.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Alerts</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {alerts.map((a) => (
+                <AlertRow key={a.id} alert={a} busy={busyAlert === a.id} onResolve={() => actOnAlert(a.id, "resolve")} onDismiss={() => actOnAlert(a.id, "dismiss")} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 24 }}>
+          {/* Engagement */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Engagement this week</div>
+            <Card padding="md" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+              <HeatRow label="Teachers active" pct={heat.teachers_active_pct} />
+              <HeatRow label="Students active" pct={heat.students_active_pct} />
+              <HeatRow label="Classes in use" pct={heat.classes_active_pct} />
+              <HeatRow label="Assignments submitted" pct={heat.assignments_submission_pct} />
+            </Card>
+          </div>
+
+          {/* Quick actions */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Quick actions</div>
+            <Card padding="sm">
+              <QuickAction label="Invite teachers" onClick={() => setShowInvite(true)} />
+              <QuickAction label="Upload student roster (CSV)" onClick={() => setShowUpload(true)} />
+              <QuickAction label="View at-risk students" onClick={() => router.push("/school/students?filter=at_risk")} />
+              <QuickAction label="View classes" onClick={() => router.push("/school/classes")} />
+            </Card>
+          </div>
+        </div>
+
+        {/* Activity timeline */}
+        {activity_timeline.length > 0 && (
+          <Card padding="md" style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Activity (last 24h)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {activity_timeline.map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, fontSize: 12.5 }}>
+                  <span style={{ width: 56, flexShrink: 0, fontFamily: font.mono, color: color.textFaint }}>{new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span>{item.message}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Weekly trends */}
+        {Object.keys(trends).length > 0 && (
+          <Card padding="md" style={{ marginBottom: 24, overflowX: "auto" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Week-over-week trends</div>
+            <table style={{ width: "100%", fontSize: 12.5, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${color.border}` }}>
+                  <th style={{ textAlign: "left", padding: "6px 10px", color: color.textFaint, fontWeight: 500 }}>Metric</th>
+                  <th style={{ textAlign: "right", padding: "6px 10px", color: color.textFaint, fontWeight: 500 }}>This week</th>
+                  <th style={{ textAlign: "right", padding: "6px 10px", color: color.textFaint, fontWeight: 500 }}>Last week</th>
+                  <th style={{ textAlign: "right", padding: "6px 10px", color: color.textFaint, fontWeight: 500 }}>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  ["Active teachers", "active_teachers", false],
+                  ["Active students", "active_students", false],
+                  ["Assignments set", "assignments_created", false],
+                  ["Avg score", "avg_score", false],
+                  ["At-risk count", "at_risk_count", true],
+                ] as const).map(([label, key, invert]) => {
+                  const row = trends[key];
+                  const up = row ? row.change > 0 : false;
+                  const isGood = row ? (invert ? !up : up) : false;
+                  return (
+                    <tr key={key} style={{ borderBottom: `1px solid ${color.borderMuted}` }}>
+                      <td style={{ padding: "8px 10px", color: color.ink }}>{label}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: font.mono }}>{row?.this_week ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: font.mono, color: color.textFaint }}>{row?.last_week ?? "—"}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: font.mono, color: !row ? color.textFainter : row.change === 0 ? color.textFaint : isGood ? color.success.fg : color.danger.fg }}>
+                        {row ? `${row.change > 0 ? "↑" : row.change < 0 ? "↓" : "→"} ${Math.abs(row.change_pct ?? row.change)}${row.change_pct !== undefined ? "%" : ""}` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <Card padding="md">
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Recommendations</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {recommendations.map((rec) => (
+                <div key={rec.id} style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{rec.title}</div>
+                    {rec.description && <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>{rec.description}</div>}
+                  </div>
+                  {rec.action_url && <a href={rec.action_url} style={{ fontSize: 12, color: "#2B5FA8", flexShrink: 0 }}>View →</a>}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
 
-      {/* Activity timeline */}
-      {activity_timeline.length > 0 && (
-        <Card padding="md" className="mb-5">
-          <h2 className="mb-3 text-sm font-semibold text-white">Activity (last 24h)</h2>
-          <div className="space-y-2">
-            {activity_timeline.map((item, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <span className="w-14 shrink-0 text-xs tabular-nums text-white/30">
-                  {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
-                <span className="text-xs text-white/70">{item.message}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      {showInvite && schoolId && <InviteModal schoolId={schoolId} token={token} onClose={() => setShowInvite(false)} />}
+      {showUpload && schoolId && <UploadModal schoolId={schoolId} token={token} onClose={() => setShowUpload(false)} />}
+    </>
+  );
+}
 
-      {/* Week-over-week trends */}
-      {Object.keys(trends).length > 0 && (
-        <Card padding="md" className="mb-5 overflow-x-auto">
-          <h2 className="mb-3 text-sm font-semibold text-white">Week-over-Week Trends</h2>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="px-3 py-2 text-left font-medium text-white/50">Metric</th>
-                <th className="px-3 py-2 text-right font-medium text-white/50">This Week</th>
-                <th className="px-3 py-2 text-right font-medium text-white/50">Last Week</th>
-                <th className="px-3 py-2 text-right font-medium text-white/50">Change</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {[
-                ["Active Teachers", "active_teachers", false],
-                ["Active Students", "active_students", false],
-                ["Assignments Set", "assignments_created", false],
-                ["Avg Score", "avg_score", false],
-                ["At-Risk Count", "at_risk_count", true],
-              ].map(([label, key, invert]) => {
-                const row = trends[key as string] as TrendRow | undefined;
-                return (
-                  <tr key={key as string}>
-                    <td className="px-3 py-2 text-white/60">{label as string}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-white">{row?.this_week ?? "—"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-white/40">{row?.last_week ?? "—"}</td>
-                    <TrendDelta row={row} invert={invert as boolean} />
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
-      )}
-
-      {/* Recommendations */}
-      {recommendations.length > 0 && (
-        <Card padding="md">
-          <h2 className="mb-3 text-sm font-semibold text-white">Recommendations</h2>
-          <div className="space-y-3">
-            {recommendations.map((rec) => (
-              <div key={rec.id} className="flex items-start gap-3">
-                <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-indigo-400" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-white">{rec.title}</p>
-                  {rec.description && (
-                    <p className="mt-0.5 text-xs text-white/40">{rec.description}</p>
-                  )}
-                </div>
-                {rec.action_url && (
-                  <Link href={rec.action_url} className="shrink-0 text-xs text-indigo-400 hover:text-indigo-300">
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Modals */}
-      {showInvite && schoolId && (
-        <InviteModal schoolId={schoolId} token={token} onClose={() => setShowInvite(false)} />
-      )}
-      {showUpload && schoolId && (
-        <UploadModal schoolId={schoolId} token={token} onClose={() => setShowUpload(false)} />
-      )}
-    </SchoolLayout>
+function QuickAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{ display: "flex", width: "100%", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 7, fontSize: 13.5, fontWeight: 500, background: "none", border: "none", color: color.ink, cursor: "pointer", textAlign: "left" }}>
+      {label}
+    </button>
   );
 }

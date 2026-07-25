@@ -1,39 +1,55 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Target, Brain, TrendingUp, Network, GraduationCap, Users, School, ArrowRight } from "lucide-react";
+import { Search, Network, Route, RotateCcw, GraduationCap, Users, School } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { homeForRole } from "../components/layout/nav";
+import { ThresholdRing } from "../ui-v2/primitives";
+import { color, font } from "../ui-v2/tokens";
 
-const FEATURES = [
-  { icon: Target, title: "Curated Learning Paths", description: "AI-assembled video sequences scored for quality, pacing, and pedagogical value." },
-  { icon: Brain, title: "Active Recall", description: "Post-video reflection questions reinforce understanding and surface knowledge gaps." },
-  { icon: TrendingUp, title: "Progress Intelligence", description: "Real-time dashboards track streaks, mastery, and time spent — not just clicks." },
-  { icon: Network, title: "Concept Mastery Graph", description: "See how concepts connect and evolve as you progress through a subject." },
+const STEPS = [
+  { n: 1, Icon: Search, title: "Tell us what you want to learn", desc: "Type any topic, or pick an exam track — WAEC/JAMB, SAT, IELTS, TOEFL." },
+  { n: 2, Icon: Network, title: "We score every candidate video", desc: "An 11-criterion rubric checks pedagogy, clarity, credibility and more — anything below the bar is thrown out, regardless of view count." },
+  { n: 3, Icon: Route, title: "What passes gets sequenced", desc: "Videos are ordered by what each one assumes you already know, not by upload date or channel." },
+  { n: 4, Icon: RotateCcw, title: "You get checked, not just entertained", desc: "A short question after every video, plus a review queue that resurfaces what you're starting to forget." },
 ];
 
-const SOCIAL_PROOF = [
-  { stat: "10,000+", label: "Learning paths" },
-  { stat: "98%", label: "Quality score" },
-  { stat: "4.9", label: "User rating" },
-  { stat: "50K+", label: "Learners" },
+const FEATURES = [
+  { title: "Quality-scored, not just popular", desc: "An 11-point rubric — pedagogy, clarity, credibility, production and more — filters out videos that rank well but teach badly." },
+  { title: "Prerequisite-ordered, not just sorted", desc: "A concept graph maps what each video assumes you already know, so the path never skips a step ahead of you." },
+  { title: "A tutor that knows where you are", desc: "Ask a question and get an answer scoped to the exact video and concept you're on — no new tab, no re-explaining context." },
+  { title: "Spaced repetition, not just a progress bar", desc: "Flashcards and missed questions resurface right before you'd forget them, not once and then gone." },
 ];
 
 const ROLES = [
-  { value: "student", label: "Student", description: "Build a personalised path and learn at your own pace.", icon: GraduationCap },
-  { value: "teacher", label: "Teacher", description: "Track classes, spot at-risk students, assign content.", icon: Users },
-  { value: "school_admin", label: "School", description: "Oversee teachers, students and performance org-wide.", icon: School },
+  { eyebrow: "Independent learner", title: "Learn a topic or pass an exam", short: "Student", role: "student", desc: "Search a topic or pick WAEC/JAMB, SAT, IELTS or TOEFL. Get a real, watchable path with a mastery score behind it." },
+  { eyebrow: "Educator", title: "See who needs you today", short: "Teacher", role: "teacher", desc: "A dashboard that surfaces at-risk students first, assignments you can grade in minutes, and one inbox per class." },
+  { eyebrow: "Administrator", title: "One signal for the whole school", short: "School", role: "school_admin", desc: "Institutional health, billing, and every teacher and student roster in one place, with early warning before something goes off track." },
 ];
 
-export default function HomePage() {
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontFamily: font.mono, fontSize: 11, letterSpacing: "0.07em", textTransform: "uppercase", color: color.textFaint, marginBottom: 10 }}>
+      {children}
+    </div>
+  );
+}
+
+export default function LandingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace(homeForRole(user.role));
-    }
+    const check = () => setNarrow(window.innerWidth < 720);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    if (!loading && user) router.replace(homeForRole(user.role));
   }, [loading, user, router]);
 
   return (
@@ -43,160 +59,150 @@ export default function HomePage() {
         <meta name="description" content="AI-powered learning paths from the best educational videos on YouTube." />
       </Head>
 
-      <div className="min-h-screen bg-background text-white">
+      <div style={{ color: color.ink, background: color.paper, minHeight: "100vh", fontFamily: font.body }}>
         {/* Nav */}
-        <header className="fixed left-0 right-0 top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-          <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
-            <Link href="/" className="mr-auto flex items-center gap-2.5 font-bold text-white">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-accent">
-                <span className="text-xs font-black text-white">L</span>
-              </div>
-              LearnPath AI
-            </Link>
-            <Link href="/auth/login" className="text-sm text-white/50 transition-colors hover:text-white/80">
-              Sign in
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white shadow-glow-sm transition-colors hover:bg-accent-hover"
-            >
-              Get started free
-            </Link>
+        <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(250,248,244,0.92)", backdropFilter: "blur(6px)", borderBottom: `1px solid ${color.border}` }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto", padding: narrow ? "14px 20px" : "15px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 19 }}>LearnPath</div>
+            <div style={{ display: "flex", alignItems: "center", gap: narrow ? 12 : 26 }}>
+              <Link href="/auth/login" style={{ textDecoration: "none", color: color.ink, fontSize: 13.5, fontWeight: 600 }}>
+                Sign in
+              </Link>
+              <Link href="/auth/signup" style={{ textDecoration: "none", padding: "9px 16px", fontSize: 13.5, fontWeight: 600, borderRadius: 6, background: "#2B3A67", color: "#fff" }}>
+                Get early access
+              </Link>
+            </div>
           </div>
-        </header>
+        </div>
 
         {/* Hero */}
-        <section className="relative overflow-hidden px-6 pb-24 pt-32">
-          <div className="pointer-events-none absolute left-1/2 top-0 h-[600px] w-[800px] -translate-x-1/2">
-            <div className="absolute left-1/4 top-0 h-64 w-64 rounded-full bg-accent/20 blur-3xl" />
-            <div className="absolute right-1/4 top-20 h-48 w-48 rounded-full bg-purple-600/15 blur-3xl" />
-          </div>
-
-          <div className="relative mx-auto max-w-4xl text-center">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-accent/20 bg-accent-muted px-4 py-1.5">
-              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-light" />
-              <span className="text-xs font-medium text-accent-light">AI-powered · Free to start</span>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: narrow ? "36px 20px 48px" : "72px 32px 68px", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1.08fr 0.92fr", gap: 52, alignItems: "center" }}>
+          <div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: font.mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#8B4A3E", background: "#FBF0DD", padding: "5px 11px", borderRadius: 100, marginBottom: 18 }}>
+              Early access · building in the open
             </div>
-
-            <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
-              Learn anything.
-              <br />
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Faster.</span>
+            <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: narrow ? 34 : 48, lineHeight: 1.1, letterSpacing: "-0.01em", margin: "0 0 20px" }}>
+              YouTube has the lesson. We find it, order it, and check you learned it.
             </h1>
-            <p className="mx-auto mb-10 max-w-xl text-lg leading-relaxed text-white/50">
-              LearnPath AI builds personalised video curricula from the best educational content on YouTube — then tracks your progress with intelligence.
+            <p style={{ fontSize: 16.5, lineHeight: 1.6, color: color.inkSoft, maxWidth: 480, margin: "0 0 28px" }}>
+              Type a topic or pick an exam track. LearnPath searches YouTube, scores every candidate video against an 11-point rubric, throws out anything that doesn&rsquo;t clear the bar, and sequences what&rsquo;s left by what it assumes you already know — not by upload date.
             </p>
-
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/auth/signup"
-                className="rounded-xl bg-accent px-8 py-3.5 font-semibold text-white shadow-glow-accent transition-all hover:scale-[1.02] hover:bg-accent-hover"
-              >
-                Start learning free
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              <Link href="/auth/signup" style={{ textDecoration: "none", padding: "12px 22px", fontSize: 14.5, fontWeight: 600, borderRadius: 6, background: "#2B3A67", color: "#fff" }}>
+                Get early access
               </Link>
-              <Link
-                href="/auth/login"
-                className="rounded-xl border border-border px-8 py-3.5 font-semibold text-white/70 transition-all hover:border-white/20 hover:bg-white/[0.03] hover:text-white"
-              >
+              <Link href="/auth/login" style={{ textDecoration: "none", padding: "12px 22px", fontSize: 14.5, fontWeight: 600, borderRadius: 6, border: "1px solid #CFCBC0", color: color.ink }}>
                 Sign in
               </Link>
             </div>
+            <div style={{ fontSize: 12.5, color: color.textFaint }}>Free while in early access · no card required</div>
+          </div>
 
-            <div className="mt-16 flex flex-wrap items-center justify-center gap-8">
-              {SOCIAL_PROOF.map(({ stat, label }) => (
-                <div key={label} className="text-center">
-                  <p className="text-2xl font-bold text-white">{stat}</p>
-                  <p className="mt-0.5 text-xs text-white/30">{label}</p>
+          <div style={{ background: color.chromeBg, borderRadius: 14, padding: "32px 30px", color: color.chromeText }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 22, marginBottom: 22 }}>
+              <div style={{ flexShrink: 0 }}>
+                <ThresholdRing pct={74} threshold={70} size={108} dark />
+              </div>
+              <div>
+                <div style={{ fontFamily: font.mono, fontSize: 10.5, letterSpacing: "0.07em", textTransform: "uppercase", color: "#C8792A", marginBottom: 6 }}>
+                  How mastery is scored
+                </div>
+                <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "#D9D5C9" }}>
+                  Every score in the product is measured against a pass line, not just a magnitude — 70% and above is ink, below is amber. One glance answers &ldquo;on track or not&rdquo; before the number even registers.
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {["Search YouTube", "Score against the rubric", "Sequence by prerequisite"].map((desc, i) => (
+                <div key={desc} style={{ flex: 1, background: "#1D212C", borderRadius: 8, padding: "11px 12px" }}>
+                  <div style={{ fontFamily: font.mono, fontSize: 11, fontWeight: 600, color: "#C8792A", marginBottom: 3 }}>{String(i + 1).padStart(2, "0")}</div>
+                  <div style={{ fontSize: 11.5, color: "#B8B5AB", lineHeight: 1.4 }}>{desc}</div>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Choose your path (role entry) */}
-        <section className="border-t border-border px-6 py-20">
-          <div className="mx-auto max-w-5xl">
-            <div className="mb-12 text-center">
-              <h2 className="text-3xl font-bold text-white">Choose your path</h2>
-              <p className="mt-3 text-base text-white/40">LearnPath works for learners, teachers, and whole institutions.</p>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-3">
-              {ROLES.map((r) => {
-                const Icon = r.icon;
-                return (
-                  <Link
-                    key={r.value}
-                    href={`/auth/signup?role=${r.value}`}
-                    className="group rounded-2xl border border-border bg-surface p-6 transition-colors hover:border-accent/40 hover:bg-surface-elevated"
-                  >
-                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-muted text-accent-light">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="mb-1 flex items-center gap-1.5 text-base font-semibold text-white">
-                      {r.label}
-                      <ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-                    </h3>
-                    <p className="text-sm leading-relaxed text-white/40">{r.description}</p>
-                  </Link>
-                );
-              })}
-            </div>
+        {/* How it works */}
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: narrow ? "52px 20px" : "76px 32px", borderTop: `1px solid ${color.border}` }}>
+          <SectionEyebrow>How it works</SectionEyebrow>
+          <h2 style={{ fontFamily: font.display, fontWeight: 600, fontSize: narrow ? 25 : 32, margin: "0 0 40px", maxWidth: 600 }}>
+            From a topic to a sequenced path, in one search.
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(4, 1fr)", gap: 1, background: color.border, border: `1px solid ${color.border}`, borderRadius: 10, overflow: "hidden" }}>
+            {STEPS.map((s) => (
+              <div key={s.n} style={{ background: "#fff", padding: 24 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: color.surfaceElevated, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                  <s.Icon size={17} strokeWidth={1.6} color="#2B3A67" />
+                </div>
+                <div style={{ fontFamily: font.mono, fontSize: 10.5, color: color.textFaint, marginBottom: 6 }}>STEP {s.n}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>{s.title}</div>
+                <div style={{ fontSize: 13.5, color: color.inkSoft, lineHeight: 1.55 }}>{s.desc}</div>
+              </div>
+            ))}
           </div>
-        </section>
+        </div>
 
         {/* Features */}
-        <section className="border-t border-border px-6 py-20">
-          <div className="mx-auto max-w-5xl">
-            <div className="mb-14 text-center">
-              <h2 className="text-3xl font-bold text-white">Built for serious learners</h2>
-              <p className="mt-3 text-base text-white/40">Every feature is designed to maximise retention, not engagement metrics.</p>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
-              {FEATURES.map((f) => {
-                const Icon = f.icon;
-                return (
-                  <div key={f.title} className="group rounded-2xl border border-border bg-surface p-6 transition-colors hover:border-accent/20">
-                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-muted text-accent-light">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <h3 className="mb-2 text-base font-semibold text-white">{f.title}</h3>
-                    <p className="text-sm leading-relaxed text-white/40">{f.description}</p>
-                  </div>
-                );
-              })}
+        <div style={{ background: "#F4F1EA", borderTop: `1px solid ${color.border}`, borderBottom: `1px solid ${color.border}` }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto", padding: narrow ? "52px 20px" : "76px 32px" }}>
+            <SectionEyebrow>What makes it different from a playlist</SectionEyebrow>
+            <h2 style={{ fontFamily: font.display, fontWeight: 600, fontSize: narrow ? 25 : 32, margin: "0 0 40px", maxWidth: 620 }}>
+              Not another video library. A system that decides what you watch, in what order, and whether it worked.
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(2, 1fr)", gap: 1, background: color.border, border: `1px solid ${color.border}`, borderRadius: 10, overflow: "hidden" }}>
+              {FEATURES.map((f) => (
+                <div key={f.title} style={{ background: "#fff", padding: 26 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>{f.title}</div>
+                  <div style={{ fontSize: 13.5, color: color.inkSoft, lineHeight: 1.55 }}>{f.desc}</div>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* CTA */}
-        <section className="border-t border-border px-6 py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-bold text-white">Ready to start?</h2>
-            <p className="mb-8 text-white/40">Free forever on the essentials. No credit card required.</p>
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-accent px-10 py-4 text-base font-bold text-white shadow-glow-accent transition-all hover:scale-[1.02]"
-            >
-              Create free account <ArrowRight className="h-4 w-4" />
+        {/* Roles */}
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: narrow ? "52px 20px" : "76px 32px" }}>
+          <SectionEyebrow>Built for everyone in the room</SectionEyebrow>
+          <h2 style={{ fontFamily: font.display, fontWeight: 600, fontSize: narrow ? 25 : 32, margin: "0 0 40px" }}>
+            One account type per job, not one dashboard trying to do everything.
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap: 1, background: color.border, border: `1px solid ${color.border}`, borderRadius: 10, overflow: "hidden" }}>
+            {ROLES.map((r) => (
+              <Link key={r.role} href={`/auth/signup?role=${r.role}`} style={{ textDecoration: "none", color: "inherit", background: "#fff", padding: 28, display: "block" }}>
+                <div style={{ fontFamily: font.mono, fontSize: 10.5, letterSpacing: "0.05em", textTransform: "uppercase", color: color.textFaint, marginBottom: 14 }}>{r.eyebrow}</div>
+                <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 18, marginBottom: 10 }}>{r.title}</div>
+                <div style={{ fontSize: 13.5, color: color.inkSoft, lineHeight: 1.55, marginBottom: 20 }}>{r.desc}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#2B3A67" }}>Get started as a {r.short} →</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Final CTA */}
+        <div style={{ background: color.chromeBg }}>
+          <div style={{ maxWidth: 1120, margin: "0 auto", padding: narrow ? "52px 20px" : "72px 32px", textAlign: "center" }}>
+            <h2 style={{ fontFamily: font.display, fontWeight: 600, fontSize: narrow ? 25 : 32, color: "#fff", margin: "0 0 16px" }}>
+              We&rsquo;re early. That&rsquo;s why it&rsquo;s free.
+            </h2>
+            <p style={{ fontSize: 15, color: "#B8B5AB", margin: "0 auto 28px", maxWidth: 480 }}>
+              No published user counts or star ratings yet — we&rsquo;d rather earn those than print them. Try building one real path and judge the videos it picks for yourself.
+            </p>
+            <Link href="/auth/signup" style={{ textDecoration: "none", padding: "13px 26px", fontSize: 14.5, fontWeight: 600, borderRadius: 6, background: "#fff", color: color.ink, display: "inline-block" }}>
+              Get early access
             </Link>
           </div>
-        </section>
+        </div>
 
         {/* Footer */}
-        <footer className="border-t border-border px-6 py-8">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-sm text-white/30">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-accent">
-                <span className="text-[10px] font-black text-white">L</span>
-              </div>
-              LearnPath AI · {new Date().getFullYear()}
-            </div>
-            <div className="flex items-center gap-5 text-sm text-white/30">
-              <Link href="/auth/login" className="transition-colors hover:text-white/60">Sign in</Link>
-              <Link href="/auth/signup" className="transition-colors hover:text-white/60">Sign up</Link>
-            </div>
+        <div style={{ maxWidth: 1120, margin: "0 auto", padding: `28px ${narrow ? 20 : 32}px`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ fontFamily: font.display, fontWeight: 600, fontSize: 15 }}>LearnPath</div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <Link href="/legal/privacy" style={{ textDecoration: "none", color: color.textFaint, fontSize: 12.5 }}>Privacy Policy</Link>
+            <Link href="/legal/terms" style={{ textDecoration: "none", color: color.textFaint, fontSize: 12.5 }}>Terms of Service</Link>
+            <Link href="/auth/login" style={{ textDecoration: "none", color: color.textFaint, fontSize: 12.5 }}>Sign in</Link>
           </div>
-        </footer>
+        </div>
       </div>
     </>
   );

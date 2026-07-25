@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import axios from "axios";
+import { TextField } from "../../ui-v2/primitives";
+import { color, font } from "../../ui-v2/tokens";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -33,58 +35,51 @@ export default function ForgotPasswordPage() {
       <Head>
         <title>Reset password — LearnPath AI</title>
       </Head>
-      <div className="min-h-screen bg-background flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[420px]">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white mb-1.5 tracking-tight">Reset your password</h1>
-            <p className="text-white/45 text-sm">
-              Enter your email and we&apos;ll send you a link to set a new password.
-            </p>
-          </div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", color: color.ink, background: color.paper, fontFamily: font.body }}>
+        <div style={{ width: "100%", maxWidth: 400 }}>
+          <Link href="/" style={{ textDecoration: "none", fontFamily: font.display, fontWeight: 600, fontSize: 19, color: color.ink, display: "inline-block", marginBottom: 28 }}>
+            LearnPath
+          </Link>
 
-          <div className="auth-card">
-            {sent ? (
-              <div className="text-center">
-                <p className="text-white text-sm">
-                  If an account exists for <span className="font-medium">{email.trim().toLowerCase()}</span>,
-                  a reset link is on its way. Check your inbox (and spam).
-                </p>
-                <Link href="/auth/login" className="mt-6 inline-block text-accent-light hover:text-white text-sm font-medium">
-                  Back to sign in
-                </Link>
+          {sent ? (
+            <>
+              <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 24, margin: "0 0 8px" }}>Reset your password</h1>
+              <div style={{ background: color.success.bg, border: "1px solid #C3E1D3", borderRadius: 8, padding: "14px 16px", fontSize: 13.5, color: color.success.fg, lineHeight: 1.5, marginBottom: 20 }}>
+                If an account exists for {email.trim().toLowerCase()}, a reset link is on its way.
               </div>
-            ) : (
+              <Link href="/auth/login" style={{ textDecoration: "none", padding: "10px 16px", fontSize: 13.5, fontWeight: 600, borderRadius: 7, border: "1px solid #CFCBC0", color: color.ink, display: "inline-block" }}>
+                Back to sign in
+              </Link>
+            </>
+          ) : (
+            <>
+              <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 24, margin: "0 0 8px" }}>Reset your password</h1>
+              <p style={{ fontSize: 13.5, color: color.textFaint, margin: "0 0 24px", lineHeight: 1.5 }}>
+                Enter the email on your account and we&rsquo;ll send a link to reset your password.
+              </p>
+              {error && (
+                <div style={{ background: color.danger.bg, border: "1px solid #E7B7AE", borderRadius: 8, padding: "11px 14px", fontSize: 13, color: "#8B4A3E", marginBottom: 16 }}>{error}</div>
+              )}
               <form onSubmit={handleSubmit} noValidate>
-                {error && (
-                  <div className="mb-5 px-4 py-3 rounded-xl bg-error-muted border border-error/20 text-error text-sm">
-                    {error}
-                  </div>
-                )}
-                <div className="mb-6">
-                  <label htmlFor="email" className="label">Email address</label>
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input-field"
-                    disabled={loading}
-                  />
+                <div style={{ marginBottom: 18 }}>
+                  <TextField label="Email" type="email" autoComplete="email" placeholder="student@school.edu" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
                 </div>
-                <button type="submit" className="btn-primary" disabled={loading}>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{ width: "100%", padding: "11px 16px", fontSize: 14.5, fontWeight: 600, borderRadius: 7, border: "none", background: "#2B3A67", color: "#fff", cursor: loading ? "not-allowed" : "pointer" }}
+                >
                   {loading ? "Sending…" : "Send reset link"}
                 </button>
-                <p className="text-center text-sm text-white/40 mt-6">
-                  Remembered it?{" "}
-                  <Link href="/auth/login" className="text-accent-light hover:text-white font-medium">
-                    Sign in
-                  </Link>
-                </p>
               </form>
-            )}
-          </div>
+              <div style={{ fontSize: 13, color: color.textFaint, textAlign: "center", marginTop: 20 }}>
+                Remembered it?{" "}
+                <Link href="/auth/login" style={{ textDecoration: "none", fontWeight: 600, color: "#2B3A67" }}>
+                  Sign in
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </>

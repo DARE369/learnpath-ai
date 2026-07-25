@@ -7,9 +7,15 @@ interface GoogleButtonProps {
   onSuccess: (accessToken: string) => void;
   rememberMe?: boolean;
   label?: string;
+  /** Override the button's own classes — callers outside the legacy dark
+   * theme (e.g. ui-v2 pages) pass their own instead of the default. */
+  buttonClassName?: string;
 }
 
-export default function GoogleButton({ onSuccess, rememberMe = false, label = "Google" }: GoogleButtonProps) {
+const DEFAULT_BUTTON_CLASSNAME =
+  "flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-white/8 bg-surface-elevated hover:bg-surface-hover transition-colors text-sm font-medium text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed w-full";
+
+export default function GoogleButton({ onSuccess, rememberMe = false, label = "Google", buttonClassName }: GoogleButtonProps) {
   const { loginWithGoogleToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +60,7 @@ export default function GoogleButton({ onSuccess, rememberMe = false, label = "G
         type="button"
         onClick={handleClick}
         disabled={loading || !enabled}
-        className="flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-white/8 bg-surface-elevated hover:bg-surface-hover transition-colors text-sm font-medium text-white/70 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed w-full"
+        className={buttonClassName ?? DEFAULT_BUTTON_CLASSNAME}
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

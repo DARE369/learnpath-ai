@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
+import { Icon } from "../../ui-v2/icons";
+import { color, font } from "../../ui-v2/tokens";
 
 declare global {
   interface Window {
@@ -44,6 +46,19 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// SkipBack/SkipForward with a baked-in "10" label — lucide has no numbered
+// variant, so this composes the registry icon with a text overlay.
+function SkipIcon({ direction }: { direction: "back" | "forward" }) {
+  return (
+    <span style={{ position: "relative", display: "inline-flex" }}>
+      <Icon name={direction === "back" ? "skipBack" : "skipForward"} size={20} className="" />
+      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, transform: "translateY(1px)" }}>10</span>
+    </span>
+  );
+}
+
+const controlBtnStyle: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.75)", display: "flex", padding: 0 };
+
 const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({
   youtubeId,
   initialPosition = 0,
@@ -81,17 +96,12 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
   const [showVolume, setShowVolume] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
-  const [seeking, setSeeking] = useState(false);
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep chunk refs in sync with props (no closure re-creation needed).
   useEffect(() => { chunksRef.current = chunks ?? []; }, [chunks]);
   useEffect(() => {
     activeChunkIdxRef.current = activeChunkIndex ?? -1;
-    // Allow re-firing when the parent advances to a new chunk.
-    if ((activeChunkIndex ?? -1) !== chunkFiredRef.current) {
-      // Only reset if we're moving forward, not on initial -1.
-    }
   }, [activeChunkIndex]);
   useEffect(() => { onChunkCompleteRef.current = onChunkComplete; }, [onChunkComplete]);
 
@@ -183,7 +193,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
           origin: typeof window !== "undefined" ? window.location.origin : "https://learnpath-ai-eight.vercel.app",
         },
         events: {
-                  onReady: (e: any) => {
+          onReady: (e: any) => {
             if (!mounted) return;
             const d = e.target.getDuration();
             setDuration(d);
@@ -191,7 +201,7 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
             e.target.setVolume(volume);
             onReady?.(d);
           },
-                  onStateChange: (e: any) => {
+          onStateChange: (e: any) => {
             if (!mounted) return;
             if (e.data === window.YT.PlayerState.PLAYING) {
               setIsPlaying(true);
@@ -321,181 +331,81 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
 
   return (
     <div
-      className="video-wrapper relative w-full bg-black rounded-2xl overflow-hidden group select-none"
-      style={{ aspectRatio: "16/9" }}
+      className="video-wrapper"
+      style={{ position: "relative", width: "100%", background: "#000", borderRadius: 16, overflow: "hidden", aspectRatio: "16/9", userSelect: "none", fontFamily: font.body }}
       onMouseMove={resetHideTimer}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
-      {/* YouTube iframe */}
-      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
+      <div ref={containerRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
 
-      {/* Click-to-play overlay */}
-      <div
-        className="absolute inset-0 cursor-pointer z-10"
-        onClick={togglePlay}
-        onDoubleClick={toggleFullscreen}
-      />
+      <div style={{ position: "absolute", inset: 0, cursor: "pointer", zIndex: 10 }} onClick={togglePlay} onDoubleClick={toggleFullscreen} />
 
-      {/* Big play button when paused */}
       {!isPlaying && playerReady && (
-        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-          <div className="w-20 h-20 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-2xl">
-            <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 20, pointerEvents: "none" }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}>
+            <Icon name="play" size={32} className="" />
           </div>
         </div>
       )}
 
-      {/* Loading state */}
       {!playerReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-30">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-white/50 text-sm">Loading player…</span>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.8)", zIndex: 30 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, border: "2px solid #2B5FA8", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13.5 }}>Loading player…</span>
           </div>
         </div>
       )}
 
-      {/* Controls bar */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-20 transition-opacity duration-300 ${
-          showControls || !isPlaying ? "opacity-100" : "opacity-0"
-        }`}
+        style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, opacity: showControls || !isPlaying ? 1 : 0, transition: "opacity 300ms ease" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Gradient fade */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none" />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.3) 60%, transparent)", pointerEvents: "none" }} />
 
-        <div className="relative px-4 pb-4 pt-12">
-          {/* Progress bar */}
-          <div
-            className="relative h-1 bg-white/20 rounded-full mb-4 cursor-pointer group/progress"
-            onClick={handleProgressClick}
-          >
-            {/* Buffered */}
-            <div
-              className="absolute inset-y-0 left-0 bg-white/20 rounded-full transition-all"
-              style={{ width: `${buffered}%` }}
-            />
-            {/* Played */}
-            <div
-              className="absolute inset-y-0 left-0 bg-indigo-500 rounded-full transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
-            {/* Thumb */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-indigo-400 shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity"
-              style={{ left: `calc(${progressPct}% - 6px)` }}
-            />
+        <div style={{ position: "relative", padding: "48px 16px 16px" }}>
+          <div style={{ position: "relative", height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 100, marginBottom: 16, cursor: "pointer" }} onClick={handleProgressClick}>
+            <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, background: "rgba(255,255,255,0.2)", borderRadius: 100, width: `${buffered}%` }} />
+            <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, background: "#2B5FA8", borderRadius: 100, width: `${progressPct}%` }} />
+            <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", width: 12, height: 12, borderRadius: "50%", background: "#6FA0E0", left: `calc(${progressPct}% - 6px)` }} />
           </div>
 
-          {/* Controls row */}
-          <div className="flex items-center gap-3">
-            {/* Play/Pause */}
-            <button
-              onClick={togglePlay}
-              className="text-white hover:text-indigo-300 transition-colors focus:outline-none"
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              {isPlaying ? (
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M6 4h4v16H6zm8 0h4v16h-4z" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button onClick={togglePlay} style={{ ...controlBtnStyle, color: "#fff" }} aria-label={isPlaying ? "Pause" : "Play"}>
+              <Icon name={isPlaying ? "pause" : "play"} size={22} className="" />
             </button>
 
-            {/* Skip back */}
-            <button
-              onClick={() => seekTo(currentTime - SKIP_SECONDS)}
-              className="text-white/70 hover:text-white transition-colors focus:outline-none"
-              aria-label="Rewind 10 seconds"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.5 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7V3z"/>
-                <path d="M10.5 3v5l5-2.5L10.5 3z"/>
-                <text x="8" y="15" fontSize="6" fill="currentColor" fontWeight="bold">10</text>
-              </svg>
+            <button onClick={() => seekTo(currentTime - SKIP_SECONDS)} style={controlBtnStyle} aria-label="Rewind 10 seconds">
+              <SkipIcon direction="back" />
             </button>
 
-            {/* Skip forward */}
-            <button
-              onClick={() => seekTo(currentTime + SKIP_SECONDS)}
-              className="text-white/70 hover:text-white transition-colors focus:outline-none"
-              aria-label="Forward 10 seconds"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M11.5 3a9 9 0 1 1-9 9h2a7 7 0 1 0 7-7V3z"/>
-                <path d="M13.5 3v5l-5-2.5L13.5 3z"/>
-                <text x="8" y="15" fontSize="6" fill="currentColor" fontWeight="bold">10</text>
-              </svg>
+            <button onClick={() => seekTo(currentTime + SKIP_SECONDS)} style={controlBtnStyle} aria-label="Forward 10 seconds">
+              <SkipIcon direction="forward" />
             </button>
 
-            {/* Volume */}
-            <div className="relative flex items-center gap-2" onMouseLeave={() => setShowVolume(false)}>
-              <button
-                onClick={toggleMute}
-                onMouseEnter={() => setShowVolume(true)}
-                className="text-white/70 hover:text-white transition-colors focus:outline-none"
-                aria-label={isMuted ? "Unmute" : "Mute"}
-              >
-                {isMuted || volume === 0 ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-                  </svg>
-                ) : volume < 50 ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                  </svg>
-                )}
+            <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }} onMouseLeave={() => setShowVolume(false)}>
+              <button onClick={toggleMute} onMouseEnter={() => setShowVolume(true)} style={controlBtnStyle} aria-label={isMuted ? "Unmute" : "Mute"}>
+                <Icon name={isMuted || volume === 0 ? "volumeMute" : "volume"} size={19} className="" />
               </button>
               {showVolume && (
-                <div className="absolute left-8 bottom-0 flex items-center">
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={isMuted ? 0 : volume}
-                    onChange={(e) => changeVolume(Number(e.target.value))}
-                    className="w-20 h-1 accent-indigo-500 cursor-pointer"
-                  />
+                <div style={{ position: "absolute", left: 32, bottom: 0, display: "flex", alignItems: "center" }}>
+                  <input type="range" min={0} max={100} value={isMuted ? 0 : volume} onChange={(e) => changeVolume(Number(e.target.value))} style={{ width: 80, height: 4, cursor: "pointer" }} />
                 </div>
               )}
             </div>
 
-            {/* Time */}
-            <span className="text-white/70 text-xs tabular-nums">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
+            <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, fontFamily: font.mono }}>{formatTime(currentTime)} / {formatTime(duration)}</span>
 
-            <div className="flex-1" />
+            <div style={{ flex: 1 }} />
 
-            {/* Speed */}
-            <div className="relative">
-              <button
-                onClick={() => setShowSpeedMenu((v) => !v)}
-                className="text-white/70 hover:text-white text-xs font-medium transition-colors focus:outline-none px-2 py-1 rounded hover:bg-white/10"
-              >
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setShowSpeedMenu((v) => !v)} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: 600, padding: "4px 8px", borderRadius: 6 }}>
                 {speed}×
               </button>
               {showSpeedMenu && (
-                <div className="absolute bottom-8 right-0 bg-[#1c1c1c] border border-white/10 rounded-xl overflow-hidden shadow-2xl min-w-[80px]">
+                <div style={{ position: "absolute", bottom: 32, right: 0, background: color.chromeBg, border: `1px solid ${color.chromeBorder}`, borderRadius: 10, overflow: "hidden", minWidth: 80, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
                   {SPEEDS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => changeSpeed(s)}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-white/10 ${
-                        s === speed ? "text-indigo-400 font-medium" : "text-white/70"
-                      }`}
-                    >
+                    <button key={s} onClick={() => changeSpeed(s)} style={{ width: "100%", textAlign: "left", padding: "8px 14px", fontSize: 13, background: "none", border: "none", cursor: "pointer", color: s === speed ? "#6FA0E0" : "rgba(255,255,255,0.75)", fontWeight: s === speed ? 600 : 400 }}>
                       {s}×
                     </button>
                   ))}
@@ -503,33 +413,19 @@ const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function Vid
               )}
             </div>
 
-            {/* Fullscreen */}
-            <button
-              onClick={toggleFullscreen}
-              className="text-white/70 hover:text-white transition-colors focus:outline-none"
-              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            >
-              {isFullscreen ? (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-                </svg>
-              )}
+            <button onClick={toggleFullscreen} style={controlBtnStyle} aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}>
+              <Icon name={isFullscreen ? "fullscreenExit" : "fullscreen"} size={19} className="" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Keyboard hint */}
       {playerReady && !isPlaying && (
-        <div className="absolute top-3 right-3 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div style={{ position: "absolute", top: 12, right: 12, zIndex: 20, display: "flex", gap: 6 }}>
           {[["Space", "Play"], ["Arrows", "Seek"], ["M", "Mute"], ["F", "Full"]].map(([key, label]) => (
-            <div key={key} className="flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded px-2 py-1">
-              <span className="text-white/50 text-xs font-mono">{key}</span>
-              <span className="text-white/30 text-xs">{label}</span>
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", borderRadius: 6, padding: "4px 8px" }}>
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10.5, fontFamily: font.mono }}>{key}</span>
+              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10.5 }}>{label}</span>
             </div>
           ))}
         </div>

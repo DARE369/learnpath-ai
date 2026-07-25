@@ -1,6 +1,8 @@
+// Orphaned by the ui-v2 Dashboard migration — re-homed on the Billing
+// overview page, near the usage meters.
 import React, { useState } from "react";
-import { useRouter } from "next/router";
-import { AlertCircle, X, TrendingUp } from "lucide-react";
+import { Icon } from "../../ui-v2/icons";
+import { color, font } from "../../ui-v2/tokens";
 import type { UsageData } from "./UsageCard";
 
 const UNLIMITED = 999999;
@@ -30,18 +32,12 @@ function pickHighestAlert(data: UsageData): AlertConfig | null {
 }
 
 const METRIC_LABELS: Record<string, { singular: string; plural: string; period: string }> = {
-  videos:    { singular: "video",    plural: "videos",    period: "this month" },
-  hours:     { singular: "hour",     plural: "hours",     period: "this month" },
+  videos: { singular: "video", plural: "videos", period: "this month" },
+  hours: { singular: "hour", plural: "hours", period: "this month" },
   questions: { singular: "question", plural: "questions", period: "today" },
 };
 
-interface UsageAlertProps {
-  data: UsageData;
-  className?: string;
-}
-
-export default function UsageAlert({ data, className = "" }: UsageAlertProps) {
-  const router = useRouter();
+export default function UsageAlert({ data }: { data: UsageData }) {
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
@@ -52,49 +48,40 @@ export default function UsageAlert({ data, className = "" }: UsageAlertProps) {
   const exceeded = alert.pct >= 100;
   const critical = !exceeded && alert.pct >= 95;
   const ml = METRIC_LABELS[alert.metric] ?? { singular: alert.metric, plural: `${alert.metric}s`, period: "this period" };
-
-  const borderColor = exceeded || critical ? "border-error/30 bg-error-muted" : "border-warning/30 bg-warning/10";
-  const iconColor   = exceeded || critical ? "text-error" : "text-warning";
+  const severe = exceeded || critical;
 
   let title: string;
   let body: string;
   if (exceeded) {
     title = `You've reached your ${ml.plural} limit`;
-    body  = `You've used all ${alert.limit} ${ml.plural} allowed ${ml.period}. Upgrade to continue.`;
+    body = `You've used all ${alert.limit} ${ml.plural} allowed ${ml.period}. Upgrade to continue.`;
   } else if (critical) {
     title = `Almost at your ${ml.plural} limit`;
-    body  = `Only ${alert.remaining} ${alert.remaining === 1 ? ml.singular : ml.plural} remaining ${ml.period}.`;
+    body = `Only ${alert.remaining} ${alert.remaining === 1 ? ml.singular : ml.plural} remaining ${ml.period}.`;
   } else {
     title = `Approaching your ${ml.plural} limit`;
-    body  = `You've used ${alert.pct.toFixed(0)}% of your ${ml.plural} ${ml.period}.`;
+    body = `You've used ${alert.pct.toFixed(0)}% of your ${ml.plural} ${ml.period}.`;
   }
 
+  const tone = severe ? color.danger : color.warning;
+
   return (
-    <div
-      className={`flex items-start gap-3 rounded-xl border p-4 ${borderColor} ${className}`}
-      role="alert"
-    >
-      <AlertCircle size={18} className={`${iconColor} mt-0.5 shrink-0`} />
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold ${iconColor}`}>{title}</p>
-        <p className="text-xs text-white/60 mt-0.5">{body}</p>
+    <div role="alert" style={{ display: "flex", alignItems: "flex-start", gap: 12, borderRadius: 10, border: `1px solid ${severe ? "#E7B7AE" : "#F0D9AE"}`, background: tone.bg, padding: 16, marginBottom: 20 }}>
+      <Icon name="alertCircle" size={18} className="" />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: tone.fg }}>{title}</div>
+        <div style={{ fontSize: 12.5, color: color.inkSoft, marginTop: 2 }}>{body}</div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <button
           type="button"
-          onClick={() => router.push("/billing")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-accent text-white text-xs font-semibold shadow-glow-sm hover:opacity-90 transition-opacity"
+          onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, border: "none", background: "#2B3A67", color: "#fff", fontSize: 12.5, fontWeight: 600, fontFamily: font.body, cursor: "pointer" }}
         >
-          <TrendingUp size={13} />
-          Upgrade
+          <Icon name="trendingUp" size={13} className="" /> Upgrade
         </button>
-        <button
-          type="button"
-          onClick={() => setDismissed(true)}
-          className="p-1 rounded-lg text-white/30 hover:text-white/60 transition-colors"
-          aria-label="Dismiss"
-        >
-          <X size={14} />
+        <button type="button" onClick={() => setDismissed(true)} aria-label="Dismiss" style={{ padding: 4, borderRadius: 6, border: "none", background: "transparent", color: color.textFaint, cursor: "pointer", display: "flex" }}>
+          <Icon name="close" size={14} className="" />
         </button>
       </div>
     </div>

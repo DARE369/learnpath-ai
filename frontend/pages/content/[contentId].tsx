@@ -1,38 +1,31 @@
-'use client';
-
-import React, { useState, useEffect, useCallback } from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { BookOpen, Brain, Tv, Target, ArrowLeft, Download, Plus } from 'lucide-react';
-import { printPdf } from '@/lib/printPdf';
-import ShareButton from '@/components/Social/ShareButton';
-
-type IconType = React.ComponentType<{ className?: string }>;
+import React, { useState, useEffect, useCallback } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { printPdf } from "@/lib/printPdf";
+import ShareButton from "@/components/Social/ShareButton";
+import { color, font } from "../../ui-v2/tokens";
 
 function authHeaders(): Record<string, string> {
-  const t =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('access_token') ?? sessionStorage.getItem('access_token')
-      : null;
+  const t = typeof window !== "undefined" ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token") : null;
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
-const TABS: { key: string; label: string; icon: IconType }[] = [
-  { key: 'ai_explanation', label: 'AI Explanation', icon: BookOpen },
-  { key: 'flashcards', label: 'Flashcards', icon: Brain },
-  { key: 'youtube_match', label: 'Videos', icon: Tv },
-  { key: 'quiz', label: 'Quiz', icon: Target },
+const TABS = [
+  { key: "ai_explanation", label: "AI Explanation" },
+  { key: "flashcards", label: "Flashcards" },
+  { key: "youtube_match", label: "Videos" },
+  { key: "quiz", label: "Quiz" },
 ];
 
 interface Summary { id: string; title: string; file_type: string; detected_subject: string; status: string; }
 
 export default function ContentDetail() {
   const router = useRouter();
-  const contentId = typeof router.query.contentId === 'string' ? router.query.contentId : '';
+  const contentId = typeof router.query.contentId === "string" ? router.query.contentId : "";
 
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [tab, setTab] = useState('ai_explanation');
+  const [tab, setTab] = useState("ai_explanation");
   const [data, setData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,18 +38,11 @@ export default function ContentDetail() {
     setAddingReview(true);
     setReviewMsg(null);
     try {
-      const res = await fetch(`/api/content/${contentId}/flashcards/add-to-review`, {
-        method: 'POST',
-        headers: authHeaders(),
-      });
+      const res = await fetch(`/api/content/${contentId}/flashcards/add-to-review`, { method: "POST", headers: authHeaders() });
       const body = await res.json();
-      setReviewMsg(
-        body.added > 0
-          ? `Added ${body.added} card${body.added === 1 ? '' : 's'} to your review deck.`
-          : 'These cards are already in your review deck.'
-      );
+      setReviewMsg(body.added > 0 ? `Added ${body.added} card${body.added === 1 ? "" : "s"} to your review deck.` : "These cards are already in your review deck.");
     } catch {
-      setReviewMsg('Could not add to review deck.');
+      setReviewMsg("Could not add to review deck.");
     } finally {
       setAddingReview(false);
     }
@@ -64,10 +50,7 @@ export default function ContentDetail() {
 
   useEffect(() => {
     if (!contentId) return;
-    fetch(`/api/content/${contentId}`, { headers: authHeaders() })
-      .then((r) => r.json())
-      .then(setSummary)
-      .catch(() => {});
+    fetch(`/api/content/${contentId}`, { headers: authHeaders() }).then((r) => r.json()).then(setSummary).catch(() => {});
   }, [contentId]);
 
   const loadTab = useCallback(async (key: string) => {
@@ -77,10 +60,10 @@ export default function ContentDetail() {
     try {
       const res = await fetch(`/api/content/${contentId}/transform/${key}`, { headers: authHeaders() });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || 'Generation failed');
+      if (!res.ok) throw new Error(body.detail || "Generation failed");
       setData((d) => ({ ...d, [key]: body }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error');
+      setError(e instanceof Error ? e.message : "Error");
     } finally {
       setLoading(false);
     }
@@ -92,76 +75,55 @@ export default function ContentDetail() {
 
   return (
     <>
-      <Head><title>{summary?.title || 'Your Notes'} — LearnPath AI</title></Head>
-      <div className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-6 py-8">
-          <Link href="/upload" className="inline-flex items-center gap-1 text-white/40 hover:text-white text-sm"><ArrowLeft className="h-3.5 w-3.5" /> Upload another</Link>
-          <h1 className="text-2xl font-bold text-white mt-3 break-words">{summary?.title || 'Your Notes'}</h1>
-          {summary && (
-            <p className="text-white/40 text-sm mt-1">
-              {summary.file_type} · subject: {summary.detected_subject || 'general'}
-            </p>
-          )}
+      <Head><title>{summary?.title || "Your Notes"} — LearnPath AI</title></Head>
+      <div style={{ maxWidth: 760, fontFamily: font.body }}>
+        <Link href="/upload" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: color.textFaint, textDecoration: "none" }}>← Upload another</Link>
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 24, margin: "12px 0 4px", wordBreak: "break-word" }}>{summary?.title || "Your Notes"}</h1>
+        {summary && <div style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 20 }}>{summary.file_type} · subject: {summary.detected_subject || "general"}</div>}
 
-          <div className="flex items-center justify-between gap-3 mt-5 flex-wrap">
-            <div className="flex flex-wrap gap-2">
-              {TABS.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition ${tab === t.key ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-white/60 hover:text-white'}`}
-                ><t.icon className="h-4 w-4" /> {t.label}</button>
-              ))}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 6, background: color.surfaceElevated, borderRadius: 8, padding: 3, flexWrap: "wrap" }}>
+            {TABS.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 6, cursor: "pointer", border: "none", background: tab === t.key ? "#fff" : "transparent", color: tab === t.key ? color.ink : color.textFaint }}>{t.label}</button>
+            ))}
+          </div>
+          <ShareButton itemType="upload" itemRef={contentId} title={summary?.title || "Uploaded notes"} />
+        </div>
+
+        <div style={{ background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, padding: 26, minHeight: 300 }}>
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", textAlign: "center" }}>
+              <div style={{ width: 28, height: 28, border: "3px solid #E4E1D8", borderTopColor: "#2B3A67", borderRadius: "50%", marginBottom: 16, animation: "spin 0.8s linear infinite" }} />
+              <div style={{ fontSize: 13.5, color: color.textFaint }}>Generating… First time for each tab can take ~10–20s.</div>
             </div>
-            <ShareButton itemType="upload" itemRef={contentId} title={summary?.title || 'Uploaded notes'} />
-          </div>
-
-          <div className="mt-6 bg-surface-elevated border border-border rounded-2xl p-6 min-h-[300px]">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-3" />
-                <p className="text-white/50 text-sm">Generating…</p>
-                <p className="text-white/30 text-xs mt-1">First time for each tab can take ~10–20s.</p>
+          ) : error ? (
+            <div style={{ textAlign: "center", padding: "48px 0" }}>
+              <div style={{ fontSize: 13.5, color: color.danger.fg, marginBottom: 12 }}>{error}</div>
+              <button onClick={() => loadTab(tab)} style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, cursor: "pointer" }}>Retry</button>
+            </div>
+          ) : !current ? null : tab === "ai_explanation" ? (
+            <>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+                <button onClick={() => printPdf(summary?.title || "Explanation", current.content || "")} style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 6, border: `1px solid ${color.border}`, background: "#fff", color: color.ink, cursor: "pointer" }}>Download as PDF</button>
               </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-red-400">{error}</p>
-                <button onClick={() => loadTab(tab)} className="mt-3 px-4 py-2 bg-surface border border-border rounded-lg text-white/70 hover:text-white">Retry</button>
-              </div>
-            ) : !current ? null : tab === 'ai_explanation' ? (
-              <>
-                <div className="flex justify-end mb-3">
-                  <button
-                    onClick={() => printPdf(summary?.title || 'Explanation', current.content || '')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-white/70 hover:text-white text-sm"
-                  >
-                    <Download className="h-4 w-4" /> PDF
-                  </button>
+              <div style={{ fontSize: 14.5, lineHeight: 1.75, color: "#2B2E38", whiteSpace: "pre-line" }}>{current.content}</div>
+            </>
+          ) : tab === "flashcards" ? (
+            <>
+              {(current.data?.flashcards || []).length > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, color: color.textFaint }}>{current.data.flashcards.length} cards generated</div>
+                  <button onClick={addFlashcardsToReview} disabled={addingReview} style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "none", background: "#2B3A67", color: "#fff", cursor: "pointer" }}>{addingReview ? "Adding…" : "Add to review deck"}</button>
                 </div>
-                <pre className="whitespace-pre-wrap break-words font-sans text-white/85 text-sm leading-relaxed">{current.content}</pre>
-              </>
-            ) : tab === 'flashcards' ? (
-              <>
-                {(current.data?.flashcards || []).length > 0 && (
-                  <div className="flex items-center justify-end gap-3 mb-4">
-                    {reviewMsg && <span className="text-white/50 text-xs">{reviewMsg}</span>}
-                    <button
-                      onClick={addFlashcardsToReview}
-                      disabled={addingReview}
-                      className="px-3 py-1.5 rounded-lg bg-accent/20 text-accent text-sm font-medium hover:bg-accent/30 transition disabled:opacity-50"
-                    >
-                      <span className="inline-flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" /> {addingReview ? 'Adding…' : 'Add to review deck'}</span>
-                    </button>
-                  </div>
-                )}
-                <FlashcardsView cards={current.data?.flashcards || []} flipped={flipped} setFlipped={setFlipped} />
-              </>
-            ) : tab === 'youtube_match' ? (
-              <VideosView videos={current.data?.videos || []} />
-            ) : (
-              <QuizView questions={current.data?.questions || []} revealed={revealed} setRevealed={setRevealed} />
-            )}
-          </div>
+              )}
+              {reviewMsg && <div style={{ fontSize: 12, color: color.success.fg, marginBottom: 10 }}>{reviewMsg}</div>}
+              <FlashcardsView cards={current.data?.flashcards || []} flipped={flipped} setFlipped={setFlipped} />
+            </>
+          ) : tab === "youtube_match" ? (
+            <VideosView videos={current.data?.videos || []} />
+          ) : (
+            <QuizView questions={current.data?.questions || []} revealed={revealed} setRevealed={setRevealed} />
+          )}
         </div>
       </div>
     </>
@@ -169,17 +131,13 @@ export default function ContentDetail() {
 }
 
 function FlashcardsView({ cards, flipped, setFlipped }: any) {
-  if (!cards.length) return <p className="text-white/40 text-sm">No flashcards generated.</p>;
+  if (!cards.length) return <p style={{ fontSize: 13.5, color: color.textFaint }}>No flashcards generated.</p>;
   return (
-    <div className="grid sm:grid-cols-2 gap-3">
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
       {cards.map((c: any, i: number) => (
-        <button
-          key={i}
-          onClick={() => setFlipped((f: any) => ({ ...f, [i]: !f[i] }))}
-          className="text-left bg-surface border border-border rounded-xl p-4 hover:border-accent transition min-h-[90px]"
-        >
-          {flipped[i] ? <p className="text-white/80 text-sm">{c.back}</p> : <p className="text-white font-medium text-sm">{c.front}</p>}
-          <p className="text-white/30 text-xs mt-2">{flipped[i] ? 'Hide' : 'Reveal'}</p>
+        <button key={i} onClick={() => setFlipped((f: any) => ({ ...f, [i]: !f[i] }))} style={{ textAlign: "left", background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, padding: 16, cursor: "pointer", minHeight: 90 }}>
+          <div style={{ fontSize: 13.5, fontWeight: flipped[i] ? 400 : 600, marginBottom: 8 }}>{flipped[i] ? c.back : c.front}</div>
+          <div style={{ fontSize: 12, color: color.textFaint }}>{flipped[i] ? "Hide" : "Reveal"}</div>
         </button>
       ))}
     </div>
@@ -187,21 +145,14 @@ function FlashcardsView({ cards, flipped, setFlipped }: any) {
 }
 
 function VideosView({ videos }: any) {
-  if (!videos.length) return <p className="text-white/40 text-sm">No video matches (YouTube search may be disabled on the server).</p>;
+  if (!videos.length) return <p style={{ fontSize: 13.5, color: color.textFaint }}>No video matches (YouTube search may be disabled on the server).</p>;
   return (
-    <div className="space-y-3">
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {videos.map((v: any, i: number) => (
-        <a
-          key={i}
-          href={`https://www.youtube.com/watch?v=${v.youtube_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex gap-3 items-center bg-surface border border-border rounded-xl p-3 hover:border-accent transition"
-        >
-          {v.thumbnail && <img src={v.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg flex-shrink-0" />}
-          <div className="min-w-0">
-            <p className="text-white text-sm font-medium truncate">{v.title}</p>
-            <p className="text-white/40 text-xs">{v.channel} · {v.concept}</p>
+        <a key={i} href={`https://www.youtube.com/watch?v=${v.youtube_id}`} target="_blank" rel="noopener noreferrer" style={{ display: "flex", gap: 12, alignItems: "center", background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, padding: 12, textDecoration: "none", color: "inherit" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600 }}>{v.title}</div>
+            <div style={{ fontSize: 12, color: color.textFaint }}>{v.channel} · {v.concept}</div>
           </div>
         </a>
       ))}
@@ -210,29 +161,20 @@ function VideosView({ videos }: any) {
 }
 
 function QuizView({ questions, revealed, setRevealed }: any) {
-  if (!questions.length) return <p className="text-white/40 text-sm">No quiz generated.</p>;
+  if (!questions.length) return <p style={{ fontSize: 13.5, color: color.textFaint }}>No quiz generated.</p>;
   return (
-    <div className="space-y-5">
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {questions.map((q: any, i: number) => (
-        <div key={i} className="border-b border-border pb-4 last:border-0">
-          <p className="text-white font-medium text-sm">{i + 1}. {q.question}</p>
-          <ul className="mt-2 space-y-1">
-            {(q.options || []).map((opt: string, j: number) => (
-              <li key={j} className="text-white/70 text-sm">
-                {String.fromCharCode(65 + j)}. {opt}
-              </li>
-            ))}
+        <div key={i} style={{ borderBottom: i < questions.length - 1 ? `1px solid ${color.borderMuted}` : "none", paddingBottom: 16 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600 }}>{i + 1}. {q.question}</div>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13, color: color.inkSoft }}>
+            {(q.options || []).map((opt: string, j: number) => <li key={j}>{String.fromCharCode(65 + j)}. {opt}</li>)}
           </ul>
-          <button
-            onClick={() => setRevealed((r: any) => ({ ...r, [i]: !r[i] }))}
-            className="mt-2 text-accent text-xs hover:underline"
-          >
-            {revealed[i] ? 'Hide answer' : 'Show answer'}
-          </button>
+          <button onClick={() => setRevealed((r: any) => ({ ...r, [i]: !r[i] }))} style={{ marginTop: 8, background: "none", border: "none", color: "#2B5FA8", fontSize: 12, cursor: "pointer" }}>{revealed[i] ? "Hide answer" : "Show answer"}</button>
           {revealed[i] && (
-            <div className="mt-2 rounded-lg bg-green-500/10 border border-green-500/30 p-3">
-              <p className="text-green-400 text-sm font-medium">Answer: {q.correct_answer}</p>
-              {q.explanation && <p className="text-white/70 text-sm mt-1">{q.explanation}</p>}
+            <div style={{ marginTop: 8, borderRadius: 8, background: color.success.bg, padding: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.success.fg }}>Answer: {q.correct_answer}</div>
+              {q.explanation && <div style={{ fontSize: 13, color: color.inkSoft, marginTop: 4 }}>{q.explanation}</div>}
             </div>
           )}
         </div>

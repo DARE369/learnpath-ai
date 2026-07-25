@@ -1,3 +1,6 @@
+// Orphaned by the ui-v2 Sign In migration — pages/auth/login.tsx now owns
+// this form directly (ui-v2 styling, same useAuth().login logic). Safe to
+// delete once confirmed unneeded elsewhere.
 import React, { useState } from "react";
 import Link from "next/link";
 import axios from "axios";
