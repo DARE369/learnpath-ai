@@ -334,10 +334,10 @@ export default function LearningSessionPage() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 500, fontSize: 14 }}>Test your knowledge</div>
-                <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>Take a short adaptive quiz on this topic — difficulty adjusts to you.</div>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>Whole-video mastery check</div>
+                <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>After the chapter checks above, take this adaptive quiz across the whole video — difficulty adjusts to you and it updates your concept mastery.</div>
               </div>
-              <button onClick={() => setQuizOpen(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 8, border: "none", background: "#C8792A", color: "#14171F", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}><Target size={15} /> Start quiz</button>
+              <button onClick={() => setQuizOpen(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 8, border: "none", background: "#C8792A", color: "#14171F", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}><Target size={15} /> Start mastery quiz</button>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
@@ -404,7 +404,12 @@ export default function LearningSessionPage() {
         />
       )}
 
-      <QuizModal isOpen={quizOpen} onClose={() => setQuizOpen(false)} topicName={currentVideo.title} />
+      <QuizModal
+        isOpen={quizOpen}
+        onClose={() => setQuizOpen(false)}
+        topicName={currentVideo.title}
+        concept={derivedConcepts?.[0]?.name || undefined}
+      />
     </>
   );
 }
