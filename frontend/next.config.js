@@ -25,14 +25,17 @@ const nextConfig = {
   async rewrites() {
     let apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!apiUrl) return { afterFiles: [] };
-    // Proxy to https (Railway serves https); an http destination risks mixed
-    // content. Keep http for localhost dev.
-    if (
-      apiUrl.startsWith("http://") &&
-      !apiUrl.includes("localhost") &&
-      !apiUrl.includes("127.0.0.1")
-    ) {
-      apiUrl = "https://" + apiUrl.slice("http://".length);
+    apiUrl = apiUrl.trim().replace(/\/+$/, ""); // drop trailing slash(es)
+    const isLocal = apiUrl.includes("localhost") || apiUrl.includes("127.0.0.1");
+    // Force https on any non-local destination — an http:// proxy target makes
+    // the browser block the proxied call as mixed content. Handles http://,
+    // and a bare host with no protocol (e.g. "learnpath-ai-backend.fly.dev").
+    if (!isLocal) {
+      if (apiUrl.startsWith("http://")) {
+        apiUrl = "https://" + apiUrl.slice("http://".length);
+      } else if (!apiUrl.startsWith("https://")) {
+        apiUrl = "https://" + apiUrl;
+      }
     }
     return {
       afterFiles: [

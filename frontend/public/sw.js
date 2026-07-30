@@ -74,12 +74,23 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // Intercept any http:// request to the Railway backend and rewrite it to go
-  // through the Vercel HTTPS proxy instead. This handles the case where the
-  // JS bundle was built with NEXT_PUBLIC_API_URL set to http:// — the SW
-  // upgrades it to a safe same-origin HTTPS request before the browser can
-  // trigger a mixed-content block.
-  if (url.protocol === "http:" && url.hostname.includes(".railway.app")) {
+  // Intercept any insecure http:// request to a cross-origin backend and rewrite
+  // it to go through the Vercel HTTPS proxy (same-origin /api/*) instead. This
+  // handles the case where the JS bundle was built with NEXT_PUBLIC_API_URL set
+  // to http:// — the SW upgrades it to a safe same-origin HTTPS request before
+  // the browser can trigger a mixed-content block.
+  //
+  // NOTE: host-agnostic on purpose. The backend moved Railway -> Fly (.fly.dev),
+  // and a hardcoded ".railway.app" check silently stopped catching the new host,
+  // reintroducing mixed-content blocks. Match on protocol + cross-origin instead
+  // so it survives future backend host changes.
+  if (
+    self.location.protocol === "https:" &&
+    url.protocol === "http:" &&
+    url.hostname !== "localhost" &&
+    url.hostname !== "127.0.0.1" &&
+    url.hostname !== self.location.hostname
+  ) {
     const proxyUrl = "https://" + self.location.hostname + url.pathname + url.search;
     return event.respondWith(
       fetch(new Request(proxyUrl, {
