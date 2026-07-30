@@ -14,6 +14,7 @@ import ConceptSidebar from "../../../components/Learning/ConceptSidebar";
 import SessionSidebarTabs from "../../../components/Learning/SessionSidebarTabs";
 import QuestionCard from "../../../components/Learning/QuestionCard";
 import { color, font } from "../../../ui-v2/tokens";
+import { useViewport } from "../../../ui-v2/useViewport";
 
 // ─── Demo data (last-resort fallback only, see derivedConcepts below) ──────
 
@@ -47,6 +48,7 @@ function pathVideoFromApi(v: BuiltPathLite["learning_path"][number], i: number):
 
 export default function LearningSessionPage() {
   const router = useRouter();
+  const { isMobile } = useViewport();
   const { pathId, videoIndex: videoIndexParam } = router.query;
   const decodedPathId = useMemo(() => {
     if (typeof pathId !== "string") return "";
@@ -296,11 +298,11 @@ export default function LearningSessionPage() {
       <Head><title>{currentVideo.title} — LearnPath AI</title></Head>
 
       <div style={{ minHeight: "100vh", background: color.chromeBg, color: color.chromeText, display: "flex", flexDirection: "column", fontFamily: font.body }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", borderBottom: `1px solid ${color.chromeBorder}`, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14, padding: isMobile ? "12px 16px" : "14px 20px", borderBottom: `1px solid ${color.chromeBorder}`, flexWrap: "wrap" }}>
           <Link href="/paths" style={{ color: color.chromeTextMuted, textDecoration: "none", fontSize: 13, flexShrink: 0 }}>← Exit</Link>
-          <div style={{ flex: 1, minWidth: 120 }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{(builtTopicName || "Learning Path").slice(0, 60)}</div>
-            <div style={{ fontSize: 11.5, color: color.textFainter }}>Video {videoIndex + 1} of {videos.length} · {currentVideo.title}</div>
+          <div style={{ flex: 1, minWidth: 100 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(builtTopicName || "Learning Path").slice(0, 60)}</div>
+            <div style={{ fontSize: 11.5, color: color.textFainter, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Video {videoIndex + 1} of {videos.length}{!isMobile && ` · ${currentVideo.title}`}</div>
           </div>
           {chunks.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -309,43 +311,46 @@ export default function LearningSessionPage() {
               ))}
             </div>
           )}
-          <button onClick={() => setSidebarOpen((v) => !v)} title={sidebarOpen ? "Hide sidebar" : "Show sidebar"} style={{ background: "none", border: "none", color: color.chromeTextMuted, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>{sidebarOpen ? "Hide sidebar" : "Show sidebar"}</button>
+          {/* The sidebar toggle is meaningless on mobile (content is inline), so hide it. */}
+          {!isMobile && (
+            <button onClick={() => setSidebarOpen((v) => !v)} title={sidebarOpen ? "Hide sidebar" : "Show sidebar"} style={{ background: "none", border: "none", color: color.chromeTextMuted, cursor: "pointer", fontSize: 12, flexShrink: 0 }}>{sidebarOpen ? "Hide sidebar" : "Show sidebar"}</button>
+          )}
         </div>
 
-        <div style={{ flex: 1, display: "flex", gap: 24, padding: "24px 20px", maxWidth: 1400, margin: "0 auto", width: "100%" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, padding: isMobile ? "16px 16px 40px" : "24px 20px", maxWidth: 1400, margin: "0 auto", width: "100%" }}>
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
             <VideoPlayer ref={playerRef} youtubeId={currentVideo.youtubeId} onProgress={handleProgress} onComplete={handleVideoComplete} chunks={chunks} activeChunkIndex={activeChunkIdx} onChunkComplete={handleChunkComplete} />
 
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "flex-start", justifyContent: "space-between", gap: isMobile ? 12 : 16 }}>
               <div style={{ minWidth: 0 }}>
-                <h1 style={{ fontSize: 17, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>{currentVideo.title}</h1>
+                <h1 style={{ fontSize: isMobile ? 16 : 17, fontWeight: 600, margin: 0, lineHeight: 1.35 }}>{currentVideo.title}</h1>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
                   <span style={{ fontSize: 12, color: color.textFainter }}>Video {videoIndex + 1} of {videos.length}</span>
                   {completedVideos.has(videoIndex) && <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#34D399" }}><Check size={12} /> Completed</span>}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <button onClick={() => hasPrev && handleNavigate(videoIndex - 1)} disabled={!hasPrev} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${color.chromeBorder}`, background: "transparent", color: color.chromeTextMuted, fontSize: 13, cursor: hasPrev ? "pointer" : "not-allowed", opacity: hasPrev ? 1 : 0.4 }}>← Previous</button>
-                <button onClick={() => hasNext && handleNavigate(videoIndex + 1)} disabled={!hasNext} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#2B3A67", color: "#fff", fontSize: 13, fontWeight: 600, cursor: hasNext ? "pointer" : "not-allowed", opacity: hasNext ? 1 : 0.4 }}>Next video →</button>
+                <button onClick={() => hasPrev && handleNavigate(videoIndex - 1)} disabled={!hasPrev} style={{ flex: isMobile ? 1 : undefined, padding: isMobile ? "11px 14px" : "8px 14px", borderRadius: 8, border: `1px solid ${color.chromeBorder}`, background: "transparent", color: color.chromeTextMuted, fontSize: 13, cursor: hasPrev ? "pointer" : "not-allowed", opacity: hasPrev ? 1 : 0.4 }}>← Previous</button>
+                <button onClick={() => hasNext && handleNavigate(videoIndex + 1)} disabled={!hasNext} style={{ flex: isMobile ? 1 : undefined, padding: isMobile ? "11px 14px" : "8px 14px", borderRadius: 8, border: "none", background: "#2B3A67", color: "#fff", fontSize: 13, fontWeight: 600, cursor: hasNext ? "pointer" : "not-allowed", opacity: hasNext ? 1 : 0.4 }}>Next video →</button>
               </div>
             </div>
 
             <ChaptersList youtubeId={currentVideo.youtubeId} accessToken={accessToken} currentSeconds={currentSeconds} onSeekTo={(s) => { playerRef.current?.seekTo(s); playerRef.current?.play(); }} onChunksLoaded={setChunks} />
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", gap: isMobile ? 12 : 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 500, fontSize: 14 }}>Whole-video mastery check</div>
                 <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>After the chapter checks above, take this adaptive quiz across the whole video — difficulty adjusts to you and it updates your concept mastery.</div>
               </div>
-              <button onClick={() => setQuizOpen(true)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 8, border: "none", background: "#C8792A", color: "#14171F", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}><Target size={15} /> Start mastery quiz</button>
+              <button onClick={() => setQuizOpen(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: isMobile ? "12px 16px" : "9px 16px", borderRadius: 8, border: "none", background: "#C8792A", color: "#14171F", fontSize: 13, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}><Target size={15} /> Start mastery quiz</button>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", gap: isMobile ? 12 : 16, borderRadius: 12, border: `1px solid ${color.chromeBorder}`, background: "#1D2230", padding: 16 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 500, fontSize: 14 }}>Study notes</div>
                 <div style={{ fontSize: 12.5, color: color.chromeTextMuted, marginTop: 2 }}>Turn this video into AI study notes — 5 styles, flashcards, downloadable.</div>
               </div>
-              <Link href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 8, border: `1px solid ${color.chromeBorder}`, color: color.chromeText, fontSize: 13, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}><BookOpen size={15} /> Generate notes</Link>
+              <Link href={`/notes/${currentVideo.youtubeId}?title=${encodeURIComponent(currentVideo.title)}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: isMobile ? "12px 16px" : "9px 16px", borderRadius: 8, border: `1px solid ${color.chromeBorder}`, color: color.chromeText, fontSize: 13, fontWeight: 600, textDecoration: "none", flexShrink: 0 }}><BookOpen size={15} /> Generate notes</Link>
             </div>
 
             {showQuestion && (
@@ -379,10 +384,13 @@ export default function LearningSessionPage() {
             )}
           </div>
 
-          {sidebarOpen && (
-            <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Desktop: fixed 300px right rail (toggleable). Mobile: inline below the
+              video, full width — the sidebar content flows into the single scroll
+              so nothing competes with the player for the narrow viewport. */}
+          {(isMobile || sidebarOpen) && (
+            <div style={{ width: isMobile ? "100%" : 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
               <ProgressTracker videos={videosWithProgress} currentIndex={videoIndex} totalWatchSeconds={totalWatchSeconds} onNavigate={handleNavigate} />
-              <div style={{ flex: 1, minHeight: 400, display: "flex" }}>
+              <div style={{ flex: 1, minHeight: isMobile ? 360 : 400, display: "flex" }}>
                 <SessionSidebarTabs
                   masteryContent={<ConceptSidebar concepts={derivedConcepts} videoTitle={currentVideo.title} notes={notes} onNotesChange={handleNotesChange} />}
                   lexiContent={(active) => <AITutorPanel accessToken={accessToken} subject={builtTopicName || undefined} videoTitle={currentVideo.title} learningPathId={decodedPathId || undefined} active={active} />}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRealtime } from "../lib/useRealtime";
 import { Card } from "../ui-v2/primitives";
 import { color, font } from "../ui-v2/tokens";
+import { useViewport } from "../ui-v2/useViewport";
 
 function authHeaders(json = false): Record<string, string> {
   const t = typeof window !== "undefined" ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token") : null;
@@ -19,6 +20,7 @@ interface SharedItem { id: string; item_type: string; item_ref: string; title: s
 interface Message { id: string; body: string; mine: boolean; created_at: string; }
 
 export default function BuddiesPage() {
+  const { isMobile } = useViewport();
   const [buddies, setBuddies] = useState<Buddy[]>([]);
   const [incoming, setIncoming] = useState<Pending[]>([]);
   const [shared, setShared] = useState<SharedItem[]>([]);
@@ -103,7 +105,7 @@ export default function BuddiesPage() {
     <>
       <Head><title>Study Buddies — LearnPath AI</title></Head>
       <div style={{ maxWidth: 700, fontFamily: font.body }}>
-        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: 0 }}>Study buddies</h1>
+        <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: isMobile ? 23 : 28, margin: 0 }}>Study buddies</h1>
         <p style={{ color: color.textFaint, fontSize: 13.5, marginTop: 4 }}>Learn alongside others — accountability beats isolation.</p>
 
         <Card padding="md" style={{ marginTop: 20 }}>
