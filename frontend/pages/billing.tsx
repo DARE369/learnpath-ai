@@ -8,6 +8,7 @@ import UsageAlert from "../components/Billing/UsageAlert";
 import type { UsageData } from "../components/Billing/UsageCard";
 import { Card } from "../ui-v2/primitives";
 import { color, font } from "../ui-v2/tokens";
+import { useViewport } from "../ui-v2/useViewport";
 
 const NAIRA = "₦";
 const UNLIMITED = 999999;
@@ -65,6 +66,7 @@ function UsageMeter({ label, used, limit, pct }: { label: string; used: number; 
 }
 
 export default function BillingPage() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const { accessToken } = useAuth();
   const [stage, setStage] = useState<"overview" | "checkout" | "success">("overview");
@@ -248,14 +250,14 @@ export default function BillingPage() {
                 <UsageAlert data={toUsageData(plan)} />
 
                 <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Usage this month</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
                   <UsageMeter label="Videos" used={plan.usage.videos_watched} limit={plan.limits.videos_per_month} pct={plan.usage_percentage.videos} />
                   <UsageMeter label="Hours" used={plan.usage.hours_learned} limit={plan.limits.hours_per_month} pct={plan.usage_percentage.hours} />
                   <UsageMeter label="Questions today" used={plan.usage.questions_today} limit={plan.limits.questions_per_day} pct={plan.usage_percentage.questions} />
                 </div>
 
                 <div id="plans" style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Plans</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
                   {catalog.map((p) => {
                     const isCurrent = p.plan_type === plan.plan_type;
                     const isUpgrade = (PLAN_RANK[p.plan_type] ?? 0) > (PLAN_RANK[plan.plan_type] ?? 0);

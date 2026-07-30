@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Card } from "../../ui-v2/primitives";
 import { color, font } from "../../ui-v2/tokens";
+import { useViewport } from "../../ui-v2/useViewport";
 
 interface PathVideo { video_id: string; youtube_id: string; title: string; duration_minutes: number; eqs_score: number; summary: string; concepts: string[]; thumbnail_url: string; }
 interface PathStats { videos_found: number; videos_used: number; average_quality_score: number; confidence: string; concepts_covered: number; }
@@ -31,6 +32,7 @@ function qualityColor(q: number): { bg: string; fg: string } {
  * for ad-hoc paths), so both are intentionally left out rather than faked.
  */
 export default function PathPreview() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const topicId = typeof router.query.topic_id === "string" ? router.query.topic_id : "";
   const source = router.query.source === "cached" ? "cached" : "fresh";
@@ -77,7 +79,7 @@ export default function PathPreview() {
         <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 27, margin: "0 0 8px" }}>Your path on &ldquo;{result.topic_name}&rdquo; is ready</h1>
         <p style={{ fontSize: 13.5, color: color.inkSoft, margin: "0 0 24px", maxWidth: 600, lineHeight: 1.55 }}>{result.learning_path.length} videos, sequenced by prerequisite — not upload date. Review the order below, then start whenever you&rsquo;re ready.</p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
           <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{result.stats.videos_used}</div><div style={{ fontSize: 12, color: color.textFaint, marginTop: 4 }}>Videos in this path</div></Card>
           <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>{result.learning_path.reduce((s, v) => s + (v.duration_minutes || 0), 0)} min</div><div style={{ fontSize: 12, color: color.textFaint, marginTop: 4 }}>Total watch time</div></Card>
           <Card padding="md"><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600, color: color.success.fg }}>{Math.round(result.stats.average_quality_score)}%</div><div style={{ fontSize: 12, color: color.textFaint, marginTop: 4 }}>Average quality score</div></Card>

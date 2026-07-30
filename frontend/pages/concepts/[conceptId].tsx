@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { ArrowLeft, Check, AlertTriangle, Compass } from "lucide-react";
 import { color, font } from "../../ui-v2/tokens";
+import { useViewport } from "../../ui-v2/useViewport";
 import { ThresholdRing } from "../../ui-v2/primitives";
 
 function authHeaders(): Record<string, string> {
@@ -21,6 +22,7 @@ interface Detail {
 }
 
 export default function ConceptDetail() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const conceptId = typeof router.query.conceptId === "string" ? router.query.conceptId : "";
   const [d, setD] = useState<Detail | null>(null);
@@ -81,7 +83,7 @@ export default function ConceptDetail() {
         </div>
         <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: "0 0 18px" }}>{d.concept.display_name}</h1>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 220px)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(2, 220px)", gap: 14, marginBottom: 24 }}>
           <div style={{ background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
             <ThresholdRing pct={prereqs.length ? Math.round(prereqs.reduce((s, p) => s + (p.user_mastery ?? 0), 0) / prereqs.length) : 100} size={52} />
             <div>

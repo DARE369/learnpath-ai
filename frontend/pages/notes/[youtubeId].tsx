@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { printPdf } from "@/lib/printPdf";
 import ShareButton from "@/components/Social/ShareButton";
 import { color, font } from "../../ui-v2/tokens";
+import { useViewport } from "../../ui-v2/useViewport";
 
 function authHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token") : null;
@@ -23,6 +24,7 @@ interface NoteData { title: string; style: string; content: string; word_count: 
 interface Flashcard { id: string; front: string; back: string; concept: string; }
 
 export default function NotesViewer() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const youtubeId = typeof router.query.youtubeId === "string" ? router.query.youtubeId : "";
   const title = typeof router.query.title === "string" ? router.query.title : "";
@@ -143,7 +145,7 @@ export default function NotesViewer() {
             {cards && cards.length > 0 && (
               <div style={{ marginTop: 24 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Flashcards ({cards.length})</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 12 }}>
                   {cards.map((c) => (
                     <button key={c.id} onClick={() => setFlipped((f) => ({ ...f, [c.id]: !f[c.id] }))} style={{ textAlign: "left", background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, padding: 16, cursor: "pointer", minHeight: 90 }}>
                       <div style={{ fontSize: 13.5, fontWeight: flipped[c.id] ? 400 : 600, marginBottom: 8 }}>{flipped[c.id] ? c.back : c.front}</div>

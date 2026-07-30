@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { getCourse } from "../../utils/catalog";
 import BranchSelector from "../../components/Learning/BranchSelector";
 import { color, font } from "../../ui-v2/tokens";
+import { useViewport } from "../../ui-v2/useViewport";
 
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
@@ -18,6 +19,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function CourseDetailPage() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const { courseId } = router.query;
   const course = getCourse(typeof courseId === "string" ? courseId : undefined);
@@ -54,7 +56,7 @@ export default function CourseDetailPage() {
 
         <p style={{ fontSize: 14.5, lineHeight: 1.65, color: "#3A3F4D", maxWidth: 680, margin: "0 0 28px" }}>{course.longDescription}</p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, marginBottom: 28 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: isMobile ? 16 : 24, marginBottom: 28 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Syllabus</div>
             <div style={{ background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10 }}>
