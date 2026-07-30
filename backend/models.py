@@ -81,6 +81,11 @@ class Video(Base):
     comment_count = Column(Integer, default=0)
     language = Column(String, default="en")
 
+    # Chapter (chunk) generation lifecycle so the frontend can tell
+    # processing/ready/failed apart instead of polling forever (NEW-PACKET-B fix).
+    chunk_status = Column(String)          # None | "processing" | "ready" | "failed"
+    chunk_error = Column(String)           # human-readable reason when failed
+
 
 class VideoScore(Base):
     __tablename__ = "video_scores"

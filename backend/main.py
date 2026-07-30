@@ -83,6 +83,9 @@ _SCHEMA_PATCHES = [
     "CREATE INDEX IF NOT EXISTS ix_chapter_quizzes_chunk_id ON chapter_quizzes(chunk_id)",
     "CREATE INDEX IF NOT EXISTS ix_chapter_quiz_questions_quiz_id ON chapter_quiz_questions(chapter_quiz_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS ix_chapter_progress_user_chunk ON chapter_progress(user_id, chunk_id)",
+    # Chapter-generation lifecycle status (fixes the endless "generating…" loop).
+    "ALTER TABLE videos ADD COLUMN IF NOT EXISTS chunk_status VARCHAR",
+    "ALTER TABLE videos ADD COLUMN IF NOT EXISTS chunk_error VARCHAR",
     # NEW-PACKET-A: learner profile & placement test tables (idempotent)
     "CREATE INDEX IF NOT EXISTS ix_user_profiles_user_id ON user_profiles(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_placement_tests_user_id ON placement_tests(user_id)",

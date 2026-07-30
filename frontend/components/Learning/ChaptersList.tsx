@@ -106,20 +106,27 @@ export default function ChaptersList({ youtubeId, accessToken, currentSeconds, o
           pollCountRef.current = 0;
           setChunks(data.chunks);
           onChunksLoaded?.(data.chunks);
-          if (triggeredByGenerate) setGenerating(false);
-        } else if (data.status === "chunking_started" || (triggeredByGenerate && data.status === "not_started")) {
-          // Poll while chunking runs in background; Whisper can take ~90s for a long video
+          setGenerating(false);
+        } else if (data.status === "failed") {
+          // Backend recorded a real failure — stop polling and surface it.
+          pollCountRef.current = 0;
+          setGenerating(false);
+          setError(data.error || "Chapter generation failed. Please try again.");
+        } else if (data.status === "processing") {
+          // Generation is running in the background; poll until ready/failed.
+          // Whisper can take ~90s on a long video, so allow ~4 min before we
+          // give up and tell the user (instead of spinning forever).
           pollCountRef.current += 1;
-          if (pollCountRef.current >= 40) {
-            // ~3.5 minutes exceeded — both YouTube captions and Whisper likely failed
+          if (pollCountRef.current >= 48) {
             pollCountRef.current = 0;
             setGenerating(false);
-            setNoTranscript(true);
+            setError("Chapter generation is taking longer than expected. Please try again.");
             return;
           }
+          setGenerating(true);
           setTimeout(() => fetchChunks(true), 5000);
-        } else if (data.status === "not_started") {
-          // No chunks yet and not mid-generation — show Generate button
+        } else {
+          // "not_started" — no generation has run; show the Generate button.
           setGenerating(false);
         }
       } catch (e: unknown) {
@@ -206,7 +213,11 @@ export default function ChaptersList({ youtubeId, accessToken, currentSeconds, o
           </p>
         ) : (
           <Button onClick={handleGenerate} disabled={generating} fullWidth style={{ fontFamily: font.body, fontSize: 12.5 }}>
-            {generating ? "Generating chapters…" : (<><Icon name="sparkles" size={14} className="" /> Generate Chapters</>)}
+            {generating
+              ? "Generating chapters…"
+              : error
+                ? (<><Icon name="sparkles" size={14} className="" /> Try again</>)
+                : (<><Icon name="sparkles" size={14} className="" /> Generate Chapters</>)}
           </Button>
         )}
       </Card>

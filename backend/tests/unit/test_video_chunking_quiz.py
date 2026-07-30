@@ -164,6 +164,48 @@ def test_failed_chapter_quiz_enqueues_fsrs_review(db):
     assert cards[0].source_id == chunk.id
 
 
+def test_chunk_video_task_records_failed_status(db):
+    """A failed generation sets chunk_status='failed' + an error (no infinite loop)."""
+    from models import Video
+
+    video = Video(youtube_id="fail_vid", title="x", chunk_status="processing")
+    db.add(video)
+    db.commit()
+    db.refresh(video)
+
+    # Force the (own-session) task to reuse the test session and simulate a
+    # transcript failure return from chunk_video.
+    with patch("database._get_session_factory", return_value=lambda: db), patch.object(
+        video_chunking_service,
+        "chunk_video",
+        return_value={"status": "error", "detail": "Could not retrieve transcript"},
+    ):
+        video_chunking_service.chunk_video_task("fail_vid", str(video.id))
+
+    db.refresh(video)
+    assert video.chunk_status == "failed"
+    assert "transcript" in (video.chunk_error or "").lower()
+
+
+def test_chunk_video_task_records_ready_status(db):
+    """A successful generation sets chunk_status='ready' with no error."""
+    from models import Video
+
+    video = Video(youtube_id="ok_vid", title="x", chunk_status="processing")
+    db.add(video)
+    db.commit()
+    db.refresh(video)
+
+    with patch("database._get_session_factory", return_value=lambda: db), patch.object(
+        video_chunking_service, "chunk_video", return_value={"status": "ready", "chunks": []}
+    ):
+        video_chunking_service.chunk_video_task("ok_vid", str(video.id))
+
+    db.refresh(video)
+    assert video.chunk_status == "ready"
+    assert video.chunk_error is None
+
+
 @pytest.mark.asyncio
 async def test_generate_mcqs_returns_empty_without_api_key():
     """No CLAUDE_API_KEY -> generator returns [] (never raises)."""

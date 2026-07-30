@@ -86,14 +86,22 @@ def generate_chunks(
     if existing:
         return {"status": "already_chunked", "youtube_id": youtube_id}
 
-    # Run in background so the HTTP response returns quickly
+    # Mark as processing BEFORE returning so GET can report real state (and a
+    # retry clears any prior 'failed'). Persisted on the request session here;
+    # the background task uses its OWN session.
+    video.chunk_status = "processing"
+    video.chunk_error = None
+    db.commit()
+
+    # Run in background so the HTTP response returns quickly. The task opens its
+    # own DB session — passing this request's `db` would use a closed session
+    # (the historical cause of the endless 'generating…' loop).
     background_tasks.add_task(
-        video_chunking_service.chunk_video,
-        db=db,
+        video_chunking_service.chunk_video_task,
         youtube_id=youtube_id,
         video_db_id=str(video.id),
     )
-    return {"status": "chunking_started", "youtube_id": youtube_id}
+    return {"status": "processing", "youtube_id": youtube_id}
 
 
 @router.get("/{youtube_id}")
@@ -123,11 +131,16 @@ def get_chunks(
             "chunks": [video_chunking_service._chunk_dict(c, db) for c in chunks],
         }
 
+    # No chunks yet — report the generation lifecycle so the client can stop
+    # polling on a real failure instead of looping. chunk_status is one of
+    # None (never started) | "processing" | "failed".
+    status_val = video.chunk_status or "not_started"
     return {
         "youtube_id": youtube_id,
-        "status": "not_started",
+        "status": status_val,
         "chunk_count": 0,
         "chunks": [],
+        "error": video.chunk_error if status_val == "failed" else None,
     }
 
 

@@ -78,6 +78,40 @@ class VideoChunkingService:
 
         return self.chunk_video(db, youtube_id, video_db_id)
 
+    def chunk_video_task(self, youtube_id: str, video_db_id: str) -> None:
+        """Background-task entry point.
+
+        Runs `chunk_video` on a FRESH DB session (never the request's — that is
+        closed the moment the HTTP 202 returns, which previously made the task
+        die silently and the frontend poll forever). Records the outcome on the
+        Video row (chunk_status/chunk_error) so GET /api/chunks can report
+        ready/failed instead of an endless 'processing'.
+        """
+        from database import _get_session_factory
+        from models import Video
+
+        db = _get_session_factory()()
+        try:
+            result = self.chunk_video(db, youtube_id, video_db_id)
+            status = "ready" if result.get("status") == "ready" else "failed"
+            error = None if status == "ready" else result.get("detail", "Chapter generation failed")
+        except Exception as e:  # never let a background failure vanish
+            logger.error(f"chunk_video_task failed for {youtube_id}: {e}", exc_info=True)
+            status, error = "failed", "Chapter generation failed unexpectedly"
+
+        # Record final status on its own short-lived transaction.
+        try:
+            video = db.query(Video).filter(Video.id == video_db_id).first()
+            if video:
+                video.chunk_status = status
+                video.chunk_error = error
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"chunk_video_task status write failed for {youtube_id}: {e}")
+        finally:
+            db.close()
+
     def chunk_video(self, db: Session, youtube_id: str, video_db_id: str) -> Dict:
         """Full pipeline: transcript → Claude → chunks → quizzes."""
         # 1. Get transcript with real timestamps via TranscriptManager

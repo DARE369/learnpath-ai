@@ -62,6 +62,31 @@ Chapter quizzes never actually produced an AI question.
   `multiple_choice`, free-text fallback path, `ConceptMastery` advancement, and
   dedup'd FSRS enqueue on failure.
 
+## Phase 3 — fix the endless "generating…" loop + graceful failure
+
+**Root cause:** `POST /api/chunks/{id}/generate` passed the **request-scoped** DB
+session into the FastAPI BackgroundTask. FastAPI closes that session when the
+202 returns, so the background `chunk_video` died silently on a closed session —
+chunks were never written, and the frontend polled `GET /api/chunks` forever
+(only bailing on a blind ~3.5-min timer).
+
+**Fix:**
+- New `VideoChunkingService.chunk_video_task(youtube_id, video_db_id)` opens its
+  OWN session via `_get_session_factory()` (never the request's) and records the
+  outcome on the Video row.
+- Two new `Video` columns — `chunk_status` (None|processing|ready|failed) and
+  `chunk_error` — added via `_SCHEMA_PATCHES` (auto-applied on boot, no manual
+  migration).
+- `generate` sets `chunk_status="processing"` (clearing any prior error) before
+  returning, and dispatches the new task. `GET /api/chunks/{id}` now reports the
+  real lifecycle: `ready` (with chunks) / `processing` / `failed` (with `error`).
+- Frontend `ChaptersList` polls only while `processing`, **stops on `failed`**
+  and shows the error with a "Try again" button (no more infinite spinner). Cap
+  ~4 min as a last-resort safety, with an honest message.
+
+Tests: `test_chunk_video_task_records_failed_status` /
+`_records_ready_status` (DB-backed, skip without Postgres).
+
 ## Deferred / notes
 
 - Chapter quizzes still generate on first chunking only; a backfill pass for
