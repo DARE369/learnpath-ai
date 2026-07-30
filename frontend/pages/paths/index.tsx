@@ -7,6 +7,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { CATALOG, Difficulty } from "../../utils/catalog";
 import { Card } from "../../ui-v2/primitives";
 import { color, font } from "../../ui-v2/tokens";
+import { useViewport } from "../../ui-v2/useViewport";
 
 const STAGE_MESSAGES = [
   "Searching YouTube for the best videos…",
@@ -39,6 +40,7 @@ interface PathRow { id: string; path_name: string; completed_modules: number; to
 export default function PathsPage() {
   const router = useRouter();
   const { accessToken } = useAuth();
+  const { isMobile, isTablet } = useViewport();
   const [tab, setTab] = useState<"explore" | "guided">("explore");
 
   // ── Explore: search/build ──────────────────────────────────────────────
@@ -287,7 +289,7 @@ export default function PathsPage() {
                 <button onClick={() => { setCatalogQuery(""); setDifficulty("all"); }} style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 600, borderRadius: 6, border: `1px solid ${color.border}`, background: "#fff", cursor: "pointer" }}>Clear filters</button>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? 12 : 16 }}>
                 {filtered.map((c) => (
                   <Link key={c.id} href={`/courses/${c.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                     <Card padding="md">

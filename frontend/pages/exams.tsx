@@ -5,6 +5,7 @@ import { Target, FileText, Compass, TrendingUp, Calendar } from "lucide-react";
 import QuizModal from "../components/Quiz/QuizModal";
 import { Card, Modal, ModalTitle, ThresholdRing, Badge, type BadgeTone } from "../ui-v2/primitives";
 import { color, font } from "../ui-v2/tokens";
+import { useViewport } from "../ui-v2/useViewport";
 
 function authHeaders(json = false): Record<string, string> {
   const t = typeof window !== "undefined" ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token") : null;
@@ -106,6 +107,7 @@ function LogMockModal({ enrollment, onClose, onDone }: { enrollment: Enrollment;
 }
 
 export default function ExamsPage() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -153,7 +155,7 @@ export default function ExamsPage() {
         ) : (
           <>
             {enrollments.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 24, marginBottom: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: isMobile ? 12 : 16, marginTop: 24, marginBottom: 8 }}>
                 {enrollments.map((e) => {
                   const pct = e.prediction.readiness_percent ?? 0;
                   const r = readiness(pct);

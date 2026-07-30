@@ -1,8 +1,20 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Course } from "../../hooks/useDashboardData";
 import { Card, Badge, type BadgeTone } from "../../ui-v2/primitives";
 import { color, font } from "../../ui-v2/tokens";
+
+// Phone-width detection (matches the ui-v2 shell + mockups: <720 = mobile).
+function useIsMobile() {
+  const [w, setW] = useState(1280);
+  useEffect(() => {
+    const on = () => setW(window.innerWidth);
+    on();
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return w < 720;
+}
 
 const DIFFICULTY_TONE: Record<Course["difficulty"], BadgeTone> = {
   Beginner: "success",
@@ -16,10 +28,31 @@ function formatDuration(minutes: number): string {
 }
 
 export default function RecommendedCourses({ courses }: { courses: Course[] }) {
+  const isMobile = useIsMobile();
+
+  // Mobile: horizontal-scroll carousel (matches the mockup — cards keep their
+  // full height and the row scrolls sideways). Desktop: 3-column grid.
+  const containerStyle: React.CSSProperties = isMobile
+    ? {
+        display: "flex",
+        gap: 12,
+        overflowX: "auto",
+        // bleed to the screen edges so cards scroll under the padding
+        margin: "0 -16px",
+        padding: "0 16px 4px",
+        scrollSnapType: "x mandatory",
+        WebkitOverflowScrolling: "touch",
+      }
+    : { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 };
+
+  const itemStyle: React.CSSProperties = isMobile
+    ? { textDecoration: "none", flex: "0 0 auto", width: 240, scrollSnapAlign: "start" }
+    : { textDecoration: "none" };
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+    <div style={containerStyle}>
       {courses.map((course) => (
-        <Link key={course.id} href={`/learning/${course.id}/0`} style={{ textDecoration: "none" }}>
+        <Link key={course.id} href={`/learning/${course.id}/0`} style={itemStyle}>
           <Card padding="sm" style={{ overflow: "hidden", cursor: "pointer" }}>
             <div style={{ height: 120, position: "relative", background: course.gradient, margin: "-14px -16px 14px", width: "calc(100% + 32px)" }}>
               <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.15) 0%, transparent 50%)" }} />

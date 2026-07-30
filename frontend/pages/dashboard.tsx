@@ -59,10 +59,25 @@ function readinessLabel(score: number): { label: string; tone: BadgeTone } {
   return { label: "Just starting", tone: "danger" };
 }
 
+// Mobile-responsive breakpoints. Mirrors the ui-v2 shell (and the .dc.html
+// mockups): <720 = phone, 720–1079 = tablet. Kept local so the shell's hook
+// stays private and the dashboard controls its own layout.
+function useViewport() {
+  const [width, setWidth] = useState(1280);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return { isMobile: width < 720, isTablet: width >= 720 && width < 1080 };
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
   const greeting = getGreeting();
+  const { isMobile, isTablet } = useViewport();
 
   const { stats, streak, weekly } = useProgress();
 
@@ -118,11 +133,11 @@ export default function DashboardPage() {
       <div>
         {/* Greeting */}
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 28, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: isMobile ? 22 : 28, margin: 0, display: "flex", alignItems: "center", gap: 8, lineHeight: 1.15 }}>
             <span>{greeting.emoji}</span>
             {greeting.text}, {firstName}.
           </h1>
-          <div style={{ fontSize: 13, color: color.textFaint, marginTop: 4 }}>{greeting.secondary}</div>
+          <div style={{ fontSize: isMobile ? 12.5 : 13, color: color.textFaint, marginTop: isMobile ? 5 : 4 }}>{greeting.secondary}</div>
         </div>
 
         {isRateLimited && (
@@ -142,7 +157,7 @@ export default function DashboardPage() {
         )}
 
         {/* Continue learning + this week */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 20, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.7fr 1fr", gap: isMobile ? 14 : 20, marginBottom: 20 }}>
           <Card padding="lg" dark style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em", color: color.chromeTextFaint, marginBottom: 10 }}>
@@ -222,7 +237,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: isMobile ? 12 : 16 }}>
             <StatTileV2 value={displayStats.videos} label="Videos watched" href="/activity" />
             <StatTileV2 value={displayStats.concepts} label="Concepts mastered" href="/concepts" />
             <StatTileV2 value={displayStats.courses} label="Courses started" href="/paths" />
@@ -231,13 +246,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Progress charts */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr", gap: isMobile ? 14 : 20, marginBottom: 24 }}>
           <ProgressChart data={weekly} />
           <TopicsChart data={topicsData} isLoading={topicsLoading} />
         </div>
 
         {/* Exam readiness + Study buddies */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.3fr 1fr", gap: isMobile ? 14 : 20, marginBottom: 24 }}>
           {readinessScores.length > 0 && (
             <div>
               <SectionLabel>Exam readiness</SectionLabel>
@@ -309,7 +324,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Study tools */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: 24 }}>
           <Link href="/upload" style={{ textDecoration: "none" }}>
             <Card padding="md" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span style={{ fontSize: 18 }}>↑</span>
@@ -342,7 +357,7 @@ export default function DashboardPage() {
             Recommended for you
           </SectionLabel>
           {recsLoading ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "repeat(3, 1fr)", gap: 16 }}>
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} style={{ height: 140 }} />
               ))}

@@ -3,6 +3,7 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useAuth } from "../hooks/useAuth";
 import { color, font } from "../ui-v2/tokens";
+import { useViewport } from "../ui-v2/useViewport";
 import { Card, Toast } from "../ui-v2/primitives";
 
 interface LoyaltyStatus {
@@ -18,6 +19,7 @@ interface ReferralStats {
 }
 
 export default function RewardsPage() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const { accessToken } = useAuth();
   const initialTab = router.query.tab === "referral" ? "referral" : "loyalty";
@@ -106,7 +108,7 @@ export default function RewardsPage() {
         <Card padding="lg" dark style={{ marginTop: 20, marginBottom: 22, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
             <div style={{ fontFamily: font.mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: color.chromeTextFaint, marginBottom: 6 }}>Your balance</div>
-            <div style={{ fontFamily: font.mono, fontSize: 30, fontWeight: 600 }}>{status ? status.total_points.toLocaleString() : "—"} pts</div>
+            <div style={{ fontFamily: font.mono, fontSize: 30, fontWeight: 600 }}>{status?.total_points != null ? status.total_points.toLocaleString() : "—"} pts</div>
           </div>
           <div style={{ fontSize: 12.5, color: color.chromeTextMuted, maxWidth: 260 }}>Redeem points for study time bonuses, badges, and partner discounts.</div>
         </Card>
@@ -135,8 +137,8 @@ export default function RewardsPage() {
               </Card>
 
               <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Redeem points</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14, marginBottom: 24 }}>
-                {status.available_rewards.map((reward, idx) => (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 14, marginBottom: 24 }}>
+                {(status.available_rewards ?? []).map((reward, idx) => (
                   <Card key={idx} padding="md">
                     <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{reward.label}</div>
                     <div style={{ fontSize: 12, color: color.textFaint, marginBottom: 14 }}>{reward.points_cost} points</div>
@@ -146,7 +148,7 @@ export default function RewardsPage() {
               </div>
 
               <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Recent activity</div>
-              {status.history.length === 0 ? <p style={{ fontSize: 13, color: color.textFaint }}>No activity yet</p> : (
+              {!status.history?.length ? <p style={{ fontSize: 13, color: color.textFaint }}>No activity yet</p> : (
                 <Card padding="md">
                   {status.history.slice(0, 5).map((item: any, idx: number) => (
                     <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: idx < 4 ? `1px solid ${color.borderMuted}` : "none", fontSize: 13 }}>
@@ -175,14 +177,14 @@ export default function RewardsPage() {
               </Card>
 
               <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Your earnings</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
-                <Card padding="md"><div style={{ fontSize: 12, color: color.textFaint, marginBottom: 4 }}>Total earned</div><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>₦{stats.total_earnings.toLocaleString()}</div></Card>
-                <Card padding="md"><div style={{ fontSize: 12, color: color.textFaint, marginBottom: 4 }}>This month</div><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600, color: color.success.fg }}>₦{stats.earnings_this_month.toLocaleString()}</div></Card>
-                <Card padding="md"><div style={{ fontSize: 12, color: color.textFaint, marginBottom: 4 }}>Remaining</div><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600, color: color.info.fg }}>₦{stats.earnings_remaining_this_month.toLocaleString()}</div></Card>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+                <Card padding="md"><div style={{ fontSize: 12, color: color.textFaint, marginBottom: 4 }}>Total earned</div><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600 }}>₦{(stats.total_earnings ?? 0).toLocaleString()}</div></Card>
+                <Card padding="md"><div style={{ fontSize: 12, color: color.textFaint, marginBottom: 4 }}>This month</div><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600, color: color.success.fg }}>₦{(stats.earnings_this_month ?? 0).toLocaleString()}</div></Card>
+                <Card padding="md"><div style={{ fontSize: 12, color: color.textFaint, marginBottom: 4 }}>Remaining</div><div style={{ fontFamily: font.mono, fontSize: 22, fontWeight: 600, color: color.info.fg }}>₦{(stats.earnings_remaining_this_month ?? 0).toLocaleString()}</div></Card>
               </div>
 
               <div style={{ fontSize: 13, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Referrals ({stats.total_referrals})</div>
-              {stats.total_referrals === 0 ? <p style={{ fontSize: 13, color: color.textFaint }}>No referrals yet</p> : (
+              {!stats.referrals?.length ? <p style={{ fontSize: 13, color: color.textFaint }}>No referrals yet</p> : (
                 <Card padding="md">
                   {stats.referrals.slice(0, 5).map((ref, idx) => (
                     <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 0", borderBottom: idx < 4 ? `1px solid ${color.borderMuted}` : "none", fontSize: 13 }}>

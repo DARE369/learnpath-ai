@@ -6,6 +6,7 @@ import axios from "axios";
 import { useAuth } from "../hooks/useAuth";
 import { Card, TextField, Toggle, Modal, ModalTitle } from "../ui-v2/primitives";
 import { color, font } from "../ui-v2/tokens";
+import { useViewport } from "../ui-v2/useViewport";
 
 const PREFS_STORAGE_KEY = "learnpath:learning-prefs:v1";
 
@@ -22,6 +23,7 @@ const SECTIONS = [
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export default function SettingsPage() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
   const [section, setSection] = useState<SectionKey>("account");
@@ -122,17 +124,27 @@ export default function SettingsPage() {
   return (
     <>
       <Head><title>Settings — LearnPath AI</title></Head>
-      <div style={{ display: "flex", gap: 32, alignItems: "flex-start", fontFamily: font.body }}>
-        <div style={{ width: 190, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 32, alignItems: "flex-start", fontFamily: font.body }}>
+        <div style={{ width: isMobile ? "100%" : 190, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
           <h1 style={{ fontFamily: font.display, fontWeight: 600, fontSize: 22, margin: "0 0 16px" }}>Settings</h1>
-          {SECTIONS.map((s) => (
-            <div key={s.key} onClick={() => setSection(s.key)} style={{ padding: "9px 12px", borderRadius: 7, fontSize: 13.5, fontWeight: 500, cursor: "pointer", color: section === s.key ? color.ink : s.key === "danger" ? color.danger.fg : color.inkSoft, background: section === s.key ? color.surfaceElevated : "transparent" }}>
-              {s.label}
-            </div>
-          ))}
+          {/* Mobile: horizontal-scroll pill nav (matches the mockup sub-nav). Desktop: vertical list. */}
+          <div style={isMobile
+            ? { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, margin: "0 -16px", padding: "0 16px 4px", WebkitOverflowScrolling: "touch" }
+            : { display: "flex", flexDirection: "column", gap: 2 }}>
+            {SECTIONS.map((s) => {
+              const active = section === s.key;
+              return (
+                <div key={s.key} onClick={() => setSection(s.key)} style={isMobile
+                  ? { flexShrink: 0, whiteSpace: "nowrap", padding: "8px 14px", borderRadius: 100, fontSize: 12.5, fontWeight: 600, cursor: "pointer", border: `1px solid ${active ? "#2B3A67" : color.border}`, background: active ? "#2B3A67" : "#fff", color: active ? "#fff" : s.key === "danger" ? color.danger.fg : color.inkSoft }
+                  : { padding: "9px 12px", borderRadius: 7, fontSize: 13.5, fontWeight: 500, cursor: "pointer", color: active ? color.ink : s.key === "danger" ? color.danger.fg : color.inkSoft, background: active ? color.surfaceElevated : "transparent" }}>
+                  {s.label}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div style={{ flex: 1, minWidth: 0, maxWidth: 560 }}>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: isMobile ? "100%" : 560, width: isMobile ? "100%" : undefined }}>
           {section === "account" && (
             <>
               <Card padding="lg" style={{ marginBottom: 20 }}>

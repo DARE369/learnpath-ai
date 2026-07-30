@@ -11,7 +11,6 @@ import { ProgressProvider } from "../hooks/useProgress";
 import { ThemeProvider } from "../hooks/ThemeProvider";
 import { PWAProvider } from "../hooks/usePWA";
 import { PWAInstallPrompt } from "../components/PWA/PWAInstallPrompt";
-import { OfflineIndicator } from "../components/PWA/OfflineIndicator";
 import "../styles/globals.css";
 
 // Full-bleed "focus mode" screens render with no persistent nav chrome at
@@ -174,7 +173,6 @@ function Shell({ Component, pageProps }: AppProps) {
     return (
       <>
         <Component {...pageProps} />
-        <OfflineIndicator />
         <PWAInstallPrompt />
       </>
     );
@@ -187,7 +185,6 @@ function Shell({ Component, pageProps }: AppProps) {
     return (
       <AppShellV2>
         <Component {...pageProps} />
-        <OfflineIndicator />
         <PWAInstallPrompt />
       </AppShellV2>
     );
@@ -196,7 +193,6 @@ function Shell({ Component, pageProps }: AppProps) {
   return (
     <AppShell role={user?.role}>
       <Component {...pageProps} />
-      <OfflineIndicator />
       <PWAInstallPrompt />
     </AppShell>
   );

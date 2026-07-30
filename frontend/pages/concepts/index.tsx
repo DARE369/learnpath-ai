@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Search } from "lucide-react";
 import { color, font } from "../../ui-v2/tokens";
+import { useViewport } from "../../ui-v2/useViewport";
 
 function authHeaders(): Record<string, string> {
   const t = typeof window !== "undefined" ? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token") : null;
@@ -24,6 +25,7 @@ function masteryFill(difficulty: number): string {
 }
 
 export default function ConceptsLibrary() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const [view, setView] = useState<"list" | "grid" | "graph">("list");
   const [concepts, setConcepts] = useState<ConceptNode[]>([]);
@@ -113,7 +115,7 @@ export default function ConceptsLibrary() {
           loading ? <div style={{ textAlign: "center", padding: 40, color: color.textFaint }}>Loading…</div> : (
             <div style={{ background: "#fff", border: `1px solid ${color.border}`, borderRadius: 10, overflow: "hidden" }}>
               {concepts.map((c) => (
-                <Link key={c.id} href={`/concepts/${c.id}`} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, padding: "12px 18px", borderBottom: `1px solid ${color.borderMuted}`, fontSize: 13.5, textDecoration: "none", color: "inherit", alignItems: "center" }}>
+                <Link key={c.id} href={`/concepts/${c.id}`} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr auto auto" : "2fr 1fr 1fr", gap: isMobile ? 10 : 12, padding: isMobile ? "12px 14px" : "12px 18px", borderBottom: `1px solid ${color.borderMuted}`, fontSize: 13.5, textDecoration: "none", color: "inherit", alignItems: "center" }}>
                   <div style={{ fontWeight: 600 }}>{c.display_name}</div>
                   <div style={{ color: color.inkSoft }}>{c.subject || "—"}</div>
                   <div style={{ fontFamily: font.mono, color: color.textFaint }}>level {c.difficulty}</div>

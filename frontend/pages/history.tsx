@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useProgress } from "../hooks/useProgress";
 import { color, font } from "../ui-v2/tokens";
+import { useViewport } from "../ui-v2/useViewport";
 import { Card, Badge, type BadgeTone } from "../ui-v2/primitives";
 import { Icon } from "../ui-v2/icons";
 import ActivityHeatmap from "../components/Dashboard/ActivityHeatmap";
@@ -59,6 +60,7 @@ interface Skill { name: string; score: number; trend: string }
 interface Milestone { title: string; days_away: number | null; status: string }
 
 export default function HistoryPage() {
+  const { isMobile } = useViewport();
   const router = useRouter();
   const { heatmap } = useProgress();
   const initialTab = router.query.tab === "achievements" ? "achievements" : router.query.tab === "skills" ? "skills" : "activity";
@@ -219,7 +221,7 @@ export default function HistoryPage() {
               {skills.length > 0 && (
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: color.inkSoft, marginBottom: 12 }}>Mastery by skill</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12 }}>
                     {skills.map((s) => (
                       <Card key={s.name} padding="sm">
                         <div style={{ fontSize: 12, color: color.textFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
@@ -264,7 +266,7 @@ export default function HistoryPage() {
         ) : (
           <>
             <div style={{ fontSize: 12.5, color: color.textFaint, marginBottom: 14 }}>{unlockedCount} of {achievements.length} unlocked</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 14 }}>
               {achievements.map((a) => {
                 const rarity = RARITY_STYLE[a.rarity || "common"];
                 const earned = !!a.unlockedAt;
