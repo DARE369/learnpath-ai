@@ -185,9 +185,9 @@ export default function BuddiesPage() {
                           <p style={{ fontSize: 11.5, color: color.textFaint, margin: 0 }}>{b.online ? "online" : "offline"} · 🔥 {b.streak_days}d{b.avg_score != null ? ` · ${b.avg_score}% avg` : ""}</p>
                         </div>
                       </button>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-                        <button onClick={() => openChat(b)} style={{ background: "none", border: "none", color: "#2B3A67", fontSize: 12, cursor: "pointer" }}>Message</button>
-                        <button onClick={() => remove(b.connection_id)} disabled={busy === b.connection_id} style={{ background: "none", border: "none", color: color.textFainter, fontSize: 12, cursor: "pointer" }}>remove</button>
+                      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 12, flexShrink: 0 }}>
+                        <button onClick={() => openChat(b)} aria-label={`Message ${b.name}`} style={{ background: isMobile ? "#EDEFF5" : "none", border: "none", color: "#2B3A67", fontSize: 12.5, fontWeight: isMobile ? 600 : 400, cursor: "pointer", padding: isMobile ? "8px 12px" : 0, borderRadius: 8, minHeight: isMobile ? 36 : undefined }}>Message</button>
+                        <button onClick={() => remove(b.connection_id)} disabled={busy === b.connection_id} aria-label={`Remove ${b.name}`} style={{ background: "none", border: "none", color: color.textFainter, fontSize: 12, cursor: "pointer", padding: isMobile ? "8px 8px" : 0, minHeight: isMobile ? 36 : undefined }}>remove</button>
                       </div>
                     </Card>
                   ))}
